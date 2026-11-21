@@ -746,6 +746,7 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 /* explore */
 .explore h2 { display: inline-flex; align-items: center; gap: 8px; }
 .explore h2 svg { color: var(--accent); }
+.explore-held { display: grid; gap: 10px; }
 .explore-wait { display: flex; align-items: center; gap: 10px; }
 .explore-body { display: grid; gap: 12px; }
 .explore-answer { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-soft); }

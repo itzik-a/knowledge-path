@@ -8,28 +8,25 @@ import { ago } from "../lib/dates";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
-import { createResource, requestExplore } from "../state/actions";
-import { allRecords, readFile, useVault } from "../state/store";
+import { cancelExplore, createResource, exploreRequests, requestExplore } from "../state/actions";
+import { readFile, useVault } from "../state/store";
 import { getConfig, syncNow } from "../state/sync";
 import { TYPE_EMOJI } from "./bits";
 import { IconPlus, IconSpark } from "./Icons";
-
-function pendingFor(id: string) {
-  return allRecords().filter((r) => !r.deleted && r.path.startsWith(".hub/requests/") && r.path.endsWith(".json")).some((r) => {
-    try { return (JSON.parse(r.content) as { topic?: string }).topic === id; } catch { return false; }
-  });
-}
 
 export function Explore({ t, ix }: { t: Topic; ix: Index }) {
   useVault();
   const raw = readFile(explorePath(t.id));
   let res: ExploreResult | null = null;
   try { res = raw ? (JSON.parse(raw) as ExploreResult) : null; } catch { res = null; }
-  const pending = pendingFor(t.id);
+  const req = exploreRequests(t.id)[0];
+  const held = req && (req.waiting || req.error) ? req : null;
+  const pending = !!req && !held;
   const [ask, setAsk] = useState("");
   const [asking, setAsking] = useState(false);
   const [open, setOpen] = useState(false);
-  const connected = !!getConfig();
+  const cfg = getConfig();
+  const connected = !!cfg;
 
   useEffect(() => {
     if (!pending || !connected) return;
@@ -52,11 +49,23 @@ export function Explore({ t, ix }: { t: Topic; ix: Index }) {
     <section className="card explore">
       <div className="card-head">
         <h2><IconSpark /> Explore</h2>
-        {res && !pending && <button type="button" className="btn ghost sm" onClick={() => setAsking((x) => !x)}>{asking ? "Cancel" : "Ask again"}</button>}
+        {res && !req && <button type="button" className="btn ghost sm" onClick={() => setAsking((x) => !x)}>{asking ? "Cancel" : "Ask again"}</button>}
       </div>
 
-      {pending ? (
-        <p className="muted small explore-wait"><span className="dot busy" /> Claude is looking into {t.name}… The answer arrives with a sync in a minute or two.</p>
+      {held ? (
+        <div className="explore-held">
+          {held.waiting === "key" ? (
+            <p className="small">Explore needs Claude, and your vault doesn't have an Anthropic API key yet. Add it on GitHub as a secret named <code>ANTHROPIC_API_KEY</code>{cfg && <> (<a href={`https://github.com/${cfg.owner}/${cfg.repo}/settings/secrets/actions`} target="_blank" rel="noopener">the vault's Actions secrets</a>)</>}, then try again.</p>
+          ) : (
+            <p className="small" dir="auto">Claude couldn't answer: {held.error}</p>
+          )}
+          <div className="btn-row">
+            <button type="button" className="btn primary sm" onClick={() => { requestExplore(t.id, held.ask); void syncNow(); }}><IconSpark /> Try again</button>
+            <button type="button" className="btn ghost sm" onClick={() => cancelExplore(t.id)}>Cancel</button>
+          </div>
+        </div>
+      ) : pending ? (
+        <p className="muted small explore-wait"><span className="dot busy" /><span>Claude is looking into {t.name}… The answer arrives with a sync in a minute or two. <button type="button" className="text-btn" onClick={() => cancelExplore(t.id)}>Cancel</button></span></p>
       ) : !res || asking ? (
         connected ? (
           <form className="form-grid" onSubmit={send}>

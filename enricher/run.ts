@@ -112,22 +112,30 @@ async function main() {
   let explored = 0;
   const requests = [...files.keys()].filter((p) => p.startsWith(`${HUB}/requests/`) && p.endsWith(".json"));
   for (const r of requests) {
-    let req: { kind?: string; topic?: string; ask?: string };
+    let req: { kind?: string; topic?: string; ask?: string; at?: string; waiting?: string; error?: string };
     try { req = JSON.parse(files.get(r)!); } catch { req = {}; }
     const done = async () => { files.delete(r); if (!DRY) await rm(join(VAULT, r), { force: true }); };
+    // the request stays, saying why it wasn't answered; the app shows that, with Try again (a fresh request) and Cancel
+    const hold = async (why: { waiting?: string; error?: string }) => {
+      const next = JSON.stringify({ kind: req.kind, topic: req.topic, ask: req.ask, at: req.at, ...why }, null, 2) + "\n";
+      if (next !== files.get(r)) await save(r, next);
+    };
     if (req.kind !== "explore" || !req.topic || !index.topics.has(req.topic)) { await done(); continue; }
-    if (!CLAUDE) { console.log(`  explore ${req.topic}: waiting for ANTHROPIC_API_KEY`); continue; }
+    if (req.error) continue; // answered with an error already: waits for Try again or Cancel
+    if (!CLAUDE) { console.log(`  explore ${req.topic}: waiting for ANTHROPIC_API_KEY`); await hold({ waiting: "key" }); continue; }
     try {
       const res = await explore(exploreContext(req.topic), req.ask);
       const out: ExploreResult = { topic: req.topic, at: new Date().toISOString(), ask: req.ask, ...res, answer: res.answer ?? undefined };
       await save(explorePath(req.topic), JSON.stringify(out, null, 2) + "\n");
       explored++;
       console.log(`  ✓ explored ${req.topic}`);
+      await done();
     } catch (e) {
-      errors.push(`Explore ${req.topic}: ${(e as Error).message.slice(0, 120)}`);
+      const msg = e instanceof Declined ? "Claude declined to answer this one." : (e as Error).message.slice(0, 200);
+      errors.push(`Explore ${req.topic}: ${msg.slice(0, 120)}`);
       console.warn(`  ✗ explore ${req.topic}: ${(e as Error).message}`);
+      await hold({ error: msg });
     }
-    await done();
   }
 
   // ── 3. status ───────────────────────────────────────────────

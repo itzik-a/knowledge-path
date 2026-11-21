@@ -7,7 +7,7 @@ import {
 } from "../../shared/vault.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
-import { exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
+import { allRecords, exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
 
 /** How an item links to a topic in its `topics:` property: by name, or by path when two topics share a name. */
 export function topicLink(id: string): string {
@@ -200,7 +200,24 @@ export function setTopicBody(id: string, body: string, opts: { lazy?: boolean } 
 }
 
 // ── explore requests (answered by the enricher in GitHub Actions) ─────
+/** The open Explore request files for a topic (normally one). */
+export function exploreRequests(topicId: string): { path: string; ask?: string; waiting?: string; error?: string }[] {
+  return allRecords().filter((r) => !r.deleted && r.path.startsWith(".hub/requests/") && r.path.endsWith(".json")).flatMap((r) => {
+    try {
+      const j = JSON.parse(r.content) as { topic?: string; ask?: string; waiting?: string; error?: string };
+      return j.topic === topicId ? [{ path: r.path, ask: j.ask, waiting: j.waiting, error: j.error }] : [];
+    } catch { return []; }
+  });
+}
+
+/** Withdraw a topic's Explore request. */
+export function cancelExplore(topicId: string) {
+  removeFiles(exploreRequests(topicId).map((r) => r.path));
+}
+
+/** Ask Claude about a topic (replacing an earlier request for it that's still open). */
 export function requestExplore(topicId: string, ask?: string) {
+  cancelExplore(topicId);
   const id = `${Date.now().toString(36)}`;
   writeFiles([{ path: `.hub/requests/${id}.json`, content: JSON.stringify({ kind: "explore", topic: topicId, ask: ask?.trim() || undefined, at: new Date().toISOString() }, null, 2) + "\n" }]);
 }
