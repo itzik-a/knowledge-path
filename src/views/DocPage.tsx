@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
-import { DocRow, Progress, STATUS_LABEL, Stars, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
+import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
 import { IconBack, IconEdit, IconExternal, IconMore, IconNext, IconQuote, IconRead } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
@@ -125,18 +125,6 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           <span className="field-label">Status</span>
           <Seg<Status> className="wrap" label="Status" value={r.status} onChange={(s) => setStatus(d.path, s)} options={STATUSES.map((s) => ({ id: s, label: STATUS_LABEL[s] }))} />
         </div>
-        {r.status === "in-progress" && (
-          <label className="field">
-            <span className="field-label">Progress <span className="muted">{r.progress ?? 0}%</span></span>
-            <input type="range" className="range" min={0} max={100} step={5} value={r.progress ?? 0} onChange={(e) => patchResource(d.path, { progress: Number(e.target.value) || undefined })} />
-          </label>
-        )}
-        {r.status === "done" && (
-          <div className="field">
-            <span className="field-label">Rating {r.finished && <span className="muted">· finished {medDate(r.finished)}</span>}</span>
-            <Stars value={r.rating ?? 0} onChange={(v) => patchResource(d.path, { rating: v || undefined })} />
-          </div>
-        )}
         <div className="field">
           <span className="field-label">Topics</span>
           <Topics ix={ix} d={d} />

@@ -71,9 +71,6 @@ export const IconSpark = (p: P) => (
 export const IconLink = (p: P) => (
   <svg {...base({ width: 16, height: 16, strokeWidth: 2, ...p })}><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
 );
-export const IconStar = ({ filled, ...p }: P & { filled?: boolean }) => (
-  <svg {...base({ width: 22, height: 22, ...p })} fill={filled ? "currentColor" : "none"}><path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6Z" /></svg>
-);
 export const IconRead = (p: P) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M3.5 5.5c3-1 6-.8 8.5 1 2.5-1.8 5.5-2 8.5-1v13c-3-1-6-.8-8.5 1-2.5-1.8-5.5-2-8.5-1Z" /><path d="M12 6.5v13" /></svg>
 );

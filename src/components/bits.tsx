@@ -5,7 +5,7 @@ import type { ResourceType, Status } from "../../shared/vault.ts";
 import { medDate, shortDate } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
-import { IconCheck, IconClose, IconPlus, IconSearch, IconStar } from "./Icons";
+import { IconCheck, IconClose, IconPlus, IconSearch } from "./Icons";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
 export const TYPE_EMOJI: Record<ResourceType, string> = { article: "📄", video: "▶️", book: "📕", podcast: "🎧", paper: "📑", course: "🎓", site: "🌐", other: "📎" };
@@ -119,7 +119,6 @@ export function ResourceRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; s
               {showTopics && <TopicChips ix={ix} path={d.path} max={2} />}
             </span>
           )}
-          {r.status === "in-progress" && r.progress != null && <Progress value={r.progress} />}
         </span>
       </a>
     </li>
@@ -150,18 +149,6 @@ export function NoteRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; showT
 
 export function DocRow({ d, ix, showTopics }: { d: Doc; ix: Index; showTopics?: boolean }) {
   return d.kind === "resource" ? <ResourceRow d={d} ix={ix} showTopics={showTopics} /> : <NoteRow d={d} ix={ix} showTopics={showTopics} />;
-}
-
-export function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="stars" role="radiogroup" aria-label="Rating">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => onChange(value === n ? 0 : n)}>
-          <IconStar filled={n <= value} />
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function Breadcrumb({ ix, id, self = false }: { ix: Index; id: string; self?: boolean }) {

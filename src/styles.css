@@ -613,10 +613,6 @@ a.chip { color: var(--ink); }
 .res-image { width: 88px; height: 88px; flex: none; border-radius: 14px; object-fit: cover; background: var(--surface-2); }
 .res-emoji { width: 64px; height: 64px; flex: none; display: grid; place-items: center; border-radius: 16px; background: var(--surface-2); font-size: 1.9rem; }
 .btn-row .btn { justify-self: auto; }
-.range { width: 100%; max-width: 360px; accent-color: var(--accent); min-height: 32px; }
-.stars { display: flex; gap: 2px; }
-.stars button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--s4); }
-.stars button svg { stroke: var(--s4); }
 .seg.wrap button { padding: 4px 12px; }
 .reader-text { font-size: 1.05rem; line-height: 1.7; }
 .reader-text p { max-width: 68ch; }

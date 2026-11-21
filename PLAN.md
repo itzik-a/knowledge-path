@@ -7,7 +7,7 @@ My knowledge hub: every topic I'm interested in, with the material I collect for
 | Thing | What it is | Example |
 |---|---|---|
 | **Topic** | A subject of interest, nestable, with my own overview note | Philosophy → Stoicism; History → Ancient History → Ancient Rome |
-| **Resource** | Saved material: article, video, book, podcast, paper, course, site. Status (saved · up next · in progress · done), progress, rating, highlights, my notes | *Meditations*, a YouTube lecture, an SEP entry |
+| **Resource** | Saved material: article, video, book, podcast, paper, course, site. Status (saved · up next · in progress · done), highlights, my notes | *Meditations*, a YouTube lecture, an SEP entry |
 | **Note** | Any Markdown note, in one or more topics | "Stoic vs Buddhist ideas of control" |
 | **Journal entry** | A daily note; shows up under every topic it links to | 2026-11-21 mentions `[[Stoicism]]` → on the Stoicism page |
 | **Highlight** | A quote or passage from a resource, with my comment | |
@@ -48,7 +48,7 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 ## 4. Milestones
 
 1. **Scaffold**: plan, CLAUDE.md, PWA, Pages deploy, IndexedDB store, vault parser with tests, starter topics.
-2. **Topics & Library**: topic tree and pages, resources (add, edit, remove), status, progress, rating, filters, instant YouTube titles (oEmbed).
+2. **Topics & Library**: topic tree and pages, resources (add, edit, remove), status, filters, instant YouTube titles (oEmbed).
 3. **Notes & Journal**: Markdown rendering, CodeMirror editor, `[[links]]` with autocomplete, tags, backlinks, daily journal, Hebrew.
 4. **Vault sync**: private repo, fine-grained token, changed-files-only sync, offline queue, three-way merge and conflict copies.
 5. **Capture**: quick-add sheet, Inbox, Mac bookmarklet, iOS Shortcut that writes straight to the vault.
