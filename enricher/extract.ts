@@ -38,7 +38,7 @@ td.remove(["script", "style", "iframe", "form", "button", "noscript"] as never);
 /** "Stoicism – Wikipedia" → "Stoicism": drop a short trailing site name. */
 export function cleanTitle(title: string, site?: string): string {
   const t = title.replace(/\s+/g, " ").trim();
-  const m = /^(.{2,}?)\s+[-–—|·:]\s+([^-–—|·]{2,40})$/.exec(t);
+  const m = /^(.{2,}?)\s+[-–—|·:]\s+([^-–—|·]{2,40})$/.exec(t) ?? /^(.{2,}?)\s*\(([^()]{2,40})\)$/.exec(t);
   if (!m) return t;
   const tail = m[2].toLowerCase();
   const s = (site ?? "").toLowerCase().replace(/^www\./, "");

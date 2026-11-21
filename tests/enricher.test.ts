@@ -9,6 +9,8 @@ describe("enricher helpers", () => {
     expect(cleanTitle("Why we sleep | Aeon Essays", "aeon.co")).toBe("Why we sleep");
     expect(cleanTitle("Rick Astley - Never Gonna Give You Up", "youtube")).toBe("Rick Astley - Never Gonna Give You Up");
     expect(cleanTitle("Marcus Aurelius: Meditations")).toBe("Marcus Aurelius: Meditations");
+    expect(cleanTitle("Epictetus (Stanford Encyclopedia of Philosophy)", "plato.stanford.edu")).toBe("Epictetus");
+    expect(cleanTitle("Meditations (Penguin Classics)", "amazon.com")).toBe("Meditations (Penguin Classics)");
   });
   it("makes a one-line fallback summary", () => {
     expect(shortDescription("The official video.\n\nFollow https://x.y for more")).toBeUndefined();
