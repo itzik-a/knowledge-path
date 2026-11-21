@@ -1,7 +1,7 @@
 /* Select mode for lists: tap rows to pick them, then remove them together (one Undo).
    Only rows still shown count, so changing a filter never removes something out of sight. */
 import { useEffect, useState } from "react";
-import { removeMany } from "../state/actions";
+import { deleteDocs } from "../state/actions";
 import { IconClose, IconTrash } from "./Icons";
 
 export interface Selection {
@@ -61,7 +61,7 @@ export function SelectBar({ sel }: { sel: Selection }) {
       <button type="button" className="icon-btn" onClick={sel.stop} aria-label="Stop selecting"><IconClose /></button>
       <span className="grow" aria-live="polite">{n ? `${n} selected` : "Tap to select"}</span>
       <button type="button" className="btn ghost sm" onClick={every ? sel.none : sel.all}>{every ? "None" : "All"}</button>
-      <button type="button" className="btn danger sm" disabled={!n} onClick={() => { removeMany(sel.picked); sel.stop(); }}>
+      <button type="button" className="btn danger sm" disabled={!n} onClick={async () => { if (await deleteDocs(sel.picked)) sel.stop(); }}>
         <IconTrash /> Delete
       </button>
     </div>

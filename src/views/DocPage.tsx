@@ -1,4 +1,5 @@
 /* One file's page: a resource, a note, a journal entry or a study path (#doc/<path>). */
+import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
@@ -10,7 +11,7 @@ import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
-import { addHighlight, editHighlight, patchResource, remove, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 
 
@@ -110,7 +111,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
-            { label: "Remove", danger: true, run: () => { remove(d.path); back("#library"); } },
+            { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#library"); } },
           ]} />
         </div>
         <div className="btn-row">
@@ -203,7 +204,7 @@ function Highlights({ path, hls }: { path: string; hls: Highlight[] }) {
           <li key={`${h.start}-${h.quote.slice(0, 20)}`}>
             {edit === i ? (
               <HighlightForm quote={h.quote} comment={h.comment} onSave={(q, c) => { editHighlight(path, h, q, c); setEdit(null); }} onCancel={() => setEdit(null)}
-                onRemove={() => { editHighlight(path, h, null); setEdit(null); }} />
+                onRemove={async () => { if (!(await confirmAsk({ title: "Delete this highlight?", body: h.quote.length > 140 ? h.quote.slice(0, 140) + "…" : h.quote }))) return; editHighlight(path, h, null); setEdit(null); }} />
             ) : (
               <button type="button" className="hl" onClick={() => { setEdit(i); setAdding(false); }}>
                 <blockquote dir="auto">{h.quote}</blockquote>
@@ -228,7 +229,7 @@ function HighlightForm({ quote = "", comment = "", onSave, onCancel, onRemove }:
       <div className="btn-row">
         <button type="submit" className="btn primary sm" disabled={!q.trim()}>Save</button>
         <button type="button" className="btn ghost sm" onClick={onCancel}>Cancel</button>
-        {onRemove && <button type="button" className="btn ghost sm danger" onClick={onRemove}>Remove</button>}
+        {onRemove && <button type="button" className="btn ghost sm danger" onClick={onRemove}>Delete</button>}
       </div>
     </form>
   );
@@ -263,7 +264,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             { label: editing ? "Read" : "Edit", run: () => setEditing((x) => !x) },
-            { label: "Remove", danger: true, run: () => { remove(d.path); back("#notes"); } },
+            { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
           ]} />
         </div>
         <Topics ix={ix} d={d} />
@@ -302,7 +303,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
             <span className="eyebrow">{date === today ? "Today" : date === addDays(today, -1) ? "Yesterday" : "Journal"}</span>
             <h1 className="display">{longDate(date)}</h1>
           </div>
-          {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Remove this entry", danger: true, run: () => remove(path, `the entry for ${longDate(date)}`) }]} />}
+          {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
         </div>
         {d && <Topics ix={ix} d={d} />}
         <div className="body-wrap">
@@ -339,7 +340,7 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             { label: editing ? "Show steps" : "Edit steps", run: () => setEditing((x) => !x) },
-            { label: "Remove", danger: true, run: () => { remove(d.path); back("#topics"); } },
+            { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#topics"); } },
           ]} />
         </div>
         <Topics ix={ix} d={d} />

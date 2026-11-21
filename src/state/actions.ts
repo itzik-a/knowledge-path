@@ -6,7 +6,8 @@ import {
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
 import { showToast } from "../lib/toast";
-import { exists, getIndex, readFile, removeFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
+import { confirmAsk } from "../lib/confirm";
+import { exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
 
 /** How an item links to a topic in its `topics:` property: by name, or by path when two topics share a name. */
 export function topicLink(id: string): string {
@@ -95,11 +96,13 @@ export function editHighlight(path: string, h: Highlight, quote: string | null, 
 }
 
 /** Remove the starter resources I haven't touched. */
-export function removeSuggestions() {
+export async function removeSuggestions() {
   const ix = getIndex();
   const paths = [...ix.docs.values()].filter((d) => d.resource?.suggested && d.resource.status === "saved" && !d.body.trim()).map((d) => d.path);
-  const undos = paths.map((p) => removeFile(p));
-  showToast(`Removed ${paths.length} suggestions`, { label: "Undo", run: () => undos.forEach((u) => u()) });
+  if (!paths.length) return;
+  if (!(await confirmAsk({ title: `Delete ${paths.length} starter suggestion${paths.length > 1 ? "s" : ""}?`, body: "Only the ones you haven't touched: no notes, still Saved. You can undo for a few seconds after." }))) return;
+  const undo = removeFiles(paths);
+  showToast(`Deleted ${paths.length} suggestions`, { label: "Undo", run: undo });
 }
 
 export const suggestionCount = () => [...getIndex().docs.values()].filter((d) => d.resource?.suggested && d.resource.status === "saved" && !d.body.trim()).length;
@@ -127,19 +130,31 @@ export function toggleStep(path: string, line: number) {
   writeFile(path, setBody(c, toggle(body, line)));
 }
 
-export function remove(path: string, label?: string) {
-  const name = label ?? getIndex().docs.get(path)?.title ?? path;
-  const undo = removeFile(path);
-  showToast(`Removed ${name}`, { label: "Undo", run: undo });
-}
 
-/** Remove many resources and notes in one go, with one Undo. */
-export function removeMany(paths: string[]) {
-  if (!paths.length) return;
+/** Ask first, then delete resources and notes (one or many) with one Undo. Resolves to whether they were deleted. */
+export async function deleteDocs(paths: string[], label?: string): Promise<boolean> {
+  if (!paths.length) return false;
   const ix = getIndex();
-  const name = paths.length === 1 ? ix.docs.get(paths[0])?.title ?? paths[0] : `${paths.length} items`;
+  const docs = paths.map((p) => ix.docs.get(p));
+  let name: string;
+  if (paths.length === 1) name = label ?? `“${docs[0]?.title ?? paths[0]}”`;
+  else {
+    const count = (k: (d?: (typeof docs)[number]) => boolean) => docs.filter(k).length;
+    const parts = ([
+      [count((d) => d?.kind === "resource"), "resource"],
+      [count((d) => d?.kind === "note" || d?.kind === "path"), "note"],
+      [count((d) => d?.kind === "journal"), "journal entry"],
+    ] as [number, string][]).filter(([n]) => n).map(([n, w]) => `${n} ${n > 1 ? (w.endsWith("y") ? w.slice(0, -1) + "ies" : w + "s") : w}`);
+    name = parts.length ? parts.join(" and ") : `${paths.length} items`;
+  }
+  const ok = await confirmAsk({
+    title: `Delete ${name}?`,
+    body: `${paths.length > 1 ? "They're" : "It's"} deleted from the vault on every device. You can undo for a few seconds after.`,
+  });
+  if (!ok) return false;
   const undo = removeFiles(paths);
-  showToast(`Removed ${name}`, { label: "Undo", run: undo });
+  showToast(`Deleted ${paths.length > 1 ? name : docs[0]?.title ?? name}`, { label: "Undo", run: undo });
+  return true;
 }
 
 // ── topics ────────────────────────────────────────────────────
@@ -174,8 +189,8 @@ export function removeTopic(id: string) {
   const t = ix.topics.get(id);
   if (!t) return;
   const paths = [t.path, ...[...ix.topics.values()].filter((x) => x.id.startsWith(id + "/")).map((x) => x.path)];
-  const undos = paths.map((p) => removeFile(p));
-  showToast(`Removed ${t.name}`, { label: "Undo", run: () => undos.forEach((u) => u()) });
+  const undo = removeFiles(paths);
+  showToast(`Deleted ${t.name}`, { label: "Undo", run: undo });
 }
 
 /** Edit a topic's overview (its note's body). */

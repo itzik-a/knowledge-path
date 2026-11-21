@@ -368,6 +368,11 @@ html.dragging, html.dragging * { user-select: none; -webkit-user-select: none; c
 .dlg-actions { display: grid; gap: 8px; }
 .dlg-actions .btn { justify-self: stretch; }
 .dlg-actions.row { grid-template-columns: 1fr 1fr; }
+.dlg.confirm { max-width: 400px; }
+.dlg.confirm .dlg-body { gap: 10px; padding-top: 22px; }
+.dlg.confirm h2 { font-size: 1.15rem; line-height: 1.3; overflow-wrap: anywhere; }
+.dlg.confirm .dlg-actions { margin-top: 10px; }
+.btn.danger-fill { background: var(--danger); color: var(--surface); }
 .sync-state { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--radius-sm); background: var(--surface-2); }
 .sync-state .dot { width: 10px; height: 10px; }
 .sync-state div { display: grid; }

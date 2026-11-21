@@ -1,4 +1,5 @@
 /* "Vault & settings": connect the vault repo, capture from other apps, the enricher's status, suggestions, backup. */
+import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ago } from "../lib/dates";
 import { showToast } from "../lib/toast";
@@ -118,7 +119,7 @@ function Connected() {
       {s.detail && (s.kind === "error" || s.kind === "offline") && <p className="small">{s.detail}</p>}
       <div className="dlg-actions">
         <button type="button" className="btn primary" disabled={s.kind === "busy"} onClick={() => void syncNow(true)}>Sync now</button>
-        <button type="button" className="btn ghost danger" onClick={() => { if (window.confirm("Stop syncing on this device? Everything stays here and in the vault.")) void disconnect(); }}>
+        <button type="button" className="btn ghost danger" onClick={async () => { if (await confirmAsk({ title: "Disconnect this device?", body: "It stops syncing. Everything stays here and in the vault.", ok: "Disconnect" })) void disconnect(); }}>
           Disconnect this device
         </button>
       </div>
@@ -207,7 +208,7 @@ function MoreSection() {
       if (!j.files || typeof j.files !== "object") throw new Error("That isn't a Knowledge Path backup.");
       const add = Object.entries(j.files).filter(([p, c]) => typeof c === "string" && readFile(p) == null).map(([path, content]) => ({ path, content }));
       const differ = Object.entries(j.files).filter(([p, c]) => readFile(p) != null && readFile(p) !== c).length;
-      if (!window.confirm(`Add ${add.length} files from the backup?${differ ? `\n\n${differ} files that are here with other text are left as they are.` : ""}`)) return;
+      if (!(await confirmAsk({ title: `Add ${add.length} files from the backup?`, body: differ ? `${differ} files that are here with other text are left as they are.` : undefined, ok: "Add", danger: false }))) return;
       writeFiles(add);
       setNote(`Added ${add.length} files.`);
     } catch (x) { setNote((x as Error).message); }
@@ -220,7 +221,7 @@ function MoreSection() {
       {n > 0 && (
         <div className="row-between">
           <span className="small">{n} starter suggestions you haven't touched</span>
-          <button type="button" className="btn ghost sm" onClick={removeSuggestions}>Remove them</button>
+          <button type="button" className="btn ghost sm" onClick={() => void removeSuggestions()}>Delete them</button>
         </div>
       )}
       <p className="muted small">A backup is one JSON file with every note, for Files or iCloud Drive. The vault on GitHub already keeps every version.</p>
@@ -232,7 +233,7 @@ function MoreSection() {
       {note && <p className="small" role="status">{note}</p>}
       <button type="button" className="text-btn danger-text" onClick={async () => {
         const dirty = allRecords().filter((r) => r.dirty).length;
-        if (!window.confirm(`Clear this device and start over?${dirty ? `\n\n${dirty} changes haven't reached the vault yet and would be lost.` : "\n\nThe vault on GitHub isn't touched."}`)) return;
+        if (!(await confirmAsk({ title: "Clear this device and start over?", body: dirty ? `${dirty} changes haven't reached the vault yet and would be lost.` : "The vault on GitHub isn't touched.", ok: "Clear" }))) return;
         await clearAll();
         await disconnect();
         location.reload();

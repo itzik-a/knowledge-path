@@ -3,6 +3,7 @@ import { inbox } from "../shared/index.ts";
 import { kindOf } from "../shared/vault.ts";
 import { topicColor } from "./components/bits";
 import { CaptureSheet } from "./components/CaptureSheet";
+import { ConfirmDialog } from "./components/Confirm";
 import { DataPill, DataSheet } from "./components/DataSheet";
 import { IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
@@ -138,6 +139,7 @@ export function App() {
       <button type="button" className="fab" onClick={() => openSheet({ kind: "capture", init: {} })} aria-label="Add a link or note"><IconPlus width={26} height={26} /></button>
 
       <Toast />
+      <ConfirmDialog />
       {sheet?.kind === "capture" && <CaptureSheet init={sheet.init} onClose={onCaptureClose} />}
       {sheet?.kind === "topic" && <TopicSheet id={sheet.id} parent={sheet.parent} onClose={closeSheetReq} />}
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}

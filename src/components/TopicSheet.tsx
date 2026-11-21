@@ -1,4 +1,5 @@
 /* Add or edit a topic: name, icon, colour (top-level topics; subtopics share their parent's), a one-line description. */
+import { confirmAsk } from "../lib/confirm";
 import { useRef, useState, type FormEvent } from "react";
 import { topicHref, go } from "../lib/route";
 import { createTopic, removeTopic, updateTopic } from "../state/actions";
@@ -63,13 +64,16 @@ export function TopicSheet({ id, parent, onClose }: { id?: string; parent?: stri
         {err && <p className="form-error" role="alert">{err}</p>}
         <button className="btn primary" type="submit">{t ? "Save" : "Add topic"}</button>
         {t && (
-          <button type="button" className="btn ghost danger" onClick={() => {
+          <button type="button" className="btn ghost danger" onClick={async () => {
             const subs = [...ix.topics.values()].filter((x) => x.id.startsWith(t.id + "/")).length;
-            if (!window.confirm(`Remove ${t.name}${subs ? ` and its ${subs} subtopic${subs > 1 ? "s" : ""}` : ""}?\n\nThe resources and notes in it stay (in the Inbox if it was their only topic).`)) return;
+            if (!(await confirmAsk({
+              title: `Delete ${t.name}${subs ? ` and its ${subs} subtopic${subs > 1 ? "s" : ""}` : ""}?`,
+              body: "The resources and notes in it stay (in the Inbox if it was their only topic). You can undo for a few seconds after.",
+            }))) return;
             removeTopic(t.id);
             closeSheet(form.current);
             go(t.parent ? topicHref(t.parent) : "#topics");
-          }}>Remove topic</button>
+          }}>Delete topic</button>
         )}
       </form>
     </Sheet>
