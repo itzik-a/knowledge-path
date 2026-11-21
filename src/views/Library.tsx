@@ -79,7 +79,7 @@ export function Library() {
       ) : (
         <div className="card empty"><p className="muted">{all.length ? "Nothing matches these filters." : "Nothing saved yet. Add a link, a book, a video…"}</p></div>
       )}
-      <SelectBar sel={sel} what="resources" />
+      <SelectBar sel={sel} />
     </>
   );
 }

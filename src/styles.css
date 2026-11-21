@@ -534,7 +534,8 @@ html.sheet-open .fab { visibility: hidden; }
 button.item-row.picking { width: 100%; border: 0; background: none; text-align: start; font: inherit; cursor: pointer; }
 .pick { width: 24px; height: 24px; flex: none; align-self: center; display: grid; place-items: center; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--muted); color: var(--on-accent); }
 .pick.on { background: var(--accent); box-shadow: none; }
-.head-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.row-head > .head-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-top: 4px; }
+.head-actions .btn { justify-self: auto; }
 
 /* select mode: a bar along the bottom, above the tab bar */
 .select-bar {

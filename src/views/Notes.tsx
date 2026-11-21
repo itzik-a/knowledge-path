@@ -66,7 +66,7 @@ function NoteList() {
         </section>
       ))}
       {!shown.length && <div className="card empty"><p className="muted">{notes.length ? "No note matches." : "No notes yet. Notes can be about anything; give them a topic to file them."}</p></div>}
-      <SelectBar sel={sel} what="notes" />
+      <SelectBar sel={sel} />
     </>
   );
 }
@@ -116,7 +116,7 @@ function Journal() {
       ) : (
         <div className="card empty"><p className="muted">No entries this month.</p></div>
       )}
-      <SelectBar sel={sel} what="entries" />
+      <SelectBar sel={sel} />
     </>
   );
 }

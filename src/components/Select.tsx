@@ -52,14 +52,14 @@ export function SelectButton({ sel }: { sel: Selection }) {
 }
 
 /** The bar along the bottom while selecting. */
-export function SelectBar({ sel, what = "items" }: { sel: Selection; what?: string }) {
+export function SelectBar({ sel }: { sel: Selection }) {
   if (!sel.on) return null;
   const n = sel.picked.length;
   const every = n > 0 && n === sel.shown;
   return (
     <div className="select-bar" role="toolbar" aria-label="Selected items">
       <button type="button" className="icon-btn" onClick={sel.stop} aria-label="Stop selecting"><IconClose /></button>
-      <span className="grow" aria-live="polite">{n ? `${n} selected` : `Tap ${what} to select them`}</span>
+      <span className="grow" aria-live="polite">{n ? `${n} selected` : "Tap to select"}</span>
       <button type="button" className="btn ghost sm" onClick={every ? sel.none : sel.all}>{every ? "None" : "All"}</button>
       <button type="button" className="btn danger sm" disabled={!n} onClick={() => { removeMany(sel.picked); sel.stop(); }}>
         <IconTrash /> Delete
