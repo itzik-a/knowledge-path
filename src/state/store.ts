@@ -40,10 +40,12 @@ function rebuild() {
 const toPut = new Set<string>();
 const toDel = new Set<string>();
 let flushTimer = 0;
-function persist(paths: string[]) {
+/** Typing is saved in batches; every other change right away (so leaving the app at once loses nothing). */
+function persist(paths: string[], batched = false) {
   for (const p of paths) { if (files.has(p)) { toPut.add(p); toDel.delete(p); } else { toDel.add(p); toPut.delete(p); } }
   clearTimeout(flushTimer);
-  flushTimer = setTimeout(flush, 150) as unknown as number;
+  if (batched) flushTimer = setTimeout(flush, 300) as unknown as number;
+  else void flush();
 }
 export async function flush() {
   clearTimeout(flushTimer);
@@ -104,7 +106,7 @@ export function writeFile(path: string, content: string, opts: { lazy?: boolean 
   files.set(path, r
     ? { ...r, content, deleted: undefined, dirty: true, mtime: now, rev: r.rev + 1 }
     : { path, content, dirty: true, mtime: now, rev: 1 });
-  persist([path]);
+  persist([path], !!opts.lazy);
   clearTimeout(lazyTimer);
   if (opts.lazy && r && !r.deleted) lazyTimer = setTimeout(rebuild, 400) as unknown as number;
   else rebuild();

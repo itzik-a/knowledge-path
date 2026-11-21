@@ -384,3 +384,22 @@ export function renameLinks(text: string, oldName: string, newName: string): str
 export const isHttpUrl = (u: unknown): u is string => typeof u === "string" && /^https?:\/\/\S+$/i.test(u.trim());
 
 export const todayISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Where the enricher writes a topic's Explore answer. */
+export const explorePath = (topicId: string) => `${HUB}/explore/${topicId.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "")}.json`;
+
+/** What Explore returns (the enricher writes it, the app shows it). */
+export interface ExploreResult {
+  topic: string;
+  at: string;
+  model: string;
+  ask?: string;
+  answer?: string;
+  overview: string;
+  subtopics: { name: string; why: string }[];
+  people: { name: string; years: string; why: string }[];
+  timeline: { when: string; what: string }[];
+  questions: string[];
+  reads: { title: string; author: string; type: ResourceType; level: "intro" | "deeper" | "advanced"; why: string }[];
+  next: string;
+}

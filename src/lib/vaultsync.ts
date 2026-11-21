@@ -59,8 +59,16 @@ export function merge3(base: string, mine: string, theirs: string): string | nul
   const regions = diff3Merge(split(mine), split(base), split(theirs), { excludeFalseConflicts: true });
   const out: string[] = [];
   for (const r of regions) {
-    if (r.ok) out.push(...r.ok);
-    else return null;
+    if (r.ok) { out.push(...r.ok); continue; }
+    // Edits to neighbouring lines land in one clash; with the same line count on every side, take each line
+    // from whichever side changed it. Only a line changed differently on both sides is a real conflict.
+    const { a, o, b } = r.conflict;
+    if (a.length !== o.length || b.length !== o.length) return null;
+    for (let i = 0; i < o.length; i++) {
+      if (a[i] === o[i]) out.push(b[i]);
+      else if (b[i] === o[i] || a[i] === b[i]) out.push(a[i]);
+      else return null;
+    }
   }
   return out.join("\n");
 }

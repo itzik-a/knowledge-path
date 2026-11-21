@@ -9,9 +9,9 @@
   "scripts": {
     "start": "unset npm_config_prefix; . \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && nvm use && vite --host",
     "dev": "vite --host",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p enricher && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p enricher",
     "test": "vitest run",
     "enrich": "node enricher/run.ts"
   },

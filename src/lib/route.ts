@@ -22,3 +22,17 @@ export const docHref = (path: string) => `#doc/${enc(path)}`;
 export const topicHref = (id: string) => `#topics/${enc(id)}`;
 export const tagHref = (tag: string) => `#tag/${enc(tag)}`;
 export const go = (href: string) => { if (location.hash !== href) location.hash = href; };
+
+/* How deep into the app this history entry is (0 = where the app was opened), so Back never leaves the app. */
+const depth = () => (history.state as { kpDepth?: number } | null)?.kpDepth ?? 0;
+let lastDepth = 0;
+export function trackHistory() {
+  if (history.state == null) history.replaceState({ kpDepth: 0 }, "");
+  lastDepth = depth();
+  window.addEventListener("hashchange", () => {
+    if (history.state == null) history.replaceState({ kpDepth: lastDepth + 1 }, "");
+    lastDepth = depth();
+  });
+}
+/** Back within the app, or to `fallback` if this is where the app was opened. */
+export const back = (fallback: string) => (depth() > 0 ? history.back() : location.replace(fallback));

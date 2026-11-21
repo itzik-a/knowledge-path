@@ -56,6 +56,8 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 7. **Enrichment** (GitHub Actions in the vault + Claude Haiku 5.5): title, author, image, readable article text, a summary, suggested topics; renames captured links to their title.
 8. **Study & explore**: highlights, study paths, the daily highlight, Explore a topic with Claude (map, key people, timeline, what to read next).
 
+Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dark, Hebrew/English per line; 35 tests (vault format, two-device sync against a fake GitHub, enricher helpers); a real round trip with the private vault (connect, push, pull, merge of neighbouring-line edits, conflict copy, removals); the enricher on a scratch vault (SEP article, YouTube, Hebrew Wikipedia) and its Claude calls against a mock API. Not yet: the public app repo and Pages (waiting for an OK), the `ANTHROPIC_API_KEY` secret in the vault, a real enricher run in Actions.
+
 ## 5. Follow-ups
 
 - Flashcards with spaced repetition (FSRS) from highlights.
@@ -75,6 +77,6 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 - **Storage**: a private GitHub repo of Markdown files instead of a gist: one file per note scales, keeps history, and opens in Obsidian. Not encrypted (a private repo isn't readable by URL; encryption would break Obsidian, search and the enricher).
 - **Obsidian**: optional second editor on the same vault (via the Obsidian Git plugin, not Obsidian Sync). The app has its own editor; whether to grow it toward Obsidian's features is decided later.
 - **Token**: fine-grained, only the vault repo, Contents read and write.
-- **Claude**: runs in GitHub Actions (vault secret `ANTHROPIC_API_KEY`), not in the browser. Haiku 5.5 for summaries and topic suggestions, Sonnet 5.5 for Explore. Without the key the enricher still fetches titles and article text. A key on the device may come later.
+- **Claude**: runs in GitHub Actions (vault secret `ANTHROPIC_API_KEY`), not in the browser. Haiku 5.5 for summaries and topic suggestions (~$0.001 a link); Opus 5.5 for Explore (rare, ~$0.10 an answer), with the API's server-side refusal fallback on. Without the key the enricher still fetches titles and article text. A key on the device may come later.
 - **Notes rendering**: markdown-it with raw HTML off (so nothing in a note can run script), single line breaks kept, each line's direction (Hebrew / English) from its own text.
 - **Capture on iPhone**: a Shortcut that writes the link straight into the vault (Safari can't make a Home Screen app a share target, and the installed app has its own storage).

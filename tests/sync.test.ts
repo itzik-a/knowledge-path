@@ -88,6 +88,10 @@ describe("merge3", () => {
     expect(merge3("a\nb\nc", "A\nb\nc", "a\nb\nC")).toBe("A\nb\nC");
     expect(merge3("a\nb\nc", "X\nb\nc", "Y\nb\nc")).toBeNull();
     expect(merge3("a", "b", "b")).toBe("b");
+    // neighbouring lines, changed one each side
+    expect(merge3("one\ntwo\nthree", "ONE\ntwo\nthree", "one\nTWO\nthree")).toBe("ONE\nTWO\nthree");
+    // the same line changed both ways stays a conflict
+    expect(merge3("one\ntwo", "ONE\ntwo", "Uno\nTWO")).toBeNull();
   });
 });
 

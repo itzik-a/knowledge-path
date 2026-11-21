@@ -1,10 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { trackHistory } from "./lib/route";
 import { init } from "./state/store";
 import { startSync } from "./state/sync";
 import "./styles.css";
 
+trackHistory();
 void init().then(startSync);
 // Fetch the editor's code once the app is idle, so editing works offline from the first launch.
 setTimeout(() => { void import("./components/Editor"); }, 4000);

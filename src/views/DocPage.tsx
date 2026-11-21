@@ -9,7 +9,7 @@ import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
-import { docHref, go, tagHref, topicHref } from "../lib/route";
+import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { addHighlight, editHighlight, patchResource, remove, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 
@@ -33,7 +33,7 @@ function Redirect({ to }: { to: string }) {
 
 function Back({ fallback = "#home" }: { fallback?: string }) {
   return (
-    <button type="button" className="back link-row" onClick={() => (history.length > 1 ? history.back() : go(fallback))}>
+    <button type="button" className="back link-row" onClick={() => back(fallback)}>
       <IconBack /> Back
     </button>
   );
@@ -110,7 +110,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
-            { label: "Remove", danger: true, run: () => { remove(d.path); go("#library"); } },
+            { label: "Remove", danger: true, run: () => { remove(d.path); back("#library"); } },
           ]} />
         </div>
         <div className="btn-row">
@@ -251,7 +251,7 @@ function TitleInput({ d }: { d: Doc }) {
   const [v, setV] = useState(d.title);
   useEffect(() => setV(d.title), [d.title]);
   const commit = () => {
-    if (v.trim() && v.trim() !== d.title) { const next = retitle(d.path, v); if (next !== d.path) history.replaceState(null, "", docHref(next)); window.dispatchEvent(new HashChangeEvent("hashchange")); }
+    if (v.trim() && v.trim() !== d.title) { const next = retitle(d.path, v); if (next !== d.path) history.replaceState(history.state, "", docHref(next)); window.dispatchEvent(new HashChangeEvent("hashchange")); }
     else setV(d.title);
   };
   return (
@@ -275,7 +275,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             { label: editing ? "Read" : "Edit", run: () => setEditing((x) => !x) },
-            { label: "Remove", danger: true, run: () => { remove(d.path); history.back(); } },
+            { label: "Remove", danger: true, run: () => { remove(d.path); back("#notes"); } },
           ]} />
         </div>
         <Topics ix={ix} d={d} />
@@ -351,7 +351,7 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             { label: editing ? "Show steps" : "Edit steps", run: () => setEditing((x) => !x) },
-            { label: "Remove", danger: true, run: () => { remove(d.path); history.back(); } },
+            { label: "Remove", danger: true, run: () => { remove(d.path); back("#topics"); } },
           ]} />
         </div>
         <Topics ix={ix} d={d} />

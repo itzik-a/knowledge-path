@@ -60,7 +60,7 @@ export function App() {
     if (route.view !== "capture" || !ready) return;
     const p = route.params;
     openSheet({ kind: "capture", init: { url: p.get("url") ?? undefined, title: p.get("title") ?? undefined, text: p.get("text") ?? undefined } });
-    history.replaceState(null, "", "#inbox");
+    history.replaceState(history.state, "", "#inbox");
     setRoute(readHash());
   }, [route, ready]);
 
