@@ -65,12 +65,7 @@ export function createResource(r: NewResource): string {
 }
 
 export function setStatus(path: string, status: Status) {
-  const d = getIndex().docs.get(path);
-  patchResource(path, {
-    status,
-    finished: status === "done" ? d?.resource?.finished ?? todayISO() : undefined,
-    progress: status === "done" ? undefined : d?.resource?.progress,
-  });
+  patchResource(path, { status });
 }
 
 /** Retitle a resource or note: renames the file (and its links); keeps a `title:` when the name had to be simplified. */
