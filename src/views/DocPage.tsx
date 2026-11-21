@@ -262,16 +262,15 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
             <span className="eyebrow">{folder || "Vault"}{typeof d.fm.created === "string" ? ` · ${medDate(d.fm.created)}` : ""}</span>
             <TitleInput d={d} />
           </div>
-          <Menu label="More" icon={<IconMore />} items={[
-            { label: editing ? "Read" : "Edit", run: () => setEditing((x) => !x) },
-            { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
-          ]} />
+          <div className="head-tools">
+            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
+            <Menu label="More" icon={<IconMore />} items={[
+              { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
+            ]} />
+          </div>
         </div>
         <Topics ix={ix} d={d} />
         <div className="body-wrap">
-          <div className="body-tools">
-            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
-          </div>
           <NoteBody path={d.path} body={d.body} editing={editing} autoFocus={!d.body.trim()} placeholder="Write… [[ links a note or topic, # adds a tag." />
         </div>
         <Tags d={d} />
@@ -303,13 +302,13 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
             <span className="eyebrow">{date === today ? "Today" : date === addDays(today, -1) ? "Yesterday" : "Journal"}</span>
             <h1 className="display">{longDate(date)}</h1>
           </div>
-          {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
+          <div className="head-tools">
+            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : body.trim() ? "Edit" : "Write"}</button>
+            {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
+          </div>
         </div>
         {d && <Topics ix={ix} d={d} />}
         <div className="body-wrap">
-          <div className="body-tools">
-            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
-          </div>
           <NoteBody key={path} path={path} body={body} editing={editing} autoFocus={!body.trim()}
             placeholder="How was today? What did you read, think, notice? [[Stoicism]] puts this entry under that topic." />
         </div>

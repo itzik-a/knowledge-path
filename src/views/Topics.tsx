@@ -112,16 +112,17 @@ function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
             <h1 className="display" dir="auto">{t.name}</h1>
             {t.description && <p className="muted" dir="auto">{t.description}</p>}
           </div>
-          <Menu label="Topic options" icon={<IconMore />} items={[
-            { label: "Edit topic", run: () => openSheet({ kind: "topic", id: t.id }) },
-            { label: "Add a subtopic", run: () => openSheet({ kind: "topic", parent: t.id }) },
-            { label: editing ? "Done editing the overview" : "Edit the overview", run: () => setEditing((x) => !x) },
-          ]} />
+          <div className="head-tools">
+            {editing
+              ? <button type="button" className="btn ghost sm" onClick={() => setEditing(false)}>Done</button>
+              : <button type="button" className="icon-btn subtle" onClick={() => setEditing(true)} aria-label="Edit the overview" title="Edit the overview"><IconEdit /></button>}
+            <Menu label="Topic options" icon={<IconMore />} items={[
+              { label: "Edit topic", run: () => openSheet({ kind: "topic", id: t.id }) },
+              { label: "Add a subtopic", run: () => openSheet({ kind: "topic", parent: t.id }) },
+            ]} />
+          </div>
         </div>
         <div className="body-wrap">
-          <div className="body-tools">
-            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : <><IconEdit /> Overview</>}</button>
-          </div>
           <NoteBody path={t.path} body={overview?.body ?? ""} editing={editing} autoFocus placeholder={`What ${t.name} means to me, what I want to learn, open questions…`}
             empty="No overview yet: what do you want from this topic?" />
         </div>
