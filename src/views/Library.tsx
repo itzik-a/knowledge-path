@@ -4,6 +4,7 @@ import { subtree } from "../../shared/index.ts";
 import { RESOURCE_TYPES, STATUSES, type ResourceType, type Status } from "../../shared/vault.ts";
 import { ResourceRow, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL } from "../components/bits";
 import { IconClose, IconInbox, IconPlus, IconSearch } from "../components/Icons";
+import { SelectBar, SelectButton, useSelection } from "../components/Select";
 import { Select, useSessionState } from "../components/ui";
 import { openSheet } from "../lib/sheets";
 import { inbox } from "../../shared/index.ts";
@@ -37,12 +38,16 @@ export function Library() {
   const types = RESOURCE_TYPES.filter((t) => all.some((d) => d.resource!.type === t));
   const counts = Object.fromEntries(STATUSES.map((s) => [s, all.filter((d) => d.resource!.status === s).length])) as Record<Status, number>;
   const waiting = inbox(ix).length;
+  const sel = useSelection(list.map((d) => d.path));
 
   return (
     <>
       <div className="page-head row-head">
         <div><h1 className="display">Library</h1><p className="muted">{all.length} resources · {counts["in-progress"]} in progress · {counts.done} done</p></div>
-        <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "link" } })}><IconPlus /> Add</button>
+        <div className="head-actions">
+          <SelectButton sel={sel} />
+          {!sel.on && <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "link" } })}><IconPlus /> Add</button>}
+        </div>
       </div>
       {waiting > 0 && (
         <a className="card inbox-banner" href="#inbox"><IconInbox /> <span className="grow"><b>{waiting} in the Inbox</b> <span className="muted">waiting for a topic</span></span><span className="chev">›</span></a>
@@ -70,10 +75,11 @@ export function Library() {
         </div>
       </section>
       {list.length ? (
-        <ul className="card item-list">{list.map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
+        <ul className="card item-list">{list.map((d) => <ResourceRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
       ) : (
         <div className="card empty"><p className="muted">{all.length ? "Nothing matches these filters." : "Nothing saved yet. Add a link, a book, a video…"}</p></div>
       )}
+      <SelectBar sel={sel} what="resources" />
     </>
   );
 }

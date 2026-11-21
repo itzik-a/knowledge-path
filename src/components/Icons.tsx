@@ -74,3 +74,6 @@ export const IconLink = (p: P) => (
 export const IconRead = (p: P) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M3.5 5.5c3-1 6-.8 8.5 1 2.5-1.8 5.5-2 8.5-1v13c-3-1-6-.8-8.5 1-2.5-1.8-5.5-2-8.5-1Z" /><path d="M12 6.5v13" /></svg>
 );
+export const IconTrash = (p: P) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12M10 11v5.5M14 11v5.5" /></svg>
+);

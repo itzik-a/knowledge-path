@@ -4,6 +4,7 @@ import type { Doc } from "../../shared/index.ts";
 import { journalPath, todayISO } from "../../shared/vault.ts";
 import { DocRow, NoteRow } from "../components/bits";
 import { IconBack, IconClose, IconNext, IconPlus, IconSearch } from "../components/Icons";
+import { SelectBar, SelectButton, useSelection, type Selection } from "../components/Select";
 import { Seg } from "../components/ui";
 import { iso, monthName, parseISO, shortDate } from "../lib/dates";
 import { docHref, go } from "../lib/route";
@@ -11,18 +12,23 @@ import { createNote } from "../state/actions";
 import { useIndex } from "../state/store";
 
 export function Notes({ sub }: { sub?: string }) {
-  const tab = sub === "journal" ? "journal" : "notes";
+  return sub === "journal" ? <Journal /> : <NoteList />;
+}
+
+function NotesHead({ tab, sel }: { tab: "notes" | "journal"; sel: Selection }) {
   return (
     <>
       <div className="page-head row-head">
         <div><h1 className="display">{tab === "journal" ? "Journal" : "Notes"}</h1></div>
-        {tab === "notes"
-          ? <button type="button" className="btn primary sm" onClick={() => go(docHref(createNote({ title: "Untitled" })))}><IconPlus /> Note</button>
-          : <a className="btn primary sm" href={docHref(journalPath(todayISO()))}>Today</a>}
+        <div className="head-actions">
+          <SelectButton sel={sel} />
+          {!sel.on && (tab === "notes"
+            ? <button type="button" className="btn primary sm" onClick={() => go(docHref(createNote({ title: "Untitled" })))}><IconPlus /> Note</button>
+            : <a className="btn primary sm" href={docHref(journalPath(todayISO()))}>Today</a>)}
+        </div>
       </div>
       <Seg<"notes" | "journal"> label="Notes or journal" value={tab} onChange={(t) => go(t === "journal" ? "#notes/journal" : "#notes")}
         options={[{ id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }]} />
-      {tab === "journal" ? <Journal /> : <NoteList />}
     </>
   );
 }
@@ -43,9 +49,11 @@ function NoteList() {
     }
     return [...m].sort(([a], [b]) => (a === "Notes" ? -1 : b === "Notes" ? 1 : a.localeCompare(b)));
   }, [shown]);
+  const sel = useSelection(folders.flatMap(([, docs]) => docs.map((d) => d.path)));
 
   return (
     <>
+      <NotesHead tab="notes" sel={sel} />
       <label className="search">
         <IconSearch />
         <input type="search" dir="auto" placeholder="Filter notes" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter notes" />
@@ -54,10 +62,11 @@ function NoteList() {
       {folders.map(([f, docs]) => (
         <section key={f} className="card">
           <h2 className="folder-name">{f || "Vault"} <span className="muted">{docs.length}</span></h2>
-          <ul className="item-list">{docs.map((d) => <NoteRow key={d.path} d={d} ix={ix} />)}</ul>
+          <ul className="item-list">{docs.map((d) => <NoteRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
         </section>
       ))}
       {!shown.length && <div className="card empty"><p className="muted">{notes.length ? "No note matches." : "No notes yet. Notes can be about anything; give them a topic to file them."}</p></div>}
+      <SelectBar sel={sel} what="notes" />
     </>
   );
 }
@@ -76,9 +85,11 @@ function Journal() {
   // days in a row with an entry, up to today (or yesterday, if today's isn't written yet)
   let streak = 0;
   for (const d = new Date(byDate.has(today) ? Date.now() : Date.now() - 86_400_000); byDate.has(iso(d)); d.setDate(d.getDate() - 1)) streak++;
+  const sel = useSelection(inMonth.map((d) => d.path));
 
   return (
     <>
+      <NotesHead tab="journal" sel={sel} />
       <section className="card">
         <div className="month-nav">
           <button type="button" className="icon-btn subtle" onClick={() => shift(-1)} aria-label="Month before"><IconBack /></button>
@@ -101,10 +112,11 @@ function Journal() {
         <p className="muted small">{entries.length} entries{streak > 1 ? ` · ${streak} days in a row` : ""}</p>
       </section>
       {inMonth.length ? (
-        <ul className="card item-list">{inMonth.map((d) => <NoteRow key={d.path} d={d} ix={ix} />)}</ul>
+        <ul className="card item-list">{inMonth.map((d) => <NoteRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
       ) : (
         <div className="card empty"><p className="muted">No entries this month.</p></div>
       )}
+      <SelectBar sel={sel} what="entries" />
     </>
   );
 }

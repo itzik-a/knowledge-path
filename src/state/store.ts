@@ -131,18 +131,30 @@ export function writeFiles(changes: { path: string; content: string }[]) {
 
 /** Remove a file. Returns an undo. */
 export function removeFile(path: string): () => void {
-  const r = files.get(path);
-  if (!r || r.deleted) return () => {};
-  const before = { ...r };
-  if (r.baseSha) files.set(path, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
-  else files.delete(path); // never synced: nothing to remove from the vault
-  persist([path]);
+  return removeFiles([path]);
+}
+
+/** Remove several files at once (one index rebuild); the returned function puts them all back. */
+export function removeFiles(paths: string[]): () => void {
+  const before: FileRec[] = [];
+  for (const path of new Set(paths)) {
+    const r = files.get(path);
+    if (!r || r.deleted) continue;
+    before.push({ ...r });
+    if (r.baseSha) files.set(path, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
+    else files.delete(path); // never synced: nothing to remove from the vault
+  }
+  if (!before.length) return () => {};
+  const touched = before.map((r) => r.path);
+  persist(touched);
   rebuild();
   local();
   return () => {
-    const now = files.get(path);
-    files.set(path, { ...before, rev: (now?.rev ?? before.rev) + 1, dirty: before.dirty || !!now?.dirty });
-    persist([path]);
+    for (const r of before) {
+      const now = files.get(r.path);
+      files.set(r.path, { ...r, rev: (now?.rev ?? r.rev) + 1, dirty: r.dirty || !!now?.dirty });
+    }
+    persist(touched);
     rebuild();
     local();
   };

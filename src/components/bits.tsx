@@ -1,10 +1,11 @@
-/* Small pieces used across views: topic chips and picker, resource and note rows, status, stars. */
-import { useMemo, useState } from "react";
+/* Small pieces used across views: topic chips and picker, resource and note rows, status. */
+import { useMemo, useState, type ReactNode } from "react";
 import { ancestry, type Doc, type Index, type Topic } from "../../shared/index.ts";
 import type { ResourceType, Status } from "../../shared/vault.ts";
 import { medDate, shortDate } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
+import type { Selection } from "./Select";
 import { IconCheck, IconClose, IconPlus, IconSearch } from "./Icons";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
@@ -102,12 +103,26 @@ export function StatusPill({ status }: { status: Status }) {
   return <span className={`status-pill s-${status}`}>{status === "done" && <IconCheck width={11} height={11} />}{STATUS_LABEL[status]}</span>;
 }
 
-export function ResourceRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; showTopics?: boolean }) {
+/** A list row: a link, or in select mode a checkbox. */
+function RowShell({ path, sel, children }: { path: string; sel?: Selection; children: ReactNode }) {
+  if (sel?.on) {
+    const on = sel.has(path);
+    return (
+      <button type="button" className="item-row picking" role="checkbox" aria-checked={on} onClick={() => sel.toggle(path)}>
+        <span className={`pick${on ? " on" : ""}`} aria-hidden="true">{on && <IconCheck width={13} height={13} />}</span>
+        {children}
+      </button>
+    );
+  }
+  return <a className="item-row" href={docHref(path)}>{children}</a>;
+}
+
+export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const r = d.resource!;
   const meta = [r.author, r.site && !r.author ? r.site : undefined, TYPE_LABEL[r.type]].filter(Boolean).join(" · ");
   return (
     <li>
-      <a className="item-row" href={docHref(d.path)}>
+      <RowShell path={d.path} sel={sel}>
         {r.image ? <img className="thumb" src={r.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="thumb emoji" aria-hidden="true">{TYPE_EMOJI[r.type]}</span>}
         <span className="item-main">
           <span className="item-title" dir="auto">{d.title}</span>
@@ -120,17 +135,17 @@ export function ResourceRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; s
             </span>
           )}
         </span>
-      </a>
+      </RowShell>
     </li>
   );
 }
 
-export function NoteRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; showTopics?: boolean }) {
+export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const label = d.kind === "journal" && d.date ? shortDate(d.date) : d.title;
   const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
   return (
     <li>
-      <a className="item-row" href={docHref(d.path)}>
+      <RowShell path={d.path} sel={sel}>
         <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : "📝"}</span>
         <span className="item-main">
           <span className="item-title" dir="auto">{label}</span>
@@ -142,13 +157,13 @@ export function NoteRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; showT
             </span>
           )}
         </span>
-      </a>
+      </RowShell>
     </li>
   );
 }
 
-export function DocRow({ d, ix, showTopics }: { d: Doc; ix: Index; showTopics?: boolean }) {
-  return d.kind === "resource" ? <ResourceRow d={d} ix={ix} showTopics={showTopics} /> : <NoteRow d={d} ix={ix} showTopics={showTopics} />;
+export function DocRow({ d, ix, showTopics, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
+  return d.kind === "resource" ? <ResourceRow d={d} ix={ix} showTopics={showTopics} sel={sel} /> : <NoteRow d={d} ix={ix} showTopics={showTopics} sel={sel} />;
 }
 
 export function Breadcrumb({ ix, id, self = false }: { ix: Index; id: string; self?: boolean }) {

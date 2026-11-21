@@ -191,6 +191,24 @@ describe("sync", () => {
     expect(gh.files().has("Resources/Sapiens.md")).toBe(true);
   });
 
+  it("bulk removal: one undo puts every file back; the removals reach the vault together", async () => {
+    const a = await device(); await a.sync(gh);
+    a.s.writeFile("Notes/Unsynced.md", "local only\n");
+    const paths = ["Resources/SPQR.md", "Resources/Sapiens.md", "Notes/Unsynced.md"];
+    const undo = a.s.removeFiles(paths);
+    expect(paths.every((p) => !a.s.exists(p))).toBe(true);
+    undo();
+    expect(paths.every((p) => a.s.exists(p))).toBe(true);
+    expect(a.s.getIndex().docs.has("Resources/SPQR.md")).toBe(true);
+    a.s.removeFiles(paths);
+    const before = gh.commits.size;
+    await a.sync(gh);
+    expect(gh.commits.size - before).toBe(1);
+    const f = gh.files();
+    expect(f.has("Resources/SPQR.md") || f.has("Resources/Sapiens.md") || f.has("Notes/Unsynced.md")).toBe(false);
+    expect(dirtyCount(a.s)).toBe(0);
+  });
+
   it("a rename moves the file and re-points links, on both sides", async () => {
     const a = await device(); await a.sync(gh);
     expect(a.s.renameFile("Resources/Meditations.md", "Resources/Meditations (Hays).md")).toBe(true);

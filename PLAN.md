@@ -56,7 +56,7 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 7. **Enrichment** (GitHub Actions in the vault + Claude Haiku 5.5): title, author, image, readable article text, a summary, suggested topics; renames captured links to their title.
 8. **Study & explore**: highlights, study paths, the daily highlight, Explore a topic with Claude (map, key people, timeline, what to read next).
 
-Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dark, Hebrew/English per line; 35 tests (vault format, two-device sync against a fake GitHub, enricher helpers); a real round trip with the private vault (connect, push, pull, merge of neighbouring-line edits, conflict copy, removals); the enricher on a scratch vault (SEP article, YouTube, Hebrew Wikipedia) and its Claude calls against a mock API. Not yet: the public app repo and Pages (waiting for an OK), the `ANTHROPIC_API_KEY` secret in the vault, a real enricher run in Actions.
+Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dark, Hebrew/English per line; 35 tests (vault format, two-device sync against a fake GitHub, enricher helpers); a real round trip with the private vault (connect, push, pull, merge of neighbouring-line edits, conflict copy, removals); the enricher on a scratch vault (SEP article, YouTube, Hebrew Wikipedia) and its Claude calls against a mock API. Live at https://itzik-a.github.io/knowledge-path/; a real enricher run in Actions checked. Not yet: the `ANTHROPIC_API_KEY` secret in the vault.
 
 ## 5. Follow-ups
 

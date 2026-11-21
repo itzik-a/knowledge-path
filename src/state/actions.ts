@@ -6,7 +6,7 @@ import {
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
 import { showToast } from "../lib/toast";
-import { exists, getIndex, readFile, removeFile, renameFile, taken, writeFile, writeFiles } from "./store";
+import { exists, getIndex, readFile, removeFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
 
 /** How an item links to a topic in its `topics:` property: by name, or by path when two topics share a name. */
 export function topicLink(id: string): string {
@@ -130,6 +130,15 @@ export function toggleStep(path: string, line: number) {
 export function remove(path: string, label?: string) {
   const name = label ?? getIndex().docs.get(path)?.title ?? path;
   const undo = removeFile(path);
+  showToast(`Removed ${name}`, { label: "Undo", run: undo });
+}
+
+/** Remove many resources and notes in one go, with one Undo. */
+export function removeMany(paths: string[]) {
+  if (!paths.length) return;
+  const ix = getIndex();
+  const name = paths.length === 1 ? ix.docs.get(paths[0])?.title ?? paths[0] : `${paths.length} items`;
+  const undo = removeFiles(paths);
   showToast(`Removed ${name}`, { label: "Undo", run: undo });
 }
 
