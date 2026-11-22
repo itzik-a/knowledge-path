@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guessType, isHttpUrl, RESOURCE_TYPES, titleFromUrl, type ResourceType, type Status } from "../../shared/vault.ts";
 import { docHref, go } from "../lib/route";
+import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
 import { createNote, createResource } from "../state/actions";
 import { TopicPicker, TYPE_LABEL } from "./bits";
@@ -82,8 +83,9 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   return (
     <Sheet title="Add" onClose={onClose}>
       <form ref={form} className="form-grid" onSubmit={save}>
-        <Seg<"link" | "note"> className="full" label="What to add" value={mode} onChange={(m) => { setMode(m); setErr(""); }}
-          options={[{ id: "link", label: "Link or resource" }, { id: "note", label: "Note" }]} />
+        <Seg<"link" | "note" | "habit"> className="full" label="What to add" value={mode}
+          onChange={(m) => { if (m === "habit") { openSheet({ kind: "habit", topics }); return; } setMode(m); setErr(""); }}
+          options={[{ id: "link", label: "Link" }, { id: "note", label: "Note" }, { id: "habit", label: "Habit" }]} />
         {mode === "link" ? (
           <>
             <Field label="Link">

@@ -14,7 +14,8 @@
      never synced (a starter file)      → kept if the vault has it or the vault is empty, dropped otherwise
    Then all pushes go out as one commit. If the vault moved meanwhile, the whole thing runs again. */
 import { diff3Merge } from "node-diff3";
-import { basename, dirname, isSynced, todayISO } from "../../shared/vault.ts";
+import { mergeLogLines } from "../../shared/habits.ts";
+import { basename, dirname, isSynced, kindOf, todayISO } from "../../shared/vault.ts";
 import type { FileRec } from "../state/db";
 
 export interface Head { commit: string; tree: string }
@@ -51,8 +52,9 @@ export interface SyncResult {
   other: Record<string, string>;
 }
 
-/** A line-based three-way merge; null when the two sides change the same lines differently. */
-export function merge3(base: string, mine: string, theirs: string): string | null {
+/** A line-based three-way merge; null when the two sides change the same lines differently.
+    With `logs` (habit files), a clash made only of log lines keeps the days logged on either side. */
+export function merge3(base: string, mine: string, theirs: string, opts: { logs?: boolean } = {}): string | null {
   if (mine === theirs || theirs === base) return mine;
   if (mine === base) return theirs;
   const split = (s: string) => s.split("\n");
@@ -63,6 +65,8 @@ export function merge3(base: string, mine: string, theirs: string): string | nul
     // Edits to neighbouring lines land in one clash; with the same line count on every side, take each line
     // from whichever side changed it. Only a line changed differently on both sides is a real conflict.
     const { a, o, b } = r.conflict;
+    const logs = opts.logs ? mergeLogLines(a, o, b) : null;
+    if (logs) { out.push(...logs); continue; }
     if (a.length !== o.length || b.length !== o.length) return null;
     for (let i = 0; i < o.length; i++) {
       if (a[i] === o[i]) out.push(b[i]);
@@ -134,7 +138,7 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { f
     if (!r || !r.dirty) { apply.push({ path, content: theirs, sha }); if (!r || r.content !== theirs) pulled++; continue; }
     if (r.deleted) { apply.push({ path, content: theirs, sha }); pulled++; continue; }
     if (r.content === theirs) { apply.push({ path, content: theirs, sha }); continue; }
-    const merged = merge3(r.base ?? "", r.content, theirs);
+    const merged = merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" });
     if (merged != null) {
       apply.push({ path, content: merged, sha, base: theirs, dirty: merged !== theirs });
       if (merged !== r.content) pulled++;

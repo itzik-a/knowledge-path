@@ -13,6 +13,8 @@ import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
+import { amountText, habitIcon } from "../components/habits";
+import { HabitPage } from "./Habits";
 
 
 export function DocPage({ path }: { path: string }) {
@@ -24,6 +26,7 @@ export function DocPage({ path }: { path: string }) {
   if (d.kind === "topic") return <Redirect to={topicHref(topicIdOf(path))} />;
   if (d.kind === "resource") return <ResourcePage d={d} ix={ix} />;
   if (d.kind === "path") return <PathPage d={d} ix={ix} />;
+  if (d.kind === "habit") return <HabitPage d={d} ix={ix} />;
   return <NotePage d={d} ix={ix} />;
 }
 
@@ -308,6 +311,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
           </div>
         </div>
         {d && <Topics ix={ix} d={d} />}
+        <HabitsThatDay ix={ix} date={date} />
         <div className="body-wrap">
           <NoteBody key={path} path={path} body={body} editing={editing} autoFocus={!body.trim()}
             placeholder="How was today? What did you read, think, notice? [[Stoicism]] puts this entry under that topic." />
@@ -316,6 +320,24 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
       </section>
       {d && <LinkedFrom ix={ix} path={path} />}
     </>
+  );
+}
+
+/** What I logged that day, read-only (logging happens on Home and the habit's page). */
+function HabitsThatDay({ ix, date }: { ix: Index; date: string }) {
+  const done = [...ix.docs.values()].filter((h) => h.kind === "habit").flatMap((h) => {
+    const e = h.log?.find((x) => x.date === date);
+    return e ? [{ h, e }] : [];
+  }).sort((a, b) => a.h.title.localeCompare(b.h.title));
+  if (!done.length) return null;
+  return (
+    <div className="chips habits-day" aria-label="Habits logged this day">
+      {done.map(({ h, e }) => (
+        <a key={h.path} className="chip" href={docHref(h.path)}>
+          <span aria-hidden="true">{habitIcon(h)}</span> <span dir="auto">{h.title}</span>{e.amount != null && <span className="muted">{amountText(h, e.amount)}</span>}
+        </a>
+      ))}
+    </div>
   );
 }
 

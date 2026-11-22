@@ -5,7 +5,8 @@ import { topicColor } from "./components/bits";
 import { CaptureSheet } from "./components/CaptureSheet";
 import { ConfirmDialog } from "./components/Confirm";
 import { DataPill, DataSheet } from "./components/DataSheet";
-import { IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { HabitSheet } from "./components/HabitSheet";
+import { IconHabit, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 import { TopicSheet } from "./components/TopicSheet";
@@ -14,6 +15,7 @@ import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useVault } from "./state/store";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
+import { Habits } from "./views/Habits";
 import { Home } from "./views/Home";
 import { Inbox } from "./views/Inbox";
 import { Library } from "./views/Library";
@@ -32,11 +34,11 @@ const TABS: { id: Tab; label: string; Icon: ComponentType<SVGProps<SVGSVGElement
 function tabOf(r: Route): Tab {
   if (r.view === "doc" && r.sub) {
     const k = kindOf(r.sub);
-    return k === "resource" ? "library" : k === "path" ? "topics" : "notes";
+    return k === "resource" ? "library" : k === "path" ? "topics" : k === "habit" ? "home" : "notes";
   }
   if (r.view === "tag") return "notes";
   if (r.view === "inbox") return "library";
-  return r.view === "capture" ? "home" : (r.view as Tab);
+  return r.view === "capture" || r.view === "habits" ? "home" : (r.view as Tab);
 }
 
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
@@ -78,6 +80,8 @@ export function App() {
   }, []);
 
   const tab = tabOf(route);
+  /** the sidebar marks Habits and the Inbox on their own, not the tab they belong to */
+  const habitsOpen = route.view === "habits" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "habit");
   const waiting = ready ? inbox(ix).length : 0;
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const onCaptureClose = () => {
@@ -99,8 +103,9 @@ export function App() {
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" ? "page" : undefined}><Icon /><span>{label}</span></a>
+            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && !habitsOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
           ))}
+          <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
           <a href="#inbox" aria-current={route.view === "inbox" ? "page" : undefined}><IconInbox /><span>Inbox</span>{waiting > 0 && <span className="badge">{waiting}</span>}</a>
         </nav>
         <nav className="side-topics" aria-label="Topics">
@@ -131,6 +136,7 @@ export function App() {
           : route.view === "library" ? <Library />
           : route.view === "notes" ? <Notes sub={route.sub} />
           : route.view === "inbox" ? <Inbox />
+          : route.view === "habits" ? <Habits />
           : route.view === "tag" && route.sub ? <TagPage tag={route.sub} />
           : route.view === "doc" && route.sub ? <DocPage path={route.sub} />
           : <Home />}
@@ -142,6 +148,7 @@ export function App() {
       <ConfirmDialog />
       {sheet?.kind === "capture" && <CaptureSheet init={sheet.init} onClose={onCaptureClose} />}
       {sheet?.kind === "topic" && <TopicSheet id={sheet.id} parent={sheet.parent} onClose={closeSheetReq} />}
+      {sheet?.kind === "habit" && <HabitSheet key={sheet.path ?? "new"} path={sheet.path} topics={sheet.topics} onClose={closeSheetReq} />}
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
       {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} />}
 

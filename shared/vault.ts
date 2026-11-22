@@ -6,15 +6,16 @@
      Resources/<title>.md                                    a saved resource (frontmatter: type, url, status, …)
      Journal/2026/2026-11-21.md                              a daily journal entry
      Paths/<title>.md                                        a study path (a checklist of [[links]])
+     Habits/<name>.md                                        a habit and its log (see habits.ts)
      anything else .md                                       a note
      .hub/…                                                  app data (saved article text, explore results); hidden in Obsidian
    An item is in a topic when its `topics:` frontmatter names it, when it links to the topic's note,
    or when it has the topic's tag (#stoicism or #philosophy/stoicism). */
 import { Document, isMap, parse, parseDocument } from "yaml";
 
-export type Kind = "topic" | "resource" | "journal" | "path" | "note" | "hub";
+export type Kind = "topic" | "resource" | "journal" | "path" | "habit" | "note" | "hub";
 
-export const FOLDER = { topics: "Topics", resources: "Resources", journal: "Journal", paths: "Paths", notes: "Notes" } as const;
+export const FOLDER = { topics: "Topics", resources: "Resources", journal: "Journal", paths: "Paths", habits: "Habits", notes: "Notes" } as const;
 export const HUB = ".hub";
 
 /** Paths the app keeps in step with the vault. Everything else (images, .obsidian settings, the workflow) is left alone. */
@@ -30,6 +31,7 @@ export function kindOf(path: string): Kind {
   if (top === FOLDER.topics) return "topic";
   if (top === FOLDER.resources) return "resource";
   if (top === FOLDER.paths) return "path";
+  if (top === FOLDER.habits && path.split("/").length === 2) return "habit";
   if (top === FOLDER.journal && JOURNAL_RE.test(basename(path))) return "journal";
   return "note";
 }

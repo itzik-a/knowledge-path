@@ -5,6 +5,7 @@ import {
   addHighlight as addHl, FOLDER, journalPath, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
+import { fmtAmount, goalText, habitOf, newHabitBody, parseLog, setLogEntry, type Goal } from "../../shared/habits.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
 import { allRecords, exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
@@ -155,6 +156,52 @@ export async function deleteDocs(paths: string[], label?: string): Promise<boole
   const undo = removeFiles(paths);
   showToast(`Deleted ${paths.length > 1 ? name : docs[0]?.title ?? name}`, { label: "Undo", run: undo });
   return true;
+}
+
+// ── habits ────────────────────────────────────────────────────
+export interface HabitFields { name: string; icon?: string; goal: Goal; unit?: string; target?: number; topics: string[]; description?: string }
+
+export function createHabit(f: HabitFields): string {
+  const path = uniquePath(FOLDER.habits, f.name, taken);
+  const fm = {
+    title: safeName(f.name) !== f.name.trim() ? f.name.trim() : undefined,
+    icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined,
+    topics: f.topics.map(topicLink), created: todayISO(),
+  };
+  writeFile(path, setFrontmatter("", fm) + newHabitBody(f.description));
+  return path;
+}
+
+/** Edit a habit's settings (renaming the file when the name changes). Returns its path. */
+export function updateHabit(path: string, f: Omit<HabitFields, "description" | "topics">): string {
+  const next = retitle(path, f.name);
+  patch(next, { icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined });
+  return next;
+}
+
+/** Log a day (or change its amount). */
+export function logHabit(path: string, date: string, amount?: number) {
+  const c = readFile(path);
+  if (c == null) return;
+  const { fm, body } = splitFrontmatter(c);
+  writeFile(path, setBody(c, setLogEntry(body, date, amount, habitOf(fm).unit)));
+}
+
+/** Take a day off the log, with Undo. */
+export function unlogHabit(path: string, date: string, label?: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  const { body } = splitFrontmatter(c);
+  const was = parseLog(body).find((e) => e.date === date);
+  if (!was) return;
+  writeFile(path, setBody(c, setLogEntry(body, date, null)));
+  const unit = habitOf(splitFrontmatter(c).fm).unit;
+  showToast(`Removed ${label ?? date}${was.amount != null ? ` (${fmtAmount(was.amount)}${unit ? ` ${unit}` : ""})` : ""}`, { label: "Undo", run: () => logHabit(path, date, was.amount) });
+}
+
+export function setArchived(path: string, archived: boolean) {
+  patch(path, { archived: archived || undefined });
+  showToast(archived ? "Archived: hidden from Home" : "Back on Home", { label: "Undo", run: () => patch(path, { archived: !archived || undefined }) });
 }
 
 // ── topics ────────────────────────────────────────────────────

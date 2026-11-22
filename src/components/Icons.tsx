@@ -77,3 +77,6 @@ export const IconRead = (p: P) => (
 export const IconTrash = (p: P) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12M10 11v5.5M14 11v5.5" /></svg>
 );
+export const IconHabit = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" /><path d="M19.5 4v4h-4" /><path d="m8.8 12.2 2.2 2.2 4.2-4.4" /></svg>
+);

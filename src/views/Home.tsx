@@ -3,7 +3,9 @@ import { useMemo } from "react";
 import { inbox, itemsIn, type Doc } from "../../shared/index.ts";
 import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
 import { ResourceRow, topicColor } from "../components/bits";
-import { IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
+import { HabitRow } from "../components/habits";
+import { habitsOf } from "./Habits";
+import { IconHabit, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
@@ -36,6 +38,9 @@ export function Home() {
     return dailyPick(all, today);
   }, [resources, today]);
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
+  const allHabits = useMemo(() => habitsOf(ix), [ix]);
+  const habits = allHabits.filter((d) => !d.habit!.archived);
+  const habitsDone = habits.filter((d) => d.log?.some((e) => e.date === today)).length;
 
   return (
     <>
@@ -52,6 +57,22 @@ export function Home() {
           </p>
           <button type="button" className="btn sm" onClick={() => setIntroDone(true)}>Got it</button>
         </section>
+      )}
+
+      {habits.length > 0 ? (
+        <section className="card">
+          <div className="card-head">
+            <h2>Habits <span className="muted">· {habitsDone} of {habits.length} today</span></h2>
+            <a className="link" href="#habits">All</a>
+          </div>
+          <ul className="item-list habit-list">{habits.map((d) => <HabitRow key={d.path} d={d} />)}</ul>
+        </section>
+      ) : allHabits.length === 0 && (
+        <a className="card journal-card" href="#habits">
+          <span className="journal-icon"><IconHabit /></span>
+          <span className="grow"><b>Track a habit</b><span className="muted small">Something to do every day, or a few times a week.</span></span>
+          <span className="chev">›</span>
+        </a>
       )}
 
       <a className="card journal-card" href={docHref(journalPath(today))}>

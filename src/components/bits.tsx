@@ -142,11 +142,11 @@ export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Ind
 
 export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const label = d.kind === "journal" && d.date ? shortDate(d.date) : d.title;
-  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
+  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
   return (
     <li>
       <RowShell path={d.path} sel={sel}>
-        <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : "📝"}</span>
+        <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : "📝"}</span>
         <span className="item-main">
           <span className="item-title" dir="auto">{label}</span>
           {d.excerpt && <span className="item-meta clamp" dir="auto">{d.excerpt}</span>}

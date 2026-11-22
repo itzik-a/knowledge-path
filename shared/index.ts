@@ -5,6 +5,7 @@ import {
   basename, dirname, excerpt, extractLinks, extractTags, firstLine, FOLDER, journalDate, kindOf, refTarget, resourceOf,
   slug, splitFrontmatter, strList, type Kind, type Link, type Resource,
 } from "./vault.ts";
+import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
 
 export interface Doc {
   path: string;
@@ -17,6 +18,9 @@ export interface Doc {
   tags: string[];
   topicRefs: string[];
   resource?: Resource;
+  habit?: Habit;
+  /** a habit's log, newest first */
+  log?: LogEntry[];
   date?: string;
   excerpt: string;
   mtime: number;
@@ -61,7 +65,9 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
     tags: kind === "hub" ? [] : extractTags(body, fm),
     topicRefs: strList(fm.topics).map(refTarget).filter(Boolean),
     resource: kind === "resource" ? resourceOf(fm) : undefined,
-    excerpt: kind === "hub" ? "" : excerpt(body),
+    habit: kind === "habit" ? habitOf(fm) : undefined,
+    log: kind === "habit" ? parseLog(body) : undefined,
+    excerpt: kind === "hub" ? "" : excerpt(kind === "habit" ? body.replace(/^##\s+log\s*$[\s\S]*/im, "") : body),
   };
 }
 

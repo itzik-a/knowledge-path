@@ -93,6 +93,15 @@ describe("merge3", () => {
     // the same line changed both ways stays a conflict
     expect(merge3("one\ntwo", "ONE\ntwo", "Uno\nTWO")).toBeNull();
   });
+  it("habit logs: days logged on both sides are both kept, only in habit files", () => {
+    const base = "## Log\n\n- 2026-11-20\n";
+    const mine = "## Log\n\n- 2026-11-22: 20 min\n- 2026-11-20\n";
+    const theirs = "## Log\n\n- 2026-11-21: 15 min\n- 2026-11-20\n";
+    expect(merge3(base, mine, theirs, { logs: true })).toBe("## Log\n\n- 2026-11-22: 20 min\n- 2026-11-21: 15 min\n- 2026-11-20\n");
+    expect(merge3(base, mine, theirs)).toBeNull();
+    // a clash in the text above the log is still a conflict
+    expect(merge3("A\n## Log\n", "B\n## Log\n", "C\n## Log\n", { logs: true })).toBeNull();
+  });
 });
 
 describe("sync", () => {
@@ -247,6 +256,22 @@ describe("sync", () => {
     await a.sync(gh);
     expect(gh.files().get("Notes/Mine.md")).toBe("mine\n");
     expect(a.s.readFile("Notes/Theirs.md")).toBe("theirs\n");
+  });
+
+  it("two devices log the same habit before syncing: one file with both days, no conflict copy", async () => {
+    const p = "Habits/Meditate.md";
+    gh.push({ [p]: "---\nicon: 🧘\n---\n## Log\n\n- 2026-11-20\n" });
+    const a = await device(); await a.sync(gh);
+    const b = await device(); await b.sync(gh);
+    a.s.writeFile(p, a.s.readFile(p)!.replace("## Log\n\n", "## Log\n\n- 2026-11-22\n"));
+    b.s.writeFile(p, b.s.readFile(p)!.replace("## Log\n\n", "## Log\n\n- 2026-11-21: 10 min\n"));
+    await a.sync(gh);
+    const r = await b.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    const want = "---\nicon: 🧘\n---\n## Log\n\n- 2026-11-22\n- 2026-11-21: 10 min\n- 2026-11-20\n";
+    expect(gh.files().get(p)).toBe(want);
+    await a.sync(gh);
+    expect(a.s.readFile(p)).toBe(want);
   });
 
   it("an empty vault gets everything on this device", async () => {
