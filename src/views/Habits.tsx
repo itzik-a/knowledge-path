@@ -2,10 +2,10 @@
    streaks, the last 7 days to tap, the calendar, the log, its description and topics. */
 import { useMemo, useState } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
-import { goalLabel, habitIntro } from "../../shared/habits.ts";
+import { fmtHours, goalLabel, habitIntro } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { TopicPicker } from "../components/bits";
-import { amountText, habitIcon, HabitRow, Heatmap, LogList, statsOf, WeekStrip } from "../components/habits";
+import { amountText, habitIcon, HabitRow, Heatmap, LogList, statsOf, TimerCard, WeekStrip } from "../components/habits";
 import { IconBack, IconMore, IconPlus } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { Menu, useMedia } from "../components/ui";
@@ -77,7 +77,7 @@ export function HabitPage({ d, ix }: { d: Doc; ix: Index }) {
         <div className="note-head">
           <span className="topic-icon big" aria-hidden="true">{habitIcon(d)}</span>
           <div className="grow">
-            <span className="eyebrow">{goalLabel(h.goal)}{h.unit && h.unit !== "times" ? ` · in ${h.unit}` : ""}{h.archived ? " · Archived" : ""}</span>
+            <span className="eyebrow">{goalLabel(h.goal)}{h.timer ? " · timed" : h.unit && h.unit !== "times" ? ` · in ${h.unit}` : ""}{h.archived ? " · Archived" : ""}</span>
             <h1 className="display" dir="auto">{d.title}</h1>
           </div>
           <div className="head-tools">
@@ -96,10 +96,14 @@ export function HabitPage({ d, ix }: { d: Doc; ix: Index }) {
           <div><dt>Best</dt><dd>{unitWord(s.best)}</dd></div>
           {h.goal.per === "week"
             ? <div><dt>This week</dt><dd>{s.thisWeek} of {h.goal.times}</dd></div>
-            : <div><dt>Last 30 days</dt><dd>{s.last30} days</dd></div>}
-          {h.unit && s.total30 > 0 && <div><dt>30-day total</dt><dd>{amountText(d, s.total30)}</dd></div>}
+            : <div><dt>Last 30 days</dt><dd>{s.last30} {s.last30 === 1 ? "day" : "days"}</dd></div>}
+          {h.timer
+            ? s.last30 > 0 && s.total30 > 0 && <div><dt>30-day average</dt><dd>{fmtHours(s.total30 / s.last30)}</dd></div>
+            : h.unit && s.total30 > 0 && <div><dt>30-day total</dt><dd>{amountText(d, s.total30)}</dd></div>}
         </dl>
       </section>
+
+      {h.timer && <TimerCard d={d} />}
 
       <section className="card">
         <h2>Last 7 days</h2>

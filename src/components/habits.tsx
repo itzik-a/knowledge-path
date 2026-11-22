@@ -1,29 +1,87 @@
-/* Habit pieces: the check button, the amount form, the habit rows (Home and #habits), the last-7-days strip,
-   the calendar heatmap and the log list. */
-import { useMemo, useState, type FormEvent } from "react";
+/* Habit pieces: the check button (a start / stop button for a timed habit), the amount form, the habit rows
+   (Home and #habits), a timed habit's timer card, the last-7-days strip, the calendar heatmap and the log list. */
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Doc } from "../../shared/index.ts";
-import { dayNum, dayStr, fmtAmount, goalLabel, habitStats, shiftDay, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
+import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, parseHours, parseStamp, shiftDay, stampOf, stampTime, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { longDate, medDate, parseISO, shortDate } from "../lib/dates";
 import { docHref } from "../lib/route";
-import { logHabit, unlogHabit } from "../state/actions";
-import { IconCheck, IconClose, IconEdit, IconTrash } from "./Icons";
+import { discardTimer, endTimer, logHabit, setTimerStart, startTimer, unlogHabit } from "../state/actions";
+import { IconCheck, IconClose, IconEdit, IconPlay, IconStop, IconTrash } from "./Icons";
 
 export const habitIcon = (d: Doc) => d.habit?.icon ?? "🔁";
-export const amountText = (d: Doc, n?: number) => (n == null ? "" : `${fmtAmount(n)}${d.habit?.unit && d.habit.unit !== "times" ? ` ${d.habit.unit}` : n === 1 ? " time" : " times"}`);
+export const amountText = (d: Doc, n?: number) => (n == null ? "" : d.habit?.timer ? fmtHours(n) : `${fmtAmount(n)}${d.habit?.unit && d.habit.unit !== "times" ? ` ${d.habit.unit}` : n === 1 ? " time" : " times"}`);
 const dayLabel = (date: string, today: string) => (date === today ? "today" : date === shiftDay(today, -1) ? "yesterday" : shortDate(date));
 
 /** The amount to start the form with: the usual amount, else the last one logged. */
 const startAmount = (d: Doc) => d.habit?.target ?? d.log?.find((e) => e.amount != null)?.amount;
+
+/** Hours as "16:20" (a timed habit's amounts in forms and the week strip). */
+const hm = (h: number) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`; };
+/** An amount as it goes in a form. */
+const amountInput = (d: Doc, n?: number) => (n == null ? "" : d.habit?.timer ? hm(n) : fmtAmount(n));
+/** What was typed as an amount: hours ("16:30", "16.5") for a timed habit. */
+const readAmount = (d: Doc, v: string) => {
+  if (d.habit?.timer) return parseHours(v);
+  const n = Number(v.replace(",", "."));
+  return v.trim() && Number.isFinite(n) && n > 0 ? n : undefined;
+};
+const amountChars = (v: string) => v.replace(/[^\d.,]/g, "");
+
+/** Hours and minutes as two number fields (the iPhone's number pad has no colon); the value is "16:20". */
+function HmInput({ value, onChange, label, autoFocus }: { value: string; onChange: (v: string) => void; label: string; autoFocus?: boolean }) {
+  const [h = "", m = ""] = value.split(":");
+  const set = (hh: string, mm: string) => onChange(hh || mm ? `${hh || "0"}:${mm}` : "");
+  return (
+    <span className="hm-input" role="group" aria-label={label}>
+      <input className="text-input" inputMode="numeric" autoFocus={autoFocus} onFocus={(e) => e.target.select()} value={h} placeholder="16"
+        onChange={(e) => set(e.target.value.replace(/\D/g, "").slice(0, 3), m)} aria-label="Hours" />
+      <span className="muted">h</span>
+      <input className="text-input" inputMode="numeric" onFocus={(e) => e.target.select()} value={m} placeholder="00"
+        onChange={(e) => { const x = e.target.value.replace(/\D/g, "").slice(0, 2); set(h, x && +x > 59 ? "59" : x); }} aria-label="Minutes" />
+      <span className="muted">m</span>
+    </span>
+  );
+}
+
+/** The time now, again every `ms` (not at all with 0). */
+export function useNow(ms: number): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!ms) return;
+    setNow(new Date());
+    const id = window.setInterval(() => setNow(new Date()), ms);
+    const wake = () => { if (document.visibilityState === "visible") setNow(new Date()); };
+    document.addEventListener("visibilitychange", wake);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", wake); };
+  }, [ms]);
+  return now;
+}
+
+/** "20:00", "yesterday 20:00", "tomorrow 12:00", "Fri 20:00" */
+export function whenText(t: Date, now = new Date()): string {
+  const time = t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const day = stampOf(t).slice(0, 10), today = stampOf(now).slice(0, 10);
+  if (day === today) return time;
+  if (day === shiftDay(today, -1)) return `yesterday ${time}`;
+  if (day === shiftDay(today, 1)) return `tomorrow ${time}`;
+  return `${shortDate(day)} ${time}`;
+}
 
 export function statsOf(d: Doc, today = todayISO()): HabitStats {
   return habitStats(d.habit!.goal, d.log ?? [], today);
 }
 
 /** "20 min today · 5-day streak", "2 of 3 this week · 4-week streak" */
-export function habitMeta(d: Doc, s: HabitStats, today = todayISO()): string {
+export function habitMeta(d: Doc, s: HabitStats, today = todayISO(), now = new Date()): string {
   const g = d.habit!.goal;
   const parts: string[] = [];
+  if (d.habit!.started) {
+    const el = hoursSince(d.habit!.started, now), target = d.habit!.target;
+    parts.push(target && el >= target ? `${fmtHours(el)} · goal reached` : `${fmtHours(el)}${target ? ` of ${fmtAmount(target)} h` : " so far"}`);
+    if (s.current) parts.push(`${s.current}-${s.unit} streak`);
+    return parts.join(" · ");
+  }
   const t = d.log?.find((e) => e.date === today);
   if (t?.amount != null) parts.push(`${amountText(d, t.amount)} today`);
   if (g.per === "week") parts.push(`${s.thisWeek} of ${g.times} this week`);
@@ -51,23 +109,121 @@ export function HabitCheck({ d, date, onAsk, size = "md" }: { d: Doc; date: stri
   );
 }
 
+/** A timed habit's button: start the timer, or end it (a ring around it fills toward the goal). */
+export function TimerButton({ d, now }: { d: Doc; now: Date }) {
+  const h = d.habit!;
+  if (!h.started) {
+    return (
+      <button type="button" className="habit-check timer" aria-label={`Start ${d.title}`} onClick={() => startTimer(d.path)}>
+        <IconPlay width={18} height={18} />
+      </button>
+    );
+  }
+  const el = hoursSince(h.started, now);
+  const p = h.target ? Math.min(1, el / h.target) : 0;
+  const C = 2 * Math.PI * 20;
+  return (
+    <button type="button" className={`habit-check timer running${p >= 1 ? " met" : ""}`} aria-label={`End ${d.title} (${fmtHours(el)} so far)`} onClick={() => endTimer(d.path, d.title)}>
+      <svg className="timer-ring" viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r="20" className="ring-track" />
+        {p > 0 && <circle cx="22" cy="22" r="20" className="ring-fill" strokeDasharray={`${C * p} ${C}`} transform="rotate(-90 22 22)" />}
+      </svg>
+      <IconStop width={16} height={16} />
+    </button>
+  );
+}
+
+/** A timed habit's timer on its page: how long so far, toward the goal, when it started (and changing that), End and Discard. */
+export function TimerCard({ d }: { d: Doc }) {
+  const h = d.habit!;
+  const now = useNow(h.started ? 5000 : 0);
+  const [editing, setEditing] = useState(false);
+  if (!h.started) {
+    const last = d.log?.find((e) => e.amount != null);
+    return (
+      <section className="card timer-card">
+        <div className="timer-idle">
+          <div className="grow">
+            <h2>Timer</h2>
+            <p className="muted small">{last ? `Last: ${fmtHours(last.amount!)}, ${shortDate(last.date)}` : "Start it when you begin and end it when you're done; the hours go in the log."}</p>
+          </div>
+          <button type="button" className="btn primary" onClick={() => startTimer(d.path)}><IconPlay width={16} height={16} /> Start</button>
+        </div>
+        <p className="muted small">Started earlier? Start it, then change the start time.</p>
+      </section>
+    );
+  }
+  const start = stampTime(h.started);
+  const el = hoursSince(h.started, now);
+  const target = h.target;
+  const met = !!target && el >= target;
+  const goalAt = target ? new Date(start.getTime() + target * 36e5) : undefined;
+  return (
+    <section className="card timer-card running">
+      <span className="eyebrow">Running since {whenText(start, now)}</span>
+      <div className="timer-big" aria-live="off">{fmtHours(el)}</div>
+      {target && (
+        <>
+          <div className="timer-bar" role="progressbar" aria-label="Toward the goal" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(el, target)} aria-valuetext={`${fmtHours(el)} of ${fmtAmount(target)} h`}>
+            <span style={{ width: `${Math.min(100, (el / target) * 100)}%` }} />
+          </div>
+          <p className="muted small">{met ? `Goal of ${fmtAmount(target)} h reached at ${whenText(goalAt!, now)}` : `Goal of ${fmtAmount(target)} h at ${whenText(goalAt!, now)} · ${fmtHours(target - el)} to go`}</p>
+        </>
+      )}
+      {editing && <StartForm d={d} started={h.started} onDone={() => setEditing(false)} />}
+      <div className="btn-row">
+        <button type="button" className="btn primary" onClick={() => endTimer(d.path, d.title)}><IconStop width={16} height={16} /> End</button>
+        {!editing && <button type="button" className="btn ghost sm" onClick={() => setEditing(true)}>Change start</button>}
+        <button type="button" className="btn ghost sm" onClick={() => discardTimer(d.path, d.title)}>Discard</button>
+      </div>
+    </section>
+  );
+}
+
+function StartForm({ d, started, onDone }: { d: Doc; started: string; onDone: () => void }) {
+  const [v, setV] = useState(started);
+  const max = stampOf(new Date());
+  const ok = !!parseStamp(v) && parseStamp(v)! <= max;
+  function save(e: FormEvent) {
+    e.preventDefault();
+    const s = parseStamp(v);
+    if (!s) return;
+    setTimerStart(d.path, stampTime(s));
+    onDone();
+  }
+  return (
+    <form className="form-grid sub-form" onSubmit={save}>
+      <label className="field"><span className="field-label">Started</span>
+        <input className="text-input" type="datetime-local" max={max} value={v} onChange={(e) => setV(e.target.value)} required />
+      </label>
+      <div className="btn-row">
+        <button type="submit" className="btn primary sm" disabled={!ok}>Save</button>
+        <button type="button" className="btn ghost sm" onClick={onDone}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 /** Log a day with an amount (empty is fine: the day is logged without one). */
 export function AmountForm({ d, date, initial, onDone }: { d: Doc; date: string; initial?: number; onDone: () => void }) {
-  const [v, setV] = useState(() => { const n = initial ?? startAmount(d); return n == null ? "" : fmtAmount(n); });
+  const [v, setV] = useState(() => amountInput(d, initial ?? startAmount(d)));
   const unit = d.habit?.unit && d.habit.unit !== "times" ? d.habit.unit : "times";
   function save(e: FormEvent) {
     e.preventDefault();
-    const n = Number(v.replace(",", "."));
-    logHabit(d.path, date, v.trim() && Number.isFinite(n) && n > 0 ? n : undefined);
+    logHabit(d.path, date, readAmount(d, v));
     onDone();
   }
   return (
     <form className="amount-form" onSubmit={save}>
-      <label className="amount-input">
-        <input className="text-input" inputMode="decimal" autoFocus onFocus={(e) => e.target.select()} value={v} onChange={(e) => setV(e.target.value.replace(/[^\d.,]/g, ""))}
-          aria-label={`How much (${unit}), ${dayLabel(date, todayISO())}`} placeholder="0" />
-        <span className="muted" dir="auto">{unit}</span>
-      </label>
+      {d.habit?.timer ? (
+        <span className="amount-input"><HmInput value={v} onChange={setV} autoFocus label={`How long, ${dayLabel(date, todayISO())}`} /></span>
+      ) : (
+        <label className="amount-input">
+          <input className="text-input" inputMode="decimal" autoFocus onFocus={(e) => e.target.select()} value={v} onChange={(e) => setV(amountChars(e.target.value))}
+            aria-label={`How much (${unit}), ${dayLabel(date, todayISO())}`} placeholder="0" />
+          <span className="muted" dir="auto">{unit}</span>
+        </label>
+      )}
       <button type="submit" className="btn primary sm">Log</button>
       <button type="button" className="icon-btn subtle" onClick={onDone} aria-label="Cancel"><IconClose width={18} height={18} /></button>
     </form>
@@ -78,6 +234,7 @@ export function AmountForm({ d, date, initial, onDone }: { d: Doc; date: string;
 export function HabitRow({ d, strip }: { d: Doc; strip?: boolean }) {
   const today = todayISO();
   const [asking, setAsking] = useState(false);
+  const now = useNow(d.habit?.started ? 30000 : 0);
   const s = statsOf(d, today);
   return (
     <li className="habit-item">
@@ -86,11 +243,11 @@ export function HabitRow({ d, strip }: { d: Doc; strip?: boolean }) {
           <span className="thumb emoji" aria-hidden="true">{habitIcon(d)}</span>
           <span className="item-main">
             <span className="item-title" dir="auto">{d.title}</span>
-            <span className="item-meta">{habitMeta(d, s, today)}</span>
+            <span className="item-meta">{habitMeta(d, s, today, now)}</span>
             {strip && <MiniWeek d={d} today={today} />}
           </span>
         </a>
-        <HabitCheck d={d} date={today} onAsk={() => setAsking(true)} />
+        {d.habit?.timer ? <TimerButton d={d} now={now} /> : <HabitCheck d={d} date={today} onAsk={() => setAsking(true)} />}
       </div>
       {asking && <AmountForm d={d} date={today} onDone={() => setAsking(false)} />}
     </li>
@@ -127,7 +284,7 @@ export function WeekStrip({ d }: { d: Doc }) {
               onClick={() => toggleDay(d, x, () => setAsking(x), today)}>
               <span className="wday-name">{dt.toLocaleDateString("en-GB", { weekday: "narrow" })}</span>
               <span className="wday-dot">{e ? <IconCheck width={16} height={16} /> : dt.getDate()}</span>
-              {d.habit?.unit && <span className="wday-amt">{e?.amount != null ? fmtAmount(e.amount) : ""}</span>}
+              {d.habit?.unit && <span className="wday-amt">{e?.amount != null ? (d.habit.timer ? hm(e.amount) : fmtAmount(e.amount)) : ""}</span>}
             </button>
           );
         })}
@@ -250,25 +407,26 @@ export function LogList({ d }: { d: Doc }) {
 function LogDayForm({ d, onDone }: { d: Doc; onDone: () => void }) {
   const today = todayISO();
   const [date, setDate] = useState(shiftDay(today, -1));
-  const [v, setV] = useState(() => { const n = startAmount(d); return n == null ? "" : fmtAmount(n); });
+  const [v, setV] = useState(() => amountInput(d, startAmount(d)));
   const unit = d.habit?.unit && d.habit.unit !== "times" ? d.habit.unit : "times";
   const had = d.log?.find((e) => e.date === date);
   function save(e: FormEvent) {
     e.preventDefault();
     if (!date || date > today) return;
-    const n = Number(v.replace(",", "."));
-    logHabit(d.path, date, d.habit?.unit && v.trim() && Number.isFinite(n) && n > 0 ? n : undefined);
+    logHabit(d.path, date, d.habit?.unit ? readAmount(d, v) : undefined);
     onDone();
   }
   return (
     <form className="form-grid sub-form" onSubmit={save}>
-      <div className="form-row">
+      <div className={d.habit?.timer ? "form-grid" : "form-row"}>
         <label className="field"><span className="field-label">Day</span>
           <input className="text-input" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} required />
         </label>
-        {d.habit?.unit && (
+        {d.habit?.timer ? (
+          <div className="field"><span className="field-label">How long</span><HmInput value={v} onChange={setV} label="How long" /></div>
+        ) : d.habit?.unit && (
           <label className="field"><span className="field-label">Amount ({unit})</span>
-            <input className="text-input" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="0" />
+            <input className="text-input" inputMode="decimal" value={v} onChange={(e) => setV(amountChars(e.target.value))} placeholder="0" />
           </label>
         )}
       </div>

@@ -7,6 +7,8 @@
      target: 20           (optional: the amount a day is filled in with)
      topics: ["[[Stoicism]]"]
      archived: true       (optional: hidden from Home)
+     timer: true          (optional: a timed habit, e.g. a fast; unit is h and target the goal in hours)
+     started: 2026-11-22T20:00   (a timed habit's running timer, local time; gone once it ends)
      ---
      Ten minutes every morning.
 
@@ -16,6 +18,7 @@
      - 2026-11-21
 
    Plain Markdown, so Obsidian shows it as a list. Used by the app and the enricher (no DOM or Node APIs). */
+import { setBody, setFrontmatter, splitFrontmatter } from "./vault.ts";
 
 export type Goal = { per: "day" } | { per: "week"; times: number };
 
@@ -25,6 +28,10 @@ export interface Habit {
   unit?: string;
   target?: number;
   archived: boolean;
+  /** Timed: start and stop a timer; the hours go in the log on the day it ends. */
+  timer: boolean;
+  /** A timed habit's running timer: local "YYYY-MM-DDTHH:MM". */
+  started?: string;
 }
 
 export interface LogEntry { date: string; amount?: number; line: number }
@@ -58,7 +65,68 @@ export function habitOf(fm: Record<string, unknown>): Habit {
     unit: str(fm.unit),
     target: posNum(fm.target),
     archived: fm.archived === true,
+    timer: fm.timer === true,
+    started: fm.timer === true ? parseStamp(fm.started) : undefined,
   };
+}
+
+// ── Timed habits ──────────────────────────────────────────────
+// A running timer is the frontmatter's `started:` (local time, the way Obsidian writes a "Date & time" property),
+// so every device sees it once it syncs. Ending it writes the hours to the day it ends and removes `started:`.
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const STAMP = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/;
+
+/** Local "YYYY-MM-DDTHH:MM" for a time. */
+export const stampOf = (t: Date) => `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}`;
+
+/** A start time from frontmatter ("2026-11-22T20:00", "2026-11-22 20:00:15", or a Date), normalised; else undefined. */
+export function parseStamp(v: unknown): string | undefined {
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? undefined : stampOf(v);
+  if (typeof v !== "string") return undefined;
+  const m = STAMP.exec(v.trim());
+  if (!m) return undefined;
+  const t = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  return t.getMonth() === +m[2] - 1 && +m[4] < 24 ? stampOf(t) : undefined;
+}
+
+/** The local time a stamp names. */
+export const stampTime = (s: string) => { const m = STAMP.exec(s)!; return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]); };
+
+/** Hours from a start stamp to now, to the minute (2 decimals, never negative). */
+export function hoursSince(started: string, now: Date): number {
+  const min = Math.max(0, Math.floor((now.getTime() - stampTime(started).getTime()) / 60000));
+  return Math.round((min / 60) * 100) / 100;
+}
+
+/** "16 h 20 m", "16 h", "45 m" */
+export function fmtHours(h: number): string {
+  const min = Math.round(h * 60);
+  const hh = Math.floor(min / 60), mm = min % 60;
+  return hh && mm ? `${hh} h ${mm} m` : hh ? `${hh} h` : `${mm} m`;
+}
+
+/** "16:30", "16:" or "16.5" or "16,5" as hours; undefined if it isn't one. */
+export function parseHours(s: string): number | undefined {
+  const t = s.trim();
+  const hm = /^(\d+):(\d{0,2})$/.exec(t);
+  const n = hm ? +hm[1] + (+hm[2] || 0) / 60 : /^\d+(?:[.,]\d+)?$/.test(t) ? Number(t.replace(",", ".")) : NaN;
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : undefined;
+}
+
+/** Ending a timer now: the day it goes in the log (the day it ends) and the hours. */
+export const timerEnd = (started: string, now: Date) => ({ date: stampOf(now).slice(0, 10), hours: hoursSince(started, now) });
+
+/** A timed habit's file with its running timer ended now: the hours logged on today (replacing a fast already
+    logged today) and `started:` gone. Null when no timer is running. `prev` is what today had before. */
+export function endTimerIn(text: string, now: Date): { text: string; date: string; hours: number; prev?: LogEntry } | null {
+  const { fm, body } = splitFrontmatter(text);
+  const h = habitOf(fm);
+  if (!h.started) return null;
+  const { date, hours } = timerEnd(h.started, now);
+  const prev = parseLog(body).find((e) => e.date === date);
+  const next = setFrontmatter(setBody(text, setLogEntry(body, date, hours, h.unit ?? "h")), { started: undefined });
+  return { text: next, date, hours, prev };
 }
 
 // ── The log section ───────────────────────────────────────────

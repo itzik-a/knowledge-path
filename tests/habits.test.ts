@@ -25,9 +25,9 @@ describe("habit files", () => {
   });
 
   it("read the frontmatter, all of it optional", () => {
-    expect(habitOf({})).toEqual({ icon: undefined, goal: { per: "day" }, unit: undefined, target: undefined, archived: false });
+    expect(habitOf({})).toEqual({ icon: undefined, goal: { per: "day" }, unit: undefined, target: undefined, archived: false, timer: false });
     expect(habitOf({ icon: "🧘", goal: "3/week", unit: "min", target: "20", archived: true }))
-      .toEqual({ icon: "🧘", goal: { per: "week", times: 3 }, unit: "min", target: 20, archived: true });
+      .toEqual({ icon: "🧘", goal: { per: "week", times: 3 }, unit: "min", target: 20, archived: true, timer: false });
   });
 
   it("are indexed with their log, and filed under topics", () => {
@@ -144,5 +144,53 @@ describe("the description", () => {
     expect(setHabitIntro(b, "Twenty minutes, before the phone.")).toBe("Twenty minutes, before the phone.\n\n## Log\n\n- 2026-11-22\n");
     expect(setHabitIntro(b, "")).toBe("## Log\n\n- 2026-11-22\n");
     expect(setHabitIntro("Only text", "New")).toBe("New\n\n## Log\n\n");
+  });
+});
+
+describe("timed habits (a fast)", () => {
+  it("read timer and started, only for a timed habit, and accept Obsidian's date-time forms", async () => {
+    const { parseStamp } = await import("../shared/habits.ts");
+    expect(habitOf({ timer: true, unit: "h", target: 16, started: "2026-11-22T20:00" })).toMatchObject({ timer: true, unit: "h", target: 16, started: "2026-11-22T20:00" });
+    expect(habitOf({ started: "2026-11-22T20:00" })).toMatchObject({ timer: false, started: undefined });
+    expect(parseStamp("2026-11-22 8:05:30")).toBe("2026-11-22T08:05");
+    expect(parseStamp(new Date(2026, 10, 22, 20, 0))).toBe("2026-11-22T20:00");
+    expect(parseStamp("2026-11-22")).toBeUndefined();
+    expect(parseStamp("2026-02-31T10:00")).toBeUndefined();
+    expect(parseStamp("2026-11-22T25:00")).toBeUndefined();
+    expect(parseStamp(42)).toBeUndefined();
+  });
+
+  it("count hours to the minute and write them as hours and minutes", async () => {
+    const { hoursSince, fmtHours, parseHours } = await import("../shared/habits.ts");
+    expect(hoursSince("2026-11-22T20:00", new Date(2026, 10, 23, 12, 20, 59))).toBe(16.33);
+    expect(hoursSince("2026-11-22T20:00", new Date(2026, 10, 22, 19, 0))).toBe(0);
+    expect(fmtHours(16.33)).toBe("16 h 20 m");
+    expect(fmtHours(16)).toBe("16 h");
+    expect(fmtHours(0.75)).toBe("45 m");
+    expect(parseHours("16:30")).toBe(16.5);
+    expect(parseHours("16,5")).toBe(16.5);
+    expect(parseHours("16")).toBe(16);
+    expect(parseHours("16:")).toBe(16);
+    expect(parseHours("0:45")).toBe(0.75);
+    expect(parseHours("0")).toBeUndefined();
+    expect(parseHours("abc")).toBeUndefined();
+  });
+
+  it("ending the timer logs the hours on the day it ends and removes started, keeping the rest of the file", async () => {
+    const { endTimerIn } = await import("../shared/habits.ts");
+    const file = "---\nicon: ⏳\n# my fasts\ntimer: true\nunit: h\ntarget: 16\nstarted: 2026-11-22T20:00\n---\n16:8.\n\n## Log\n\n- 2026-11-22: 15.5 h\n";
+    const r = endTimerIn(file, new Date(2026, 10, 23, 12, 30))!;
+    expect(r).toMatchObject({ date: "2026-11-23", hours: 16.5, prev: undefined });
+    expect(r.text).toBe("---\nicon: ⏳\n# my fasts\ntimer: true\nunit: h\ntarget: 16\n---\n16:8.\n\n## Log\n\n- 2026-11-23: 16.5 h\n- 2026-11-22: 15.5 h\n");
+    const again = endTimerIn(r.text.replace("target: 16\n", "target: 16\nstarted: 2026-11-23T13:00\n"), new Date(2026, 10, 23, 15, 0))!;
+    expect(again.prev).toMatchObject({ date: "2026-11-23", amount: 16.5 });
+    expect(again.text).toContain("- 2026-11-23: 2 h\n");
+    expect(endTimerIn(r.text, new Date())).toBeNull();
+  });
+
+  it("a timed habit indexes like any other, its log in hours", () => {
+    const d = parseDoc("Habits/Fast.md", "---\ntimer: true\nunit: h\ntarget: 16\nstarted: 2026-11-22T20:00\n---\n## Log\n\n- 2026-11-22: 16.33 h\n");
+    expect(d.habit).toMatchObject({ timer: true, started: "2026-11-22T20:00", target: 16 });
+    expect(d.log).toEqual([{ date: "2026-11-22", amount: 16.33, line: 2 }]);
   });
 });

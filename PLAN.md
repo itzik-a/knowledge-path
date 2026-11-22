@@ -12,7 +12,7 @@ My knowledge hub: every topic I'm interested in, with the material I collect for
 | **Journal entry** | A daily note; shows up under every topic it links to | 2026-11-21 mentions `[[Stoicism]]` → on the Stoicism page |
 | **Highlight** | A quote or passage from a resource, with my comment | |
 | **Study path** | An ordered checklist of resources, notes and tasks | "Intro to Stoicism" |
-| **Habit** | Something to do every day or N times a week, with a log of the days done (and an amount, if it has a unit) | Meditate, 10 min a day |
+| **Habit** | Something to do every day or N times a week, with a log of the days done (and an amount, if it has a unit), or a timer whose hours go in the log | Meditate, 10 min a day; a 16-hour fast |
 | **Inbox** | Resources and notes with no topic yet | A link shared from the iPhone |
 
 An item is in a topic when its `topics:` property names it, when it links to the topic's note (`[[Stoicism]]`), or when it has the topic's tag (`#stoicism`). Linking is how journal entries and loose notes get filed without extra work.
@@ -28,7 +28,7 @@ Resources/Meditations.md             frontmatter: type, url, author, topics, sta
                                      body: my notes, then a "## Highlights" section of > quotes
 Journal/2026/2026-11-21.md           daily notes
 Paths/Intro to Stoicism.md           - [ ] [[Meditations]]: books 2–4
-Habits/Meditate.md                   frontmatter: icon, goal (daily | 3/week), unit, target, topics, archived
+Habits/Meditate.md                   frontmatter: icon, goal (daily | 3/week), unit, target, topics, archived; a timed habit: timer: true, unit: h, started: 2026-11-22T20:00 while running
                                      body: a description, then a "## Log" list: - 2026-11-22: 20 min
 Notes/…                              everything else
 .hub/articles/…, .hub/explore/…      app data (saved article text, explore results); hidden in Obsidian
@@ -59,6 +59,7 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 7. **Enrichment** (GitHub Actions in the vault + Claude Haiku 5.5): title, author, image, readable article text, a summary, suggested topics; renames captured links to their title.
 8. **Study & explore**: highlights, study paths, the daily highlight, Explore a topic with Claude (map, key people, timeline, what to read next).
 9. **Habits**: habits with a daily or weekly goal and an optional amount; check off today on Home; #habits; a habit's page with streaks, the last 7 days, a calendar heatmap and the log (backfill, change, remove with Undo); habits on topic pages and on the journal day they were logged; two devices' logs merge without a conflict copy.
+10. **Timed habits** (a fasting tracker): a habit whose log is a timer: start it (Home, #habits or its page), see the time so far toward a goal in hours, change when it started, end it (the hours go in the log on the day it ends, with Undo) or discard it. The running timer is `started:` in the frontmatter, so both devices see it. Later: a notification when the goal is reached (needs Web Push from a server; a Home Screen web app can't schedule local alerts).
 
 Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dark, Hebrew/English per line; 35 tests (vault format, two-device sync against a fake GitHub, enricher helpers); a real round trip with the private vault (connect, push, pull, merge of neighbouring-line edits, conflict copy, removals); the enricher on a scratch vault (SEP article, YouTube, Hebrew Wikipedia) and its Claude calls against a mock API. Live at https://itzik-a.github.io/knowledge-path/; a real enricher run in Actions checked. Not yet: the `ANTHROPIC_API_KEY` secret in the vault.
 

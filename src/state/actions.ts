@@ -5,7 +5,7 @@ import {
   addHighlight as addHl, FOLDER, journalPath, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
-import { fmtAmount, goalText, habitOf, newHabitBody, parseLog, setLogEntry, type Goal } from "../../shared/habits.ts";
+import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
 import { allRecords, exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
@@ -159,13 +159,13 @@ export async function deleteDocs(paths: string[], label?: string): Promise<boole
 }
 
 // ── habits ────────────────────────────────────────────────────
-export interface HabitFields { name: string; icon?: string; goal: Goal; unit?: string; target?: number; topics: string[]; description?: string }
+export interface HabitFields { name: string; icon?: string; goal: Goal; unit?: string; target?: number; timer?: boolean; topics: string[]; description?: string }
 
 export function createHabit(f: HabitFields): string {
   const path = uniquePath(FOLDER.habits, f.name, taken);
   const fm = {
     title: safeName(f.name) !== f.name.trim() ? f.name.trim() : undefined,
-    icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined,
+    icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined,
     topics: f.topics.map(topicLink), created: todayISO(),
   };
   writeFile(path, setFrontmatter("", fm) + newHabitBody(f.description));
@@ -175,8 +175,50 @@ export function createHabit(f: HabitFields): string {
 /** Edit a habit's settings (renaming the file when the name changes). Returns its path. */
 export function updateHabit(path: string, f: Omit<HabitFields, "description" | "topics">): string {
   const next = retitle(path, f.name);
-  patch(next, { icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined });
+  patch(next, { icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined, ...(f.timer ? {} : { started: undefined }) });
   return next;
+}
+
+// ── timed habits ──────────────────────────────────────────────
+/** Start a timed habit's timer (now, or at a given time). */
+export function startTimer(path: string, at = new Date()) {
+  patch(path, { started: stampOf(at) });
+}
+
+/** Move a running timer's start (never into the future). */
+export function setTimerStart(path: string, at: Date) {
+  patch(path, { started: stampOf(new Date(Math.min(at.getTime(), Date.now()))) });
+}
+
+/** End the timer: its hours go in today's log line. Undo puts the timer back and today's line as it was. */
+export function endTimer(path: string, title: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  const r = endTimerIn(c, new Date());
+  if (!r) return;
+  const started = habitOf(splitFrontmatter(c).fm).started!;
+  if (r.hours <= 0) { patch(path, { started: undefined }); showToast(`${title}: under a minute, not logged`, { label: "Undo", run: () => patch(path, { started }) }); return; }
+  writeFile(path, r.text);
+  showToast(`${title}: ${fmtHours(r.hours)} logged`, {
+    label: "Undo",
+    run: () => {
+      const now = readFile(path);
+      if (now == null) return;
+      const { body } = splitFrontmatter(now);
+      const unit = habitOf(splitFrontmatter(now).fm).unit;
+      writeFile(path, setFrontmatter(setBody(now, setLogEntry(body, r.date, r.prev ? r.prev.amount : null, unit)), { started }));
+    },
+  });
+}
+
+/** Stop the timer without logging it, with Undo. */
+export function discardTimer(path: string, title: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  const started = habitOf(splitFrontmatter(c).fm).started;
+  if (!started) return;
+  patch(path, { started: undefined });
+  showToast(`${title}: timer discarded`, { label: "Undo", run: () => patch(path, { started }) });
 }
 
 /** Log a day (or change its amount). */
@@ -195,8 +237,9 @@ export function unlogHabit(path: string, date: string, label?: string) {
   const was = parseLog(body).find((e) => e.date === date);
   if (!was) return;
   writeFile(path, setBody(c, setLogEntry(body, date, null)));
-  const unit = habitOf(splitFrontmatter(c).fm).unit;
-  showToast(`Removed ${label ?? date}${was.amount != null ? ` (${fmtAmount(was.amount)}${unit ? ` ${unit}` : ""})` : ""}`, { label: "Undo", run: () => logHabit(path, date, was.amount) });
+  const h = habitOf(splitFrontmatter(c).fm);
+  const amt = was.amount == null ? "" : h.timer ? fmtHours(was.amount) : `${fmtAmount(was.amount)}${h.unit ? ` ${h.unit}` : ""}`;
+  showToast(`Removed ${label ?? date}${amt ? ` (${amt})` : ""}`, { label: "Undo", run: () => logHabit(path, date, was.amount) });
 }
 
 export function setArchived(path: string, archived: boolean) {

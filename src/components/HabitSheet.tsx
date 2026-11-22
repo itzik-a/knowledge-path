@@ -1,5 +1,6 @@
-/* Add or edit a habit: icon, name, how often (every day, or some times a week), an optional amount to log
-   (a unit like "min" or "pages", and the usual amount), topics and a line about it when adding. */
+/* Add or edit a habit: icon, name, how often (every day, or some times a week), what to log (just the day,
+   an amount with a unit like "min" or "pages" and the usual amount, or a timer with a goal in hours, e.g. a fast),
+   topics and a line about it when adding. */
 import { useRef, useState, type FormEvent } from "react";
 import { habitIntro, setHabitIntro, type Goal } from "../../shared/habits.ts";
 import { splitFrontmatter } from "../../shared/vault.ts";
@@ -17,8 +18,8 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
   const [icon, setIcon] = useState(h?.icon ?? "");
   const [per, setPer] = useState<"day" | "week">(h?.goal.per ?? "day");
   const [times, setTimes] = useState(h?.goal.per === "week" ? h.goal.times : 3);
-  const [amounts, setAmounts] = useState(!!h?.unit);
-  const [unit, setUnit] = useState(h?.unit ?? "");
+  const [mode, setMode] = useState<"day" | "amount" | "timer">(h?.timer ? "timer" : h?.unit ? "amount" : "day");
+  const [unit, setUnit] = useState(h?.timer ? "" : h?.unit ?? "");
   const [target, setTarget] = useState(h?.target != null ? String(h.target) : "");
   const [topics, setTopics] = useState<string[]>(startTopics ?? []);
   const [desc, setDesc] = useState(d ? habitIntro(d.body) : "");
@@ -29,9 +30,9 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
     e.preventDefault();
     if (!name.trim()) { setErr("Give it a name."); return; }
     const goal: Goal = per === "day" ? { per: "day" } : { per: "week", times };
-    const u = amounts ? unit.trim() || "times" : undefined;
+    const u = mode === "timer" ? "h" : mode === "amount" ? unit.trim() || "times" : undefined;
     const tn = Number(target.replace(",", "."));
-    const fields = { name: name.trim(), icon: icon.trim() || undefined, goal, unit: u, target: u && target.trim() && Number.isFinite(tn) && tn > 0 ? tn : undefined };
+    const fields = { name: name.trim(), icon: icon.trim() || undefined, goal, unit: u, target: u && target.trim() && Number.isFinite(tn) && tn > 0 ? tn : undefined, timer: mode === "timer" };
     if (d) {
       const next = updateHabit(d.path, fields);
       const c = readFile(next);
@@ -62,11 +63,18 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
           {per === "week" && <Stepper label="Times a week" value={times} onChange={setTimes} min={1} max={6} step={1} />}
         </div>
         <div className="field">
-          <label className="switch-row">
-            <input type="checkbox" className="task-box" checked={amounts} onChange={(e) => setAmounts(e.target.checked)} />
-            <span>Log an amount each time <span className="muted small">(minutes, pages, km…)</span></span>
-          </label>
-          {amounts && (
+          <span className="field-label">What to log</span>
+          <Seg<"day" | "amount" | "timer"> label="What to log" value={mode} onChange={setMode} options={[{ id: "day", label: "The day" }, { id: "amount", label: "An amount" }, { id: "timer", label: "A timer" }]} />
+          {mode === "amount" && <p className="muted small">Minutes, pages, km… each time you log.</p>}
+          {mode === "timer" && (
+            <>
+              <p className="muted small">Start it, then end it, e.g. a fast. The hours go in the log on the day it ends.</p>
+              <Field label="Goal in hours" hint="Optional, e.g. 16 for 16:8.">
+                <input className="text-input" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="16" />
+              </Field>
+            </>
+          )}
+          {mode === "amount" && (
             <div className="form-row">
               <Field label="Unit">
                 <input className="text-input" dir="auto" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="min" autoCapitalize="off" />
