@@ -16,7 +16,7 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
   const h = d?.habit;
   const [name, setName] = useState(d?.title ?? "");
   const [icon, setIcon] = useState(h?.icon ?? "");
-  const [per, setPer] = useState<"day" | "week">(h?.goal.per ?? "day");
+  const [per, setPer] = useState<"day" | "week" | "any">(h?.goal.per ?? "day");
   const [times, setTimes] = useState(h?.goal.per === "week" ? h.goal.times : 3);
   const [mode, setMode] = useState<"day" | "amount" | "timer">(h?.timer ? "timer" : h?.unit ? "amount" : "day");
   const [unit, setUnit] = useState(h?.timer ? "" : h?.unit ?? "");
@@ -29,7 +29,7 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
   function save(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setErr("Give it a name."); return; }
-    const goal: Goal = per === "day" ? { per: "day" } : { per: "week", times };
+    const goal: Goal = per === "week" ? { per: "week", times } : { per };
     const u = mode === "timer" ? "h" : mode === "amount" ? unit.trim() || "times" : undefined;
     const tn = Number(target.replace(",", "."));
     const fields = { name: name.trim(), icon: icon.trim() || undefined, goal, unit: u, target: u && target.trim() && Number.isFinite(tn) && tn > 0 ? tn : undefined, timer: mode === "timer" };
@@ -59,7 +59,8 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
         </div>
         <div className="field">
           <span className="field-label">How often</span>
-          <Seg<"day" | "week"> label="How often" value={per} onChange={setPer} options={[{ id: "day", label: "Every day" }, { id: "week", label: "Times a week" }]} />
+          <Seg<"day" | "week" | "any"> label="How often" value={per} onChange={setPer} options={[{ id: "day", label: "Every day" }, { id: "week", label: "Times a week" }, { id: "any", label: "Whenever" }]} />
+          {per === "any" && <p className="muted small">No schedule: log it when you do it. No streak, and it's never due on Home.</p>}
           {per === "week" && <Stepper label="Times a week" value={times} onChange={setTimes} min={1} max={6} step={1} />}
         </div>
         <div className="field">

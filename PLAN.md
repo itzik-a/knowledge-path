@@ -12,7 +12,7 @@ My knowledge hub: every topic I'm interested in, with the material I collect for
 | **Journal entry** | A daily note; shows up under every topic it links to | 2026-11-21 mentions `[[Stoicism]]` → on the Stoicism page |
 | **Highlight** | A quote or passage from a resource, with my comment | |
 | **Study path** | An ordered checklist of resources, notes and tasks | "Intro to Stoicism" |
-| **Habit** | Something to do every day or N times a week, with a log of the days done (and an amount, if it has a unit), or a timer whose hours go in the log | Meditate, 10 min a day; a 16-hour fast |
+| **Habit** | Something to do every day, N times a week or whenever, with a log of the days done (and an amount, if it has a unit), or a timer whose hours go in the log | Meditate, 10 min a day; a 16-hour fast |
 | **Inbox** | Resources and notes with no topic yet | A link shared from the iPhone |
 
 An item is in a topic when its `topics:` property names it, when it links to the topic's note (`[[Stoicism]]`), or when it has the topic's tag (`#stoicism`). Linking is how journal entries and loose notes get filed without extra work.
@@ -28,7 +28,7 @@ Resources/Meditations.md             frontmatter: type, url, author, topics, sta
                                      body: my notes, then a "## Highlights" section of > quotes
 Journal/2026/2026-11-21.md           daily notes
 Paths/Intro to Stoicism.md           - [ ] [[Meditations]]: books 2–4
-Habits/Meditate.md                   frontmatter: icon, goal (daily | 3/week), unit, target, topics, archived; a timed habit: timer: true, unit: h, started: 2026-11-22T20:00 while running
+Habits/Meditate.md                   frontmatter: icon, goal (daily | 3/week | whenever), unit, target, topics, archived; a timed habit: timer: true, unit: h, started: 2026-11-22T20:00 while running
                                      body: a description, then a "## Log" list: - 2026-11-22: 20 min
 Notes/…                              everything else
 .hub/articles/…, .hub/explore/…      app data (saved article text, explore results); hidden in Obsidian

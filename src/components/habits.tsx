@@ -72,7 +72,7 @@ export function statsOf(d: Doc, today = todayISO()): HabitStats {
   return habitStats(d.habit!.goal, d.log ?? [], today);
 }
 
-/** "20 min today · 5-day streak", "2 of 3 this week · 4-week streak" */
+/** "20 min today · 5-day streak", "2 of 3 this week · 4-week streak", "Last: 16 h, yesterday · 2 this week" */
 export function habitMeta(d: Doc, s: HabitStats, today = todayISO(), now = new Date()): string {
   const g = d.habit!.goal;
   const parts: string[] = [];
@@ -80,6 +80,14 @@ export function habitMeta(d: Doc, s: HabitStats, today = todayISO(), now = new D
     const el = hoursSince(d.habit!.started, now), target = d.habit!.target;
     parts.push(target && el >= target ? `${fmtHours(el)} · goal reached` : `${fmtHours(el)}${target ? ` of ${fmtAmount(target)} h` : " so far"}`);
     if (s.current) parts.push(`${s.current}-${s.unit} streak`);
+    return parts.join(" · ");
+  }
+  if (g.per === "any") {
+    const last = d.log?.find((e) => e.date <= today);
+    if (last?.date === today) parts.push(last.amount != null ? `${amountText(d, last.amount)} today` : "Done today");
+    else if (last) parts.push(`Last: ${last.amount != null ? `${amountText(d, last.amount)}, ` : ""}${dayLabel(last.date, today)}`);
+    else parts.push("Whenever");
+    if (s.thisWeek) parts.push(`${s.thisWeek} this week`);
     return parts.join(" · ");
   }
   const t = d.log?.find((e) => e.date === today);

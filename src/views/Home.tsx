@@ -40,7 +40,9 @@ export function Home() {
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const allHabits = useMemo(() => habitsOf(ix), [ix]);
   const habits = allHabits.filter((d) => !d.habit!.archived);
-  const habitsDone = habits.filter((d) => d.log?.some((e) => e.date === today)).length;
+  // a habit with no schedule ("whenever") is never due, so it isn't counted in "N of M today"
+  const due = habits.filter((d) => d.habit!.goal.per !== "any");
+  const habitsDone = due.filter((d) => d.log?.some((e) => e.date === today)).length;
 
   return (
     <>
@@ -62,7 +64,7 @@ export function Home() {
       {habits.length > 0 ? (
         <section className="card">
           <div className="card-head">
-            <h2>Habits <span className="muted">· {habitsDone} of {habits.length} today</span></h2>
+            <h2>Habits{due.length > 0 && <span className="muted"> · {habitsDone} of {due.length} today</span>}</h2>
             <a className="link" href="#habits">All</a>
           </div>
           <ul className="item-list habit-list">{habits.map((d) => <HabitRow key={d.path} d={d} />)}</ul>

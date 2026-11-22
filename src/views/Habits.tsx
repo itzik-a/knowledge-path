@@ -92,8 +92,12 @@ export function HabitPage({ d, ix }: { d: Doc; ix: Index }) {
         <TopicPicker value={named} onChange={(ids) => setTopics(d.path, ids)} fixed={fixed} />
 
         <dl className="stat-row">
-          <div><dt>Streak</dt><dd>{unitWord(s.current)}</dd></div>
-          <div><dt>Best</dt><dd>{unitWord(s.best)}</dd></div>
+          {h.goal.per === "any"
+            ? <div><dt>This week</dt><dd>{s.thisWeek}</dd></div>
+            : <>
+              <div><dt>Streak</dt><dd>{unitWord(s.current)}</dd></div>
+              <div><dt>Best</dt><dd>{unitWord(s.best)}</dd></div>
+            </>}
           {h.goal.per === "week"
             ? <div><dt>This week</dt><dd>{s.thisWeek} of {h.goal.times}</dd></div>
             : <div><dt>Last 30 days</dt><dd>{s.last30} {s.last30 === 1 ? "day" : "days"}</dd></div>}

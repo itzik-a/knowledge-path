@@ -21,7 +21,9 @@ describe("habit files", () => {
     expect(parseGoal("4 per week")).toEqual({ per: "week", times: 4 });
     expect(parseGoal("weekly")).toEqual({ per: "week", times: 1 });
     expect(parseGoal("9/week")).toEqual({ per: "day" });
-    expect(parseGoal("whenever")).toEqual({ per: "day" });
+    expect(parseGoal("whenever")).toEqual({ per: "any" });
+    expect(parseGoal("Anytime")).toEqual({ per: "any" });
+    expect(parseGoal("sometimes")).toEqual({ per: "day" });
   });
 
   it("read the frontmatter, all of it optional", () => {
@@ -128,6 +130,11 @@ describe("streaks", () => {
     const l = log("2026-11-20", "2026-11-13", "2026-11-10", "2026-11-08", "2026-11-04", "2026-11-02");
     expect(habitStats(goal, l, today)).toMatchObject({ current: 2, best: 2, unit: "week", thisWeek: 1 });
     expect(habitStats(goal, [...l, { date: "2026-11-21", line: 9 }], today)).toMatchObject({ current: 3, best: 3, thisWeek: 2 });
+  });
+
+  it("whenever: no streak, still counts this week and the last 30 days", () => {
+    const l: LogEntry[] = [{ date: "2026-11-21", amount: 16, line: 0 }, { date: "2026-11-18", amount: 14.5, line: 1 }, { date: "2026-11-10", amount: 18, line: 2 }];
+    expect(habitStats({ per: "any" }, l, today)).toMatchObject({ current: 0, best: 0, doneToday: false, thisWeek: 2, last30: 3, total30: 48.5 });
   });
 
   it("sums amounts over the last 30 days, and ignores days after today", () => {

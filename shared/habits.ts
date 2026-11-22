@@ -2,7 +2,7 @@
 
      ---
      icon: 🧘
-     goal: daily          (or "3/week"; daily when missing)
+     goal: daily          (or "3/week", or "whenever" for no schedule; daily when missing)
      unit: min            (optional: each day can log an amount)
      target: 20           (optional: the amount a day is filled in with)
      topics: ["[[Stoicism]]"]
@@ -20,7 +20,8 @@
    Plain Markdown, so Obsidian shows it as a list. Used by the app and the enricher (no DOM or Node APIs). */
 import { setBody, setFrontmatter, splitFrontmatter } from "./vault.ts";
 
-export type Goal = { per: "day" } | { per: "week"; times: number };
+/** Every day, N times a week, or whenever (no schedule: nothing is due and there is no streak, e.g. a fast). */
+export type Goal = { per: "day" } | { per: "week"; times: number } | { per: "any" };
 
 export interface Habit {
   icon?: string;
@@ -42,11 +43,12 @@ const posNum = (v: unknown) => {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 };
 
-/** "daily", "3/week", "3 per week", "weekly" (once a week). Anything else is daily. */
+/** "daily", "3/week", "3 per week", "weekly" (once a week), "whenever" / "anytime" (no schedule). Anything else is daily. */
 export function parseGoal(v: unknown): Goal {
   if (typeof v !== "string") return { per: "day" };
   const s = v.trim().toLowerCase();
   if (s === "weekly") return { per: "week", times: 1 };
+  if (s === "whenever" || s === "anytime" || s === "any") return { per: "any" };
   const m = /^(\d+)\s*(?:\/|x|times?(?:\s+(?:a|per))?|per)\s*w(?:ee)?k$/.exec(s);
   if (m) {
     const times = Math.round(Number(m[1]));
@@ -55,8 +57,8 @@ export function parseGoal(v: unknown): Goal {
   return { per: "day" };
 }
 
-export const goalText = (g: Goal) => (g.per === "day" ? "daily" : `${g.times}/week`);
-export const goalLabel = (g: Goal) => (g.per === "day" ? "Every day" : g.times === 1 ? "Once a week" : `${g.times} times a week`);
+export const goalText = (g: Goal) => (g.per === "day" ? "daily" : g.per === "any" ? "whenever" : `${g.times}/week`);
+export const goalLabel = (g: Goal) => (g.per === "day" ? "Every day" : g.per === "any" ? "Whenever" : g.times === 1 ? "Once a week" : `${g.times} times a week`);
 
 export function habitOf(fm: Record<string, unknown>): Habit {
   return {
@@ -240,7 +242,7 @@ export const shiftDay = (d: string, n: number) => dayStr(dayNum(d) + n);
 export const weekOf = (d: string) => { const n = dayNum(d); return dayStr(n - ((new Date(n * 864e5).getUTCDay() + 6) % 7)); };
 
 export interface HabitStats {
-  /** In days for a daily habit, in weeks for a weekly one. */
+  /** In days for a daily habit, in weeks for a weekly one; always 0 for a habit with no schedule. */
   current: number;
   best: number;
   unit: "day" | "week";
@@ -266,6 +268,8 @@ export function habitStats(goal: Goal, log: LogEntry[], today: string): HabitSta
   let thisWeek = 0;
   for (let n = mon; n <= t; n++) if (days.has(dayStr(n))) thisWeek++;
   const doneToday = days.has(today);
+
+  if (goal.per === "any") return { current: 0, best: 0, unit: "day", doneToday, thisWeek, last30, total30 };
 
   if (goal.per === "day") {
     // still going if today isn't logged yet but yesterday was
