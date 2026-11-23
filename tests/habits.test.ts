@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  habitOf, habitStats, isLogLine, mergeLogLines, newHabitBody, parseGoal, parseLog, setLogEntry, weekOf, type LogEntry,
+  addToLog, habitOf, habitStats, isLogLine, isMinutesHabit, isMinutesUnit, mergeLogLines, newHabitBody, parseGoal, parseLog, setLogEntry, weekOf, type LogEntry,
 } from "../shared/habits.ts";
 import { buildIndex, itemsIn, parseDoc, type Doc } from "../shared/index.ts";
 import { kindOf } from "../shared/vault.ts";
@@ -199,5 +199,27 @@ describe("timed habits (a fast)", () => {
     const d = parseDoc("Habits/Fast.md", "---\ntimer: true\nunit: h\ntarget: 16\nstarted: 2026-11-22T20:00\n---\n## Log\n\n- 2026-11-22: 16.33 h\n");
     expect(d.habit).toMatchObject({ timer: true, started: "2026-11-22T20:00", target: 16 });
     expect(d.log).toEqual([{ date: "2026-11-22", amount: 16.33, line: 2 }]);
+  });
+});
+
+describe("session timer", () => {
+  it("is for habits counted in minutes", () => {
+    for (const u of ["min", "mins", "Minutes", "minute", "m", "דקות", "דק׳"]) expect(isMinutesUnit(u), u).toBe(true);
+    for (const u of [undefined, "", "h", "pages", "times", "km"]) expect(isMinutesUnit(u), String(u)).toBe(false);
+    expect(isMinutesHabit({ timer: false, unit: "min" })).toBe(true);
+    expect(isMinutesHabit({ timer: true, unit: "h" })).toBe(false);
+  });
+  it("adds a session to the day's minutes", () => {
+    const body = "Sit.\n\n## Log\n\n- 2026-11-23: 10 min\n";
+    const a = addToLog(body, "2026-11-24", 10, "min");
+    expect(a.prev).toBeUndefined();
+    expect(a.body).toBe("Sit.\n\n## Log\n\n- 2026-11-24: 10 min\n- 2026-11-23: 10 min\n");
+    const b = addToLog(a.body, "2026-11-24", 15, "min");
+    expect(b.prev?.amount).toBe(10);
+    expect(parseLog(b.body).find((e) => e.date === "2026-11-24")?.amount).toBe(25);
+    // a day logged without an amount gets the session's minutes
+    const c = addToLog("## Log\n\n- 2026-11-24\n", "2026-11-24", 12, "min");
+    expect(c.body).toBe("## Log\n\n- 2026-11-24: 12 min\n");
+    expect(c.prev?.amount).toBeUndefined();
   });
 });

@@ -207,6 +207,18 @@ export function setLogEntry(body: string, date: string, amount: number | undefin
   return out.endsWith("\n") ? out : out + "\n";
 }
 
+/** A unit that means minutes ("min", "minutes", "דקות"…): such a habit gets the session timer. */
+export const isMinutesUnit = (unit?: string) => !!unit && /^(m|mins?|minutes?|דק(ה|ות)?[׳'.]?)$/i.test(unit.trim());
+/** A habit counted in minutes (not a timed habit, whose unit is hours). */
+export const isMinutesHabit = (h?: Pick<Habit, "timer" | "unit">) => !!h && !h.timer && isMinutesUnit(h.unit);
+
+/** Add an amount to a day (two sessions in a day add up); a day logged without an amount gets this one.
+    `prev` is what the day had before (to undo), undefined when it wasn't logged. */
+export function addToLog(body: string, date: string, amount: number, unit?: string): { body: string; prev?: LogEntry } {
+  const prev = parseLog(body).find((e) => e.date === date);
+  return { body: setLogEntry(body, date, (prev?.amount ?? 0) + amount, unit), prev };
+}
+
 /** Merge two devices' versions of the same run of log lines (from a three-way merge's clash): every day either
     side logged stays, a day either side removed goes, and a day both changed keeps mine. Null if the run has
     anything other than log lines and blanks. */

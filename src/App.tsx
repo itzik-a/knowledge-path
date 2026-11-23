@@ -14,11 +14,14 @@ import { Toast } from "./components/Toast";
 const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
 const CookMode = lazy(() => import("./components/CookMode").then((m) => ({ default: m.CookMode })));
 const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ default: m.TimerDock })));
+const SitMode = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
+const SitDock = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
 import { TopicSheet } from "./components/TopicSheet";
 import { readHash, topicHref, type Route } from "./lib/route";
 import { PrivateSheet } from "./components/PrivateNotes";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useTimers } from "./lib/timers";
+import { useSit } from "./state/sit";
 import { useVault } from "./state/store";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
@@ -59,6 +62,8 @@ export function App() {
   const { ready, index: ix } = useVault();
   const sheet = useSheet();
   const hasTimers = useTimers().length > 0;
+  // a session timer (its clock runs from src/state/sit.ts, loaded here, even with its screen closed)
+  const hasSit = !!useSit();
 
   useEffect(() => {
     const on = () => setRoute((prev) => {
@@ -172,7 +177,9 @@ export function App() {
       {sheet?.kind === "private" && <PrivateSheet then={sheet.then} onClose={closeSheetReq} />}
       {sheet?.kind === "shop" && <ShoppingSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "cook" && <Suspense fallback={null}><CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
-      {sheet?.kind !== "cook" && hasTimers && <Suspense fallback={null}><TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} /></Suspense>}
+      {sheet?.kind === "sit" && <Suspense fallback={null}><SitMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
+      {sheet?.kind !== "sit" && hasSit && <Suspense fallback={null}><SitDock onOpen={(path) => openSheet({ kind: "sit", path })} /></Suspense>}
+      {sheet?.kind !== "cook" && !hasSit && hasTimers && <Suspense fallback={null}><TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} /></Suspense>}
       {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
 
       <nav className="tabbar" aria-label="Sections">

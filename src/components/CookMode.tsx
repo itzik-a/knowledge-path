@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { parseRecipe, type FoundTime } from "../../shared/recipes.ts";
 import { todayISO } from "../../shared/vault.ts";
+import { useWakeLock } from "../lib/wakelock";
 import { addMinute, fmtLeft, leftOf, pauseTimer, removeTimer, resumeTimer, startTimer, unlockAudio, useTimers, type KitchenTimer } from "../lib/timers";
 import { logCooked } from "../state/actions";
 import { useIndex } from "../state/store";
@@ -40,7 +41,6 @@ export function CookMode({ path, onClose }: { path: string; onClose: () => void 
   const [pane, setPane] = useState<"ingredients" | "steps">(saved || !ingCount ? "steps" : "ingredients");
   const [finishing, setFinishing] = useState(false);
   const [note, setNote] = useState("");
-  const [awake, setAwake] = useState(false);
   const dlg = useRef<HTMLDialogElement>(null);
   const today = todayISO();
 
@@ -51,23 +51,7 @@ export function CookMode({ path, onClose }: { path: string; onClose: () => void 
   }, [path, step, ing]);
 
   // the screen stays on while cooking
-  useEffect(() => {
-    let lock: WakeLockSentinel | null = null;
-    let live = true;
-    const get = async () => {
-      if (!("wakeLock" in navigator) || document.visibilityState !== "visible" || (lock && !lock.released)) return;
-      try {
-        lock = await navigator.wakeLock.request("screen");
-        if (!live) { void lock.release(); return; }
-        setAwake(true);
-        lock.addEventListener("release", () => setAwake(false));
-      } catch { setAwake(false); }
-    };
-    void get();
-    const vis = () => { if (live) void get(); };
-    document.addEventListener("visibilitychange", vis);
-    return () => { live = false; document.removeEventListener("visibilitychange", vis); void lock?.release(); };
-  }, []);
+  const awake = useWakeLock();
 
   const go = (n: number) => { setFinishing(false); setStep(Math.max(0, Math.min(steps.length - 1, n))); };
   const next = () => { if (step < steps.length - 1) go(step + 1); else setFinishing(true); };

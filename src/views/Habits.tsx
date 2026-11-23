@@ -2,10 +2,10 @@
    streaks, the last 7 days to tap, the calendar, the log, its description and topics. */
 import { useMemo, useState } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
-import { fmtHours, goalLabel, habitIntro } from "../../shared/habits.ts";
+import { fmtHours, goalLabel, habitIntro, isMinutesHabit } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { TopicPicker } from "../components/bits";
-import { amountText, habitIcon, HabitRow, Heatmap, LogList, statsOf, TimerCard, WeekStrip } from "../components/habits";
+import { amountText, habitIcon, HabitRow, Heatmap, LogList, SessionCard, statsOf, TimerCard, WeekStrip } from "../components/habits";
 import { IconBack, IconMore, IconPlus } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { Menu, useMedia } from "../components/ui";
@@ -108,6 +108,7 @@ export function HabitPage({ d, ix }: { d: Doc; ix: Index }) {
       </section>
 
       {h.timer && <TimerCard d={d} />}
+      {isMinutesHabit(h) && <SessionCard d={d} />}
 
       <section className="card">
         <h2>Last 7 days</h2>

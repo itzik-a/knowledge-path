@@ -74,6 +74,9 @@ export function unlockAudio() {
   } catch { /* no audio */ }
 }
 
+/** The shared AudioContext, once a tap has started it (the session timer's bell plays through it too). */
+export const audioContext = () => ctx;
+
 function beep() {
   if (!ctx) return;
   const t0 = ctx.currentTime;

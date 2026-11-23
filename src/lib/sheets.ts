@@ -1,4 +1,5 @@
-/* Which sheet is open (one at a time), so any view can open the capture, topic, habit, search, vault, sketch or private-notes sheet. */
+/* Which sheet is open (one at a time), so any view can open the capture, topic, habit, search, vault, sketch,
+   private-notes, cook, shopping or session-timer sheet. */
 import { useSyncExternalStore } from "react";
 import type { CaptureInit } from "../components/CaptureSheet";
 
@@ -15,7 +16,9 @@ export type SheetReq =
   /** cook a recipe, full screen */
   | { kind: "cook"; path: string }
   /** add a recipe's ingredients to the shopping list */
-  | { kind: "shop"; path: string };
+  | { kind: "shop"; path: string }
+  /** the session timer for a habit counted in minutes, full screen */
+  | { kind: "sit"; path: string };
 
 let cur: SheetReq | null = null;
 const ls = new Set<() => void>();

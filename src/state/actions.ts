@@ -6,7 +6,7 @@ import {
   addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, resourceOf, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
-import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
+import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
 import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
 import { showToast } from "../lib/toast";
@@ -242,6 +242,21 @@ export function logHabit(path: string, date: string, amount?: number) {
   if (c == null) return;
   const { fm, body } = splitFrontmatter(c);
   writeFile(path, setBody(c, setLogEntry(body, date, amount, habitOf(fm).unit)));
+}
+
+/** A finished timer session: its minutes added to the day's (two sessions add up), with Undo. */
+export function logSession(path: string, date: string, minutes: number, title: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  const { fm, body } = splitFrontmatter(c);
+  const unit = habitOf(fm).unit;
+  const r = addToLog(body, date, minutes, unit);
+  writeFile(path, setBody(c, r.body));
+  const total = (r.prev?.amount ?? 0) + minutes;
+  showToast(`${title}: ${fmtAmount(minutes)} ${unit ?? "min"} logged${r.prev?.amount ? ` · ${fmtAmount(total)} today` : ""}`, {
+    label: "Undo",
+    run: () => { const now = readFile(path); if (now != null) writeFile(path, setBody(now, setLogEntry(splitFrontmatter(now).body, date, r.prev ? r.prev.amount : null, unit))); },
+  });
 }
 
 /** Take a day off the log, with Undo. */

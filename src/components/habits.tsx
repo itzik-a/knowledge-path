@@ -1,11 +1,14 @@
 /* Habit pieces: the check button (a start / stop button for a timed habit), the amount form, the habit rows
-   (Home and #habits), a timed habit's timer card, the last-7-days strip, the calendar heatmap and the log list. */
+   (Home and #habits), a timed habit's timer card, a minutes habit's session timer card and button, the last-7-days strip, the calendar heatmap and the log list. */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Doc } from "../../shared/index.ts";
 import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, parseHours, parseStamp, shiftDay, stampOf, stampTime, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { longDate, medDate, parseISO, shortDate } from "../lib/dates";
 import { docHref } from "../lib/route";
+import { openSheet } from "../lib/sheets";
+import { fmtLeft } from "../lib/timers";
+import { settleLeft, sitElapsed, sitLeft, useSit } from "../state/sit";
 import { discardTimer, endTimer, logHabit, setTimerStart, startTimer, unlogHabit } from "../state/actions";
 import { IconCheck, IconClose, IconEdit, IconPlay, IconStop, IconTrash } from "./Icons";
 
@@ -444,5 +447,56 @@ function LogDayForm({ d, onDone }: { d: Doc; onDone: () => void }) {
         <button type="button" className="btn ghost sm" onClick={onDone}>Cancel</button>
       </div>
     </form>
+  );
+}
+
+// ── the session timer (habits counted in minutes) ─────────────
+
+/** A minutes habit's session, if one is running for it: the time to show, and how far along (0–1). */
+function useSession(d: Doc) {
+  const sit = useSit();
+  const mine = sit?.path === d.path ? sit : null;
+  const now = useNow(mine && mine.doneAt == null && mine.paused == null ? 1000 : 0).getTime();
+  if (!mine) return null;
+  const settling = settleLeft(mine, now);
+  const el = sitElapsed(mine, now);
+  const time = mine.doneAt != null ? "Done" : mine.paused != null ? "Paused" : settling > 0 ? fmtLeft(settling) : fmtLeft(mine.total ? sitLeft(mine, now) : el);
+  return { time, p: mine.total ? Math.min(1, el / mine.total) : 0, open: mine.total === 0 };
+}
+
+const openSit = (d: Doc) => openSheet({ kind: "sit", path: d.path });
+
+/** On a minutes habit's page: start a session, or open the one running. */
+export function SessionCard({ d }: { d: Doc }) {
+  const run = useSession(d);
+  const last = d.log?.find((e) => e.amount != null);
+  return (
+    <section className="card timer-card">
+      <div className="timer-idle">
+        <div className="grow">
+          <h2>Timer</h2>
+          <p className="muted small">{run ? `Running · ${run.time}${run.open ? " so far" : ""}` : `A bell at the start and the end; the minutes go in the log${last ? ` (last: ${amountText(d, last.amount)}, ${shortDate(last.date)})` : ""}.`}</p>
+        </div>
+        <button type="button" className="btn primary" onClick={() => openSit(d)}><IconPlay width={16} height={16} /> {run ? "Open" : "Start"}</button>
+      </div>
+    </section>
+  );
+}
+
+/** In a minutes habit's row: start a session (a ring fills while one runs). */
+export function SessionButton({ d }: { d: Doc }) {
+  const run = useSession(d);
+  const C = 2 * Math.PI * 20;
+  return (
+    <button type="button" className={`habit-check timer${run ? " running" : ""}`} onClick={() => openSit(d)}
+      aria-label={run ? `${d.title}: timer ${run.time}. Open it` : `Start a ${d.title} timer`}>
+      {run && (
+        <svg className="timer-ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle cx="22" cy="22" r="20" className="ring-track" />
+          {run.p > 0 && <circle cx="22" cy="22" r="20" className="ring-fill" strokeDasharray={`${C * run.p} ${C}`} transform="rotate(-90 22 22)" />}
+        </svg>
+      )}
+      <IconPlay width={16} height={16} />
+    </button>
   );
 }

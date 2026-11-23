@@ -1083,3 +1083,35 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .units-seg { margin: -2px 0 2px; }
 .units-seg button { font-size: .82rem; }
 .ing-orig { font-size: .85em; }
+
+/* ---------- Session timer (minutes habits) ---------- */
+.sit-body { flex: 1; min-height: 0; overflow: auto; display: grid; padding: 8px calc(20px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left)); }
+.sit-setup { width: 100%; max-width: 480px; margin: 0 auto; display: grid; gap: 22px; align-content: start; padding-top: 8px; }
+.sit-field { display: grid; gap: 10px; }
+.sit-field h3 { font-size: 1rem; }
+.sit-lengths { display: flex; flex-wrap: wrap; gap: 8px; }
+.sit-lengths .chip { min-height: 40px; padding: 0 14px; }
+.sit-other { gap: 4px; }
+.sit-other input { width: 3.2em; border: 0; background: none; color: inherit; font: inherit; text-align: center; padding: 0; }
+.sit-other input::placeholder { color: var(--muted); }
+.sit-other.on { background: var(--ink); color: var(--bg); }
+.sit-bell { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sit-start { min-height: 56px; font-size: 1.1rem; justify-content: center; }
+.sit-run { display: grid; justify-items: center; align-content: center; gap: 18px; }
+.sit-dial {
+  position: relative; width: min(72vw, 46vh, 340px); aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--ink); display: grid; place-items: center;
+}
+.sit-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sit-dial circle { fill: none; stroke-width: 2.2; }
+.sit-dial .ring-fill { transition: stroke-dasharray 1s linear; }
+.sit-dial.settling .ring-fill { stroke: var(--muted); }
+.sit-time { position: relative; display: grid; justify-items: center; gap: 2px; }
+.sit-time b { font-family: var(--font-display); font-weight: 600; font-size: clamp(2.6rem, 13vw, 4.2rem); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.sit-time .sit-dot { color: var(--muted); }
+.sit-meta { text-align: center; }
+.sit-controls { display: flex; align-items: center; gap: 14px; }
+.sit-round { width: 64px; height: 64px; border-radius: 50%; padding: 0; justify-content: center; }
+.sit-end { min-height: 56px; padding: 10px 26px; font-size: 1.05rem; }
+.sit-done { align-content: center; justify-items: center; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .sit-dial .ring-fill { transition: none; } }
