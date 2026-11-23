@@ -1,5 +1,5 @@
 /* Hash routes:
-   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #inbox · #habits · #tag/<tag>
+   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #notes/tags · #inbox · #habits · #tag/<tag>
    #doc/<vault path> (a resource, note, journal entry, study path or habit)
    #capture?url=…&title=…&text=… (from the iOS Shortcut or the Mac bookmarklet) */
 export type View = "home" | "topics" | "library" | "notes" | "inbox" | "habits" | "tag" | "doc" | "capture";

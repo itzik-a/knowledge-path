@@ -1,4 +1,5 @@
-/* #notes: notes by folder, newest first. #notes/journal: the journal, a month at a time. #tag/<tag>: everything with a tag. */
+/* #notes: notes by folder, newest first. #notes/journal: the journal, a month at a time.
+   #notes/tags: every tag with its count. #tag/<tag>: everything with a tag. */
 import { useMemo, useState } from "react";
 import type { Doc } from "../../shared/index.ts";
 import { journalPath, todayISO } from "../../shared/vault.ts";
@@ -7,28 +8,31 @@ import { IconBack, IconClose, IconNext, IconPlus, IconSearch } from "../componen
 import { SelectBar, SelectButton, useSelection, type Selection } from "../components/Select";
 import { Seg } from "../components/ui";
 import { iso, monthName, parseISO, shortDate } from "../lib/dates";
-import { docHref, go } from "../lib/route";
+import { docHref, go, tagHref } from "../lib/route";
 import { createNote } from "../state/actions";
 import { useIndex } from "../state/store";
 
 export function Notes({ sub }: { sub?: string }) {
-  return sub === "journal" ? <Journal /> : <NoteList />;
+  return sub === "journal" ? <Journal /> : sub === "tags" ? <Tags /> : <NoteList />;
 }
 
-function NotesHead({ tab, sel }: { tab: "notes" | "journal"; sel: Selection }) {
+type NotesTab = "notes" | "journal" | "tags";
+const TAB_TITLE: Record<NotesTab, string> = { notes: "Notes", journal: "Journal", tags: "Tags" };
+
+function NotesHead({ tab, sel }: { tab: NotesTab; sel?: Selection }) {
   return (
     <>
       <div className="page-head row-head">
-        <div><h1 className="display">{tab === "journal" ? "Journal" : "Notes"}</h1></div>
+        <div><h1 className="display">{TAB_TITLE[tab]}</h1></div>
         <div className="head-actions">
-          <SelectButton sel={sel} />
-          {!sel.on && (tab === "notes"
+          {sel && <SelectButton sel={sel} />}
+          {tab !== "tags" && !sel?.on && (tab === "notes"
             ? <button type="button" className="btn primary sm" onClick={() => go(docHref(createNote({ title: "Untitled" })))}><IconPlus /> Note</button>
             : <a className="btn primary sm" href={docHref(journalPath(todayISO()))}>Today</a>)}
         </div>
       </div>
-      <Seg<"notes" | "journal"> label="Notes or journal" value={tab} onChange={(t) => go(t === "journal" ? "#notes/journal" : "#notes")}
-        options={[{ id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }]} />
+      <Seg<NotesTab> label="Notes, journal or tags" value={tab} onChange={(t) => go(t === "notes" ? "#notes" : `#notes/${t}`)}
+        options={[{ id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }, { id: "tags", label: "Tags" }]} />
     </>
   );
 }
@@ -121,6 +125,34 @@ function Journal() {
   );
 }
 
+/** Every tag in the vault (notes, journal, resources, paths, habits), most used first. */
+function Tags() {
+  const ix = useIndex();
+  const [q, setQ] = useState("");
+  const tags = useMemo(() => [...ix.tags].map(([tag, paths]) => ({ tag, n: paths.length })).sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag)), [ix]);
+  const s = q.trim().toLowerCase().replace(/^#/, "");
+  const shown = s ? tags.filter((t) => t.tag.toLowerCase().includes(s)) : tags;
+  return (
+    <>
+      <NotesHead tab="tags" />
+      {tags.length > 0 && (
+        <label className="search">
+          <IconSearch />
+          <input type="search" dir="auto" placeholder="Filter tags" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter tags" />
+          {q && <button type="button" className="search-clear" onClick={() => setQ("")} aria-label="Clear"><IconClose /></button>}
+        </label>
+      )}
+      {shown.length ? (
+        <section className="card">
+          <div className="chips">{shown.map(({ tag, n }) => <a key={tag} className="chip" dir="auto" href={tagHref(tag)}>#{tag} <span className="count">{n}</span></a>)}</div>
+        </section>
+      ) : (
+        <div className="card empty"><p className="muted">{tags.length ? "No tag matches." : "No tags yet. Write #tag in a note, or add tags: to a file's properties."}</p></div>
+      )}
+    </>
+  );
+}
+
 export function TagPage({ tag }: { tag: string }) {
   const ix = useIndex();
   const docs = (ix.tags.get(tag) ?? []).map((p) => ix.docs.get(p)).filter((d): d is Doc => !!d).sort((a, b) => b.mtime - a.mtime);
@@ -128,7 +160,7 @@ export function TagPage({ tag }: { tag: string }) {
   return (
     <>
       <div className="page-head">
-        <span className="eyebrow">Tag</span>
+        <a className="crumb eyebrow" href="#notes/tags">All tags</a>
         <h1 className="display">#{tag}</h1>
         {topic && <p className="muted">Everything tagged #{tag} is also in <a href={`#topics/${topic.id}`}>{topic.name}</a>.</p>}
       </div>

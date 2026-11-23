@@ -670,6 +670,7 @@ a.chip { color: var(--ink); }
 .crumbs a { color: var(--muted); }
 .crumbs { padding: 4px 4px 0; }
 .crumb { padding: 4px 4px 0; justify-self: start; color: var(--muted); }
+a.crumb.eyebrow { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0 -8px; }
 .topic-grid { display: grid; gap: 12px; }
 @media (min-width: 640px) { .topic-grid { grid-template-columns: 1fr 1fr; } }
 .topic-card { border-top: 4px solid var(--tc); gap: 10px; }
