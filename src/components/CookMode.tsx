@@ -10,7 +10,7 @@ import { logCooked } from "../state/actions";
 import { useIndex } from "../state/store";
 import { useNow } from "./habits";
 import { IconBack, IconCheck, IconClose, IconNext, IconPause, IconPlay, IconPlus } from "./Icons";
-import { IngredientList, ScaleControl, StepText, useScale } from "./recipes";
+import { hasImperial, IngredientList, ScaleControl, StepText, UnitsToggle, useMetric, useScale } from "./recipes";
 import { Seg, useMedia } from "./ui";
 
 interface Progress { step: number; ing: number[]; at: number }
@@ -30,6 +30,9 @@ export function CookMode({ path, onClose }: { path: string; onClose: () => void 
   const steps = useMemo(() => p.steps.flatMap((g) => g.items.map((s) => ({ ...s, group: g.title }))), [p]);
   const ingCount = p.ingredients.reduce((n, g) => n + g.items.length, 0);
   const scale = useScale(path, d?.recipe);
+  const [metricOn] = useMetric();
+  const imperial = useMemo(() => hasImperial(p), [p]);
+  const metric = metricOn && imperial;
   const saved = useMemo(() => loadProgress(path), [path]);
   const [step, setStep] = useState(Math.min(saved?.step ?? 0, Math.max(0, steps.length - 1)));
   const [ing, setIng] = useState<Set<number>>(() => new Set(saved?.ing ?? []));
@@ -131,7 +134,8 @@ export function CookMode({ path, onClose }: { path: string; onClose: () => void 
               <h2>Ingredients</h2>
               <ScaleControl s={scale} />
             </div>
-            <IngredientList groups={p.ingredients} factor={scale.factor} checked={ing}
+            {imperial && <UnitsToggle />}
+            <IngredientList groups={p.ingredients} factor={scale.factor} metric={metric} checked={ing}
               onToggle={(line) => setIng((s) => { const n = new Set(s); if (n.has(line)) n.delete(line); else n.add(line); return n; })} />
             {!wide && steps.length > 0 && <button type="button" className="btn primary cook-start" onClick={() => setPane("steps")}>{saved || step > 0 ? "Back to the steps" : "Start cooking"} <IconNext /></button>}
           </section>
@@ -155,7 +159,7 @@ export function CookMode({ path, onClose }: { path: string; onClose: () => void 
               <>
                 <span className="eyebrow">Step {step + 1} of {steps.length}{cur.group ? ` · ${cur.group}` : ""}</span>
                 <p className="cook-text" dir="auto">
-                  <StepText text={cur.text} time={(t, label) => <TimeButton path={path} t={t} label={label} step={step + 1} />} />
+                  <StepText text={cur.text} metric={metric} time={(t, label) => <TimeButton path={path} t={t} label={label} step={step + 1} />} />
                 </p>
               </>
             )}

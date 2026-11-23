@@ -555,14 +555,104 @@ export interface Shown {
   rest: string;
   /** the amount was changed: scaled or converted */
   changed: boolean;
+  /** when converted to metric: the amount as written (at this scale) */
+  original?: string;
 }
 
-/** An ingredient line as shown at a scale (1 = as written). */
-export function showIngredient(ing: Ingredient, factor: number): Shown {
-  if (!ing.qty) return { rest: ing.text, changed: false };
-  if (Math.abs(factor - 1) < 1e-9) return { amount: ing.text.slice(0, ing.amountEnd).trim(), rest: ing.rest, changed: false };
-  const q = scaleQty(ing.qty, factor);
-  return { amount: ing.pre + amountText(q, ing.unit, isHebrew(ing.text)), rest: ing.rest, changed: true };
+/** An ingredient line as shown at a scale (1 = as written), in metric units if asked: cups, ounces and pounds
+    become grams (millilitres for liquids, and for what we don't know the weight of); spoons stay spoons. */
+export function showIngredient(ing: Ingredient, factor: number, metric = false): Shown {
+  if (!ing.qty) return { rest: metric ? convertText(ing.text) : ing.text, changed: false };
+  const rest = metric ? convertText(ing.rest) : ing.rest;
+  const he = isHebrew(ing.text);
+  const conv = metric ? toMetric(ing.qty, ing.unit, ing.name) : null;
+  if (conv) {
+    const q = scaleQty(conv.qty, factor);
+    // "1 cup (2 sticks) butter": the parenthesis only restates the amount, which is shown as written at the end
+    const bare = ing.rest.replace(/^\((?=[^()]*\d)[^()]*\b(?:sticks?|cups?|oz|ounces?|g|grams?|tbsp|tablespoons?|ml|lbs?)\b[^()]*\)\s*/i, "");
+    return { amount: ing.pre + amountText(q, conv.unit, he), rest: bare === ing.rest ? rest : convertText(bare), changed: true, original: amountText(scaleQty(ing.qty, factor), ing.unit, he) };
+  }
+  if (Math.abs(factor - 1) < 1e-9) return { amount: ing.text.slice(0, ing.amountEnd).trim(), rest, changed: false };
+  return { amount: ing.pre + amountText(scaleQty(ing.qty, factor), ing.unit, he), rest, changed: true };
+}
+
+// ── Metric ────────────────────────────────────────────────────
+
+/** Millilitres in each volume unit (a cup is 240 ml, as in Israel and on US nutrition labels). */
+const ML: Partial<Record<UnitId, number>> = { tsp: 5, tbsp: 15, cup: 240, floz: 29.57, pint: 473, quart: 946, ml: 1, l: 1000 };
+const GRAMS: Partial<Record<UnitId, number>> = { oz: 28.35, lb: 453.6, g: 1, kg: 1000 };
+
+/** Grams in a cup (240 ml) of common ingredients; `true` marks a liquid (shown in ml). The longest name that
+    matches wins, so "brown sugar" beats "sugar" and "peanut butter" beats "butter". */
+const PER_CUP: [string, number, true?][] = [
+  ["all-purpose flour", 125], ["plain flour", 125], ["bread flour", 130], ["whole wheat flour", 120], ["wholemeal flour", 120], ["almond flour", 96], ["almond meal", 96], ["cake flour", 115], ["self-raising flour", 125], ["self-rising flour", 125], ["flour", 125],
+  ["semolina", 167], ["cornmeal", 150], ["polenta", 160], ["cornstarch", 128], ["cornflour", 128], ["potato starch", 160],
+  ["powdered sugar", 120], ["icing sugar", 120], ["confectioners", 120], ["brown sugar", 213], ["caster sugar", 200], ["sugar", 200],
+  ["honey", 340], ["maple syrup", 315], ["golden syrup", 340], ["date syrup", 340], ["molasses", 337], ["syrup", 330],
+  ["cocoa", 85], ["rolled oats", 90], ["oats", 90], ["rice", 190], ["quinoa", 170], ["couscous", 180], ["bulgur", 160], ["lentils", 190], ["split peas", 200], ["dried chickpeas", 200],
+  ["breadcrumbs", 110], ["bread crumbs", 110], ["panko", 60], ["chocolate chips", 170], ["chopped chocolate", 170], ["raisins", 150], ["dried cranberries", 120],
+  ["walnuts", 115], ["pecans", 110], ["almonds", 140], ["hazelnuts", 135], ["pistachios", 125], ["cashews", 130], ["peanuts", 145], ["pine nuts", 135], ["nuts", 130], ["sesame seeds", 145], ["sunflower seeds", 140], ["seeds", 140],
+  ["shredded coconut", 85], ["desiccated coconut", 85], ["coconut flakes", 60],
+  ["parmesan", 100], ["grated cheese", 100], ["shredded cheese", 113], ["cream cheese", 230], ["ricotta", 245], ["cottage cheese", 225], ["feta", 150], ["cheese", 113],
+  ["sour cream", 230], ["greek yogurt", 285], ["yogurt", 245], ["yoghurt", 245], ["labneh", 260],
+  ["peanut butter", 258], ["butter", 227], ["margarine", 227], ["tahini", 240], ["mayonnaise", 220], ["ketchup", 240], ["tomato paste", 260], ["jam", 320], ["nutella", 300],
+  ["kosher salt", 145], ["sea salt", 270], ["salt", 290], ["baking soda", 230], ["bicarbonate", 230], ["baking powder", 192], ["yeast", 150],
+  ["fresh herbs", 30], ["parsley", 30], ["cilantro", 30], ["basil", 25], ["spinach", 30], ["chopped onion", 160], ["diced onion", 160], ["frozen peas", 145], ["blueberries", 150], ["berries", 150], ["corn kernels", 165],
+  ["oil", 218], ["olive oil", 216], ["melted butter", 227],
+  ["coconut milk", 240, true], ["coconut cream", 240, true], ["buttermilk", 245, true], ["heavy cream", 240, true], ["whipping cream", 240, true], ["cream", 240, true], ["milk", 245, true], ["water", 240, true],
+  ["juice", 250, true], ["stock", 240, true], ["broth", 240, true], ["wine", 240, true], ["vinegar", 240, true], ["coffee", 240, true], ["soy sauce", 255, true], ["sauce", 250, true],
+  // Hebrew
+  ["קמח מלא", 120], ["קמח לחם", 130], ["קמח שקדים", 96], ["קמח תופח", 125], ["קמח", 125], ["סולת", 167], ["קורנפלור", 128], ["קמח תירס", 150],
+  ["אבקת סוכר", 120], ["סוכר חום", 213], ["סוכר", 200], ["דבש", 340], ["סילאן", 340], ["סירופ מייפל", 315], ["סירופ", 330],
+  ["קקאו", 85], ["שיבולת שועל", 90], ["אורז", 190], ["קינואה", 170], ["קוסקוס", 180], ["בורגול", 160], ["עדשים", 190], ["פירורי לחם", 110], ["פנקו", 60],
+  ["שוקולד צ'יפס", 170], ["שוקולד קצוץ", 170], ["צימוקים", 150], ["אגוזי מלך", 115], ["פקאן", 110], ["שקדים", 140], ["אגוזי לוז", 135], ["פיסטוקים", 125], ["קשיו", 130], ["בוטנים", 145], ["צנובר", 135], ["אגוזים", 130], ["שומשום", 145], ["גרעינים", 140],
+  ["קוקוס", 85], ["פרמזן", 100], ["גבינה מגוררת", 100], ["גבינת שמנת", 230], ["ריקוטה", 245], ["קוטג'", 225], ["פטה", 150], ["גבינה", 113],
+  ["שמנת חמוצה", 230], ["יוגורט יווני", 285], ["יוגורט", 245], ["לבנה", 260],
+  ["חמאת בוטנים", 258], ["חמאה", 227], ["מרגרינה", 227], ["טחינה", 240], ["מיונז", 220], ["קטשופ", 240], ["רסק עגבניות", 260], ["ריבה", 320],
+  ["מלח גס", 145], ["מלח", 290], ["סודה לשתייה", 230], ["אבקת אפייה", 192], ["שמרים", 150], ["פטרוזיליה", 30], ["כוסברה", 30], ["אוכמניות", 150],
+  ["שמן זית", 216], ["שמן", 218],
+  ["חלב קוקוס", 240, true], ["שמנת מתוקה", 240, true], ["שמנת לבישול", 240, true], ["שמנת", 240, true], ["רוויון", 245, true], ["חלב", 245, true], ["מים", 240, true],
+  ["מיץ", 250, true], ["ציר", 240, true], ["יין", 240, true], ["חומץ", 240, true], ["קפה", 240, true], ["רוטב סויה", 255, true],
+];
+const PER_CUP_SORTED = [...PER_CUP].sort((a, b) => b[0].length - a[0].length);
+const matches = (n: string, w: string) => (/^[a-z' -]+$/.test(w) ? new RegExp(`(^|[^a-z])${w}`).test(n) : n.includes(w));
+
+/** Grams per cup of an ingredient (and whether it's a liquid), or undefined when we don't know it. */
+export function perCup(name: string): { g: number; liquid: boolean } | undefined {
+  const n = name.toLowerCase();
+  const hit = PER_CUP_SORTED.find(([w]) => matches(n, w));
+  return hit ? { g: hit[1], liquid: !!hit[2] } : undefined;
+}
+
+/** An amount in grams or millilitres (kilos and litres from 1000), or null when it's metric already or spoons. */
+export function toMetric(q: Qty, unit: UnitId | undefined, name: string): { qty: Qty; unit: UnitId } | null {
+  if (!unit || unit === "tsp" || unit === "tbsp" || unit === "pinch" || unit === "g" || unit === "ml" || unit === "kg" || unit === "l") return null;
+  let per: number; // grams or ml per one of `unit`
+  let out: UnitId;
+  if (unit === "stick") { per = 113; out = "g"; } // a stick of butter
+  else if (GRAMS[unit]) { per = GRAMS[unit]!; out = "g"; }
+  else {
+    const ml = ML[unit]!;
+    const d = perCup(name);
+    if (d && !d.liquid) { per = (ml / 240) * d.g; out = "g"; } else { per = ml; out = "ml"; }
+  }
+  let qty = scaleQty(q, per);
+  if (qty.n >= 1000) { qty = scaleQty(qty, 1 / 1000); out = out === "g" ? "kg" : "l"; }
+  return { qty, unit: out };
+}
+
+const round5 = (n: number) => Math.round(n / 5) * 5;
+const num = (s: string) => Number(s.replace(",", "."));
+
+/** Temperatures, pan sizes and ounces inside text, in metric: "350°F" → "175°C", "9x13-inch" → "23×33 cm", "(14 oz)" → "(400 g)". */
+export function convertText(text: string): string {
+  return text
+    .replace(/(\d{2,3})\s*(?:°|º|degrees?)\s*(?:F|Fahrenheit)\b|(\d{3})\s*F\b/g, (_m, a: string, b: string) => `${round5(((+(a ?? b)) - 32) * 5 / 9)}°C`)
+    .replace(/(\d+(?:[.,]\d+)?)(?:\s*(?:x|×|by)\s*(\d+(?:[.,]\d+)?))?(?:\s*-\s*|\s+)?(?:inch(?:es)?\b|in\.(?=\s|$|[,)])|(?<=\d)["”])/g,
+      (_m, a: string, b?: string) => `${Math.round(num(a) * 2.54)}${b ? `×${Math.round(num(b) * 2.54)}` : ""} cm`)
+    .replace(/(\d+(?:[.,]\d+)?)\s*-?\s*(fl\.?\s*oz|fluid ounces?|oz|ounces?)\b/gi, (_m, a: string, u: string) =>
+      /^f/i.test(u) ? `${fmtMetric(num(a) * 29.57)} ml` : `${fmtMetric(num(a) * 28.35)} g`)
+    .replace(/(\d+(?:[.,]\d+)?)\s*-?\s*(?:lbs?|pounds?)\b/gi, (_m, a: string) => { const g = num(a) * 453.6; return g >= 1000 ? `${fmtDecimal(g / 1000)} kg` : `${fmtMetric(g)} g`; });
 }
 
 // ── Times in steps ────────────────────────────────────────────

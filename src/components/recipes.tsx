@@ -1,9 +1,10 @@
 /* Recipe pieces: the list row and card, the scale control (servings or ×), the ingredient list (scaled),
    step text with its times marked, the stars, and the Cooked log. */
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
 import {
-  findTimes, fmtFraction, fmtMinutes, showIngredient, type Group, type IngredientLine, type Recipe, type StepLine,
+  allIngredients, allSteps, convertText, findTimes, fmtFraction, fmtMinutes, showIngredient, toMetric,
+  type Group, type IngredientLine, type ParsedRecipe, type Recipe, type StepLine,
 } from "../../shared/recipes.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { medDate, shortDate } from "../lib/dates";
@@ -11,7 +12,7 @@ import { docHref } from "../lib/route";
 import { logCooked, setRating, unlogCooked } from "../state/actions";
 import { TopicChips } from "./bits";
 import { IconCheck, IconEdit, IconTrash } from "./Icons";
-import { Stepper, useSessionState } from "./ui";
+import { Seg, Stepper, useSessionState } from "./ui";
 
 export const RECIPE_EMOJI = "🍲";
 
@@ -84,10 +85,33 @@ export function ScaleControl({ s }: { s: ReturnType<typeof useScale> }) {
   );
 }
 
+// ── units ─────────────────────────────────────────────────────
+
+/** Metric (grams, ml, °C) or as written: one choice per device, shared by every recipe view. Metric by default. */
+const UNITS_KEY = "knowledgePath.units";
+const unitLs = new Set<() => void>();
+const readMetric = () => { try { return localStorage.getItem(UNITS_KEY) !== "written"; } catch { return true; } };
+export function useMetric(): [boolean, (on: boolean) => void] {
+  const on = useSyncExternalStore((l) => { unitLs.add(l); return () => { unitLs.delete(l); }; }, readMetric);
+  return [on, (v) => { try { localStorage.setItem(UNITS_KEY, v ? "metric" : "written"); } catch { /* ignore */ } unitLs.forEach((l) => l()); }];
+}
+
+/** Does metric change anything in this recipe (cups, ounces, °F, inches)? */
+export function hasImperial(p: ParsedRecipe): boolean {
+  return allIngredients(p).some((x) => (x.qty && toMetric(x.qty, x.unit, x.name)) || convertText(x.rest) !== x.rest)
+    || allSteps(p).some((s) => convertText(s.text) !== s.text);
+}
+
+export function UnitsToggle() {
+  const [metric, setMetric] = useMetric();
+  return <Seg<"metric" | "written"> className="units-seg" label="Units" value={metric ? "metric" : "written"} onChange={(v) => setMetric(v === "metric")}
+    options={[{ id: "metric", label: "Grams, °C" }, { id: "written", label: "As written" }]} />;
+}
+
 // ── ingredients and steps ─────────────────────────────────────
 
-export function IngredientList({ groups, factor, checked, onToggle }: {
-  groups: Group<IngredientLine>[]; factor: number;
+export function IngredientList({ groups, factor, metric = false, checked, onToggle }: {
+  groups: Group<IngredientLine>[]; factor: number; metric?: boolean;
   /** cook mode: tap to tick off */
   checked?: Set<number>; onToggle?: (line: number) => void;
 }) {
@@ -98,8 +122,8 @@ export function IngredientList({ groups, factor, checked, onToggle }: {
           {g.title && <h3 dir="auto">{g.title}</h3>}
           <ul className="ing-list">
             {g.items.map((it) => {
-              const s = showIngredient(it, factor);
-              const text = <>{s.amount && <b className={s.changed ? "ing-amt changed" : "ing-amt"}>{s.amount}</b>}{s.amount ? " " : ""}{stripMd(s.rest)}</>;
+              const s = showIngredient(it, factor, metric);
+              const text = <>{s.amount && <b className={s.changed ? "ing-amt changed" : "ing-amt"}>{s.amount}</b>}{s.amount ? " " : ""}{stripMd(s.rest)}{s.original && <span className="muted ing-orig"> ({s.original})</span>}</>;
               if (!onToggle) return <li key={it.line} dir="auto">{text}</li>;
               const on = checked?.has(it.line) ?? false;
               return (
@@ -126,8 +150,8 @@ export const stripMd = (s: string) => s
   .replace(/(\*\*|__)(.+?)\1/g, "$2").replace(/(\*|_)(.+?)\1/g, "$2");
 
 /** A step's text with its times marked (cook mode makes them timer buttons). */
-export function StepText({ text, time }: { text: string; time?: (t: ReturnType<typeof findTimes>[number], label: string) => ReactNode }) {
-  const plain = stripMd(text);
+export function StepText({ text, time, metric = false }: { text: string; metric?: boolean; time?: (t: ReturnType<typeof findTimes>[number], label: string) => ReactNode }) {
+  const plain = metric ? convertText(stripMd(text)) : stripMd(text);
   const times = findTimes(plain);
   const out: ReactNode[] = [];
   let at = 0;
@@ -141,7 +165,7 @@ export function StepText({ text, time }: { text: string; time?: (t: ReturnType<t
   return <span dir="auto">{out}</span>;
 }
 
-export function StepList({ groups }: { groups: Group<StepLine>[] }) {
+export function StepList({ groups, metric = false }: { groups: Group<StepLine>[]; metric?: boolean }) {
   let n = 0;
   return (
     <div className="step-groups">
@@ -150,7 +174,7 @@ export function StepList({ groups }: { groups: Group<StepLine>[] }) {
           {g.title && <h3 dir="auto">{g.title}</h3>}
           <ol className="recipe-steps">
             {g.items.map((s) => (
-              <li key={s.line}><span className="step-n" aria-hidden="true">{++n}</span><p dir="auto"><StepText text={s.text} /></p></li>
+              <li key={s.line}><span className="step-n" aria-hidden="true">{++n}</span><p dir="auto"><StepText text={s.text} metric={metric} /></p></li>
             ))}
           </ol>
         </div>

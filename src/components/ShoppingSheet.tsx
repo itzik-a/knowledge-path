@@ -6,7 +6,7 @@ import { aisleOf } from "../../shared/shopping.ts";
 import { addToShopping } from "../state/actions";
 import { useIndex } from "../state/store";
 import { IconCheck } from "./Icons";
-import { stripMd, useScale } from "./recipes";
+import { hasImperial, stripMd, useMetric, useScale } from "./recipes";
 import { Sheet, closeSheet } from "./ui";
 
 const usuallyHave = (name: string) => aisleOf(name) === "Spices" || /^(water|ice|מים|קרח)\b/.test(name);
@@ -15,10 +15,11 @@ export function ShoppingSheet({ path, onClose }: { path: string; onClose: () => 
   const ix = useIndex();
   const d = ix.docs.get(path);
   const scale = useScale(path, d?.recipe);
-  const items = useMemo(() => allIngredients(parseRecipe(d?.body ?? "")).map((it) => {
-    const s = showIngredient(it, scale.factor);
+  const [metricOn] = useMetric();
+  const items = useMemo(() => { const p = parseRecipe(d?.body ?? ""); const metric = metricOn && hasImperial(p); return allIngredients(p).map((it) => {
+    const s = showIngredient(it, scale.factor, metric);
     return { line: it.line, text: stripMd(`${s.amount ? s.amount + " " : ""}${s.rest}`).trim(), name: it.name || it.text.toLowerCase() };
-  }), [d?.body, scale.factor]);
+  }); }, [d?.body, scale.factor, metricOn]);
   const [on, setOn] = useState<Set<number>>(() => new Set(items.filter((x) => !usuallyHave(x.name)).map((x) => x.line)));
   const box = useRef<HTMLDivElement>(null);
   if (!d) return null;

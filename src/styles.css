@@ -1080,3 +1080,6 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .shop-list > li.done .shop-text > span:first-child { color: var(--muted); text-decoration: line-through; }
 .shop-pick { max-height: 55vh; overflow: auto; }
 .shop-link { display: inline-flex; align-items: center; gap: 6px; }
+.units-seg { margin: -2px 0 2px; }
+.units-seg button { font-size: .82rem; }
+.ing-orig { font-size: .85em; }

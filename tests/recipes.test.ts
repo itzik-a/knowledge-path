@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIndex, parseDoc, type Doc } from "../shared/index.ts";
 import {
   allIngredients, allSteps, fillRecipe, findTimes, fmtFraction, fmtMetric, minutesOf, parseIngredient, parseRecipe, readNumber,
-  parseRecipeText, recipeBody, recipeOf, setCooked, showIngredient, timeText, totalMinutes,
+  convertText, parseRecipeText, recipeBody, recipeOf, setCooked, showIngredient, timeText, totalMinutes,
 } from "../shared/recipes.ts";
 import { merge3 } from "../src/lib/vaultsync.ts";
 import { kindOf } from "../shared/vault.ts";
@@ -252,5 +252,47 @@ describe("pasted recipes", () => {
     const r = parseRecipe(recipeBody(p));
     expect(allIngredients(r).map((x) => x.text)).toEqual(["1 cup rice"]);
     expect(allSteps(r).map((x) => x.text)).toEqual(["Cook it."]);
+  });
+});
+
+describe("metric", () => {
+  const m = (s: string, f = 1) => { const x = showIngredient(parseIngredient(s), f, true); return `${x.amount ?? ""}|${x.rest}${x.original ? `|${x.original}` : ""}`; };
+  it("turns cups into grams by what's in them, and liquids into millilitres", () => {
+    expect(m("2 cups all-purpose flour")).toBe("250 g|all-purpose flour|2 cups");
+    expect(m("1 cup sugar")).toBe("200 g|sugar|1 cup");
+    expect(m("1 cup packed brown sugar")).toBe("215 g|packed brown sugar|1 cup"); // "packed brown sugar" still finds brown sugar
+    expect(m("½ cup butter, melted")).toBe("115 g|butter, melted|½ cup");
+    expect(m("1 cup peanut butter")).toBe("260 g|peanut butter|1 cup");
+    expect(m("1 cup milk")).toBe("240 ml|milk|1 cup");
+    expect(m("1½ cups water", 2)).toBe("720 ml|water|3 cups");
+    expect(m("1 cup something unusual")).toBe("240 ml|something unusual|1 cup");
+    expect(m("2 cups קמח")).toBe("250 גרם|קמח|2 כוסות"); // a Hebrew line gets Hebrew units
+    expect(m("כוס וחצי סוכר")).toBe("300 גרם|סוכר|1½ כוסות");
+    expect(m("חצי כוס שמן")).toBe("110 גרם|שמן|½ כוס");
+    expect(m("4 cups flour")).toBe("500 g|flour|4 cups");
+    expect(m("8 cups flour")).toBe("1 kg|flour|8 cups");
+  });
+  it("turns ounces, pounds and sticks into grams, and leaves spoons and metric alone", () => {
+    expect(m("8 oz cream cheese")).toBe("225 g|cream cheese|8 oz");
+    expect(m("2 lb potatoes")).toBe("905 g|potatoes|2 lb");
+    expect(m("3 lbs chicken")).toBe("1.36 kg|chicken|3 lb");
+    expect(m("1 stick butter")).toBe("115 g|butter|1 stick");
+    expect(m("1 cup (2 sticks) butter, melted")).toBe("225 g|butter, melted|1 cup");
+    expect(m("1 cup (about 4 oz) walnuts")).toBe("115 g|walnuts|1 cup");
+    expect(m("2 fl oz cream")).toBe("60 ml|cream|2 fl oz");
+    expect(m("2 tbsp olive oil")).toBe("2 tbsp|olive oil");
+    expect(m("200 g butter")).toBe("200 g|butter");
+    expect(m("2 eggs")).toBe("2|eggs");
+    expect(m("salt to taste")).toBe("|salt to taste");
+  });
+  it("converts temperatures, pan sizes and ounces in text", () => {
+    expect(convertText("Bake at 350°F for 30 minutes")).toBe("Bake at 175°C for 30 minutes");
+    expect(convertText("Preheat the oven to 425 F.")).toBe("Preheat the oven to 220°C.");
+    expect(convertText("a 9x13-inch pan")).toBe("a 23×33 cm pan");
+    expect(convertText("a 9-inch springform")).toBe("a 23 cm springform");
+    expect(convertText("cut into 1 in. pieces")).toBe("cut into 3 cm pieces");
+    expect(m("1 (14 oz) can tomatoes")).toBe("1|(395 g) can tomatoes");
+    expect(convertText("Bake at 180°C")).toBe("Bake at 180°C");
+    expect(convertText("2 eggs, in a bowl")).toBe("2 eggs, in a bowl");
   });
 });

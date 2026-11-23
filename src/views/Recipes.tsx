@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
 import { allIngredients, allSteps, parseRecipe, recipeTags } from "../../shared/recipes.ts";
-import { CookedLog, IngredientList, RECIPE_EMOJI, RecipeCard, ScaleControl, Stars, StepList, useScale } from "../components/recipes";
+import { CookedLog, hasImperial, IngredientList, RECIPE_EMOJI, RecipeCard, ScaleControl, Stars, StepList, UnitsToggle, useMetric, useScale } from "../components/recipes";
 import { IconBack, IconCart, IconEdit, IconExternal, IconMore, IconPlay, IconPlus, IconSearch } from "../components/Icons";
 import { SHOPPING_PATH } from "../../shared/shopping.ts";
 import { shoppingLeft } from "./Shopping";
@@ -99,6 +99,9 @@ export function RecipePage({ d, ix }: { d: Doc; ix: Index }) {
   const [editing, setEditing] = useState(blank && r.enrich !== "pending");
   const [details, setDetails] = useState(false);
   const scale = useScale(d.path, r);
+  const [metricOn] = useMetric();
+  const imperial = useMemo(() => hasImperial(p), [p]);
+  const metric = metricOn && imperial;
   const times = [r.prep && `Prep ${r.prep}`, r.cook && `Cook ${r.cook}`, r.total && `Total ${r.total}`].filter(Boolean).join(" · ");
 
   return (
@@ -152,11 +155,12 @@ export function RecipePage({ d, ix }: { d: Doc; ix: Index }) {
               <h2>Ingredients</h2>
               {p.ingredients.length > 0 && <ScaleControl s={scale} />}
             </div>
-            {p.ingredients.length ? <IngredientList groups={p.ingredients} factor={scale.factor} /> : <p className="muted small">None yet: add them with Edit.</p>}
+            {imperial && <UnitsToggle />}
+            {p.ingredients.length ? <IngredientList groups={p.ingredients} factor={scale.factor} metric={metric} /> : <p className="muted small">None yet: add them with Edit.</p>}
           </section>
           <section className="card">
             <h2>Steps</h2>
-            {p.steps.length ? <StepList groups={p.steps} /> : <p className="muted small">None yet: add them with Edit.</p>}
+            {p.steps.length ? <StepList groups={p.steps} metric={metric} /> : <p className="muted small">None yet: add them with Edit.</p>}
           </section>
           {p.notes && (
             <section className="card">
