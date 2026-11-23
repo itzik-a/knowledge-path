@@ -20,16 +20,16 @@ export type Aisle = (typeof AISLES)[number];
 const AISLE_WORDS: [Aisle, string[]][] = [
   ["Spices", ["powder", "paprika", "cumin", "turmeric", "cinnamon", "oregano", "thyme dried", "dried", "chili flakes", "pepper flakes", "black pepper", "peppercorn", "nutmeg", "cardamom", "coriander seed", "seeds", "bay lea", "spice", "za'atar", "zaatar", "sumac", "baharat", "vanilla", "salt",
     "תבלין", "פפריקה", "כמון", "כורכום", "קינמון", "אורגנו", "פלפל שחור", "אגוז מוסקט", "זרעי", "עלי דפנה", "זעתר", "סומק", "בהרט", "וניל", "מלח", "אבקת"]],
-  ["Dairy & eggs", ["egg", "milk", "butter", "cream", "cheese", "yogurt", "yoghurt", "labneh", "feta", "parmesan", "mozzarella", "ricotta", "buttermilk",
-    "ביצ", "חלב", "חמאה", "שמנת", "גבינ", "יוגורט", "לבנה", "פטה", "פרמזן", "מוצרלה", "ריקוטה", "קוטג"]],
+  ["Dairy & eggs", ["egg", "milk", "butter", "cream", "cheese", "yogurt", "yoghurt", "labneh", "feta", "parmesan", "mozzarella", "ricotta", "buttermilk", "bulgarit", "tofu",
+    "ביצ", "חלב", "חמאה", "שמנת", "גבינ", "יוגורט", "לבנה", "פטה", "פרמזן", "מוצרלה", "ריקוטה", "קוטג", "בולגרית", "טופו"]],
   ["Meat & fish", ["chicken", "beef", "lamb", "pork", "turkey", "mince", "steak", "sausage", "bacon", "fish", "salmon", "tuna", "shrimp", "prawn", "cod",
     "עוף", "חזה", "פרגית", "בקר", "טחון", "כבש", "הודו", "נקניק", "דג", "סלמון", "טונה", "שרימפס", "בשר"]],
   ["Bakery", ["bread", "pita", "baguette", "tortilla", "bun", "roll", "brioche", "challah", "לחם", "פיתה", "פיתות", "באגט", "טורטיה", "לחמני", "חלה"]],
   ["Frozen", ["frozen", "ice cream", "קפוא", "קפואה", "גלידה"]],
   ["Drinks", ["wine", "beer", "soda water", "יין", "בירה"]],
-  ["Produce", ["onion", "garlic", "tomato", "potato", "carrot", "pepper", "chilli", "chili", "lemon", "lime", "orange", "apple", "banana", "berr", "lettuce", "spinach", "cabbage", "cucumber", "zucchini", "courgette", "eggplant", "aubergine", "mushroom", "celery", "leek", "ginger", "avocado", "herb", "parsley", "cilantro", "coriander", "basil", "mint", "dill", "thyme", "rosemary", "scallion", "spring onion", "shallot", "squash", "pumpkin", "corn", "broccoli", "cauliflower", "kale", "fruit", "vegetable",
-    "בצל", "שום", "עגבני", "תפוח", "גזר", "פלפל", "צ'ילי", "לימון", "ליים", "תפוז", "בננה", "חסה", "תרד", "כרוב", "מלפפון", "קישוא", "חציל", "פטריות", "סלרי", "כרישה", "ג'ינג'ר", "אבוקדו", "פטרוזיליה", "כוסברה", "בזיליקום", "נענע", "שמיר", "טימין", "רוזמרין", "בצל ירוק", "דלעת", "תירס", "ברוקולי", "כרובית", "ירק"]],
-  ["Pantry", ["flour", "sugar", "rice", "pasta", "noodle", "oil", "vinegar", "honey", "syrup", "tahini", "sauce", "stock", "broth", "can", "tin", "beans", "lentil", "chickpea", "oat", "nut", "almond", "walnut", "chocolate", "cocoa", "yeast", "baking", "cornstarch", "breadcrumb", "couscous", "bulgur", "quinoa", "jam", "mustard", "ketchup", "mayo", "paste", "coconut", "raisin", "date",
+  ["Produce", ["onion", "garlic", "tomato", "potato", "carrot", "pepper", "chilli", "chili", "lemon", "lime", "orange", "apple", "banana", "berr", "blueberr", "strawberr", "raspberr", "blackberr", "cranberr", "lettuce", "spinach", "cabbage", "cucumber", "zucchini", "courgette", "eggplant", "aubergine", "mushroom", "celery", "leek", "ginger", "avocado", "herb", "parsley", "cilantro", "coriander", "basil", "mint", "dill", "thyme", "rosemary", "scallion", "spring onion", "shallot", "squash", "pumpkin", "corn", "broccoli", "cauliflower", "kale", "chard", "mangold", "beet", "greens", "arugula", "rocket", "radish", "sweet potato", "pineapple", "mango", "peach", "plum", "pear", "grape", "melon", "watermelon", "kiwi", "pomegranate", "fruit", "vegetable",
+    "בצל", "שום", "עגבני", "תפוח", "גזר", "פלפל", "צ'ילי", "לימון", "ליים", "תפוז", "בננה", "חסה", "תרד", "כרוב", "מלפפון", "קישוא", "חציל", "פטריות", "סלרי", "כרישה", "מנגולד", "סלק", "עלים ירוקים", "רוקט", "צנון", "בטטה", "אננס", "מנגו", "אפרסק", "שזיף", "אגס", "ענבים", "מלון", "אבטיח", "קיווי", "רימון", "ג'ינג'ר", "אבוקדו", "פטרוזיליה", "כוסברה", "בזיליקום", "נענע", "שמיר", "טימין", "רוזמרין", "בצל ירוק", "דלעת", "תירס", "ברוקולי", "כרובית", "ירק"]],
+  ["Pantry", ["flour", "sugar", "rice", "pasta", "noodle", "oil", "vinegar", "honey", "syrup", "tahini", "sauce", "stock", "broth", "can", "tin", "beans", "lentil", "chickpea", "oat", "nut", "peanut", "pistachio", "cashew", "hazelnut", "pecan", "almond", "walnut", "chocolate", "cocoa", "yeast", "baking", "cornstarch", "breadcrumb", "couscous", "bulgur", "quinoa", "jam", "mustard", "ketchup", "mayo", "paste", "coconut", "raisin", "date",
     "קמח", "סוכר", "אורז", "פסטה", "אטריות", "שמן", "חומץ", "דבש", "סילאן", "סירופ", "טחינה", "רוטב", "ציר", "קופסת", "שעועית", "עדשים", "חומוס", "שיבולת", "אגוז", "שקד", "שוקולד", "קקאו", "שמרים", "קורנפלור", "פירורי", "קוסקוס", "בורגול", "קינואה", "ריבה", "חרדל", "קטשופ", "מיונז", "רסק", "קוקוס", "צימוק", "תמר"]],
 ];
 
@@ -39,6 +39,8 @@ const EXCEPT: [string, Aisle][] = [
   ["baking powder", "Pantry"], ["baking soda", "Pantry"], ["cocoa", "Pantry"], ["sugar", "Pantry"], ["chocolate", "Pantry"], ["cornstarch", "Pantry"], ["cornflour", "Pantry"],
   ["rolled oats", "Pantry"], ["tomato paste", "Pantry"], ["canned", "Pantry"], ["crushed tomato", "Pantry"], ["cans", "Pantry"], ["can of", "Pantry"], ["passata", "Pantry"],
   ["עגבניות מרוסקות", "Pantry"], ["קופסת", "Pantry"], ["קופסאות", "Pantry"], ["garlic powder", "Spices"], ["onion powder", "Spices"],
+  ["collagen", "Pantry"], ["protein powder", "Pantry"], ["pumpkin seeds", "Pantry"], ["sunflower seeds", "Pantry"], ["sesame seeds", "Pantry"], ["chia", "Pantry"], ["flax", "Pantry"],
+  ["קולגן", "Pantry"], ["אבקת חלבון", "Pantry"], ["גרעיני דלעת", "Pantry"], ["שומשום", "Pantry"], ["צ'יה", "Pantry"],
   ["חלב קוקוס", "Pantry"], ["שמנת קוקוס", "Pantry"], ["אבקת אפייה", "Pantry"], ["אבקת סוכר", "Pantry"], ["סודה לשתייה", "Pantry"], ["רסק עגבניות", "Pantry"], ["חמאת בוטנים", "Pantry"],
 ];
 

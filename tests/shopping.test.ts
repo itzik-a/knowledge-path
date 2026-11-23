@@ -25,6 +25,14 @@ describe("the shopping list", () => {
     expect(aisleOf("קמח לבן")).toBe("Pantry");
     expect(aisleOf("אבקת אפייה")).toBe("Pantry");
     expect(aisleOf("פפריקה מתוקה")).toBe("Spices");
+    expect(aisleOf("roasted peanuts")).toBe("Pantry");
+    expect(aisleOf("rainbow chard leaf with stem (mangold)")).toBe("Produce");
+    expect(aisleOf("of hydrolyzed collagen powder")).toBe("Pantry");
+    expect(aisleOf("pumpkin seeds")).toBe("Pantry");
+    expect(aisleOf("tofu cubes")).toBe("Dairy & eggs");
+    expect(aisleOf("bulgarit / tofu")).toBe("Dairy & eggs");
+    expect(aisleOf("beets")).toBe("Produce");
+    expect(aisleOf("blueberries")).toBe("Produce");
     expect(aisleOf("something odd")).toBe("Other");
   });
 
