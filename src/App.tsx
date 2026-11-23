@@ -12,10 +12,13 @@ import { Toast } from "./components/Toast";
 
 // the drawing sheet loads the first time a sketch is opened
 const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
+const CookMode = lazy(() => import("./components/CookMode").then((m) => ({ default: m.CookMode })));
+const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ default: m.TimerDock })));
 import { TopicSheet } from "./components/TopicSheet";
 import { readHash, topicHref, type Route } from "./lib/route";
 import { PrivateSheet } from "./components/PrivateNotes";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
+import { useTimers } from "./lib/timers";
 import { useVault } from "./state/store";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
@@ -52,6 +55,7 @@ export function App() {
   const [route, setRoute] = useState<Route>(readHash);
   const { ready, index: ix } = useVault();
   const sheet = useSheet();
+  const hasTimers = useTimers().length > 0;
 
   useEffect(() => {
     const on = () => setRoute((prev) => {
@@ -160,6 +164,8 @@ export function App() {
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
       {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} />}
       {sheet?.kind === "private" && <PrivateSheet then={sheet.then} onClose={closeSheetReq} />}
+      {sheet?.kind === "cook" && <Suspense fallback={null}><CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
+      {sheet?.kind !== "cook" && hasTimers && <Suspense fallback={null}><TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} /></Suspense>}
       {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
 
       <nav className="tabbar" aria-label="Sections">

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
 import { allIngredients, allSteps, parseRecipe, recipeTags } from "../../shared/recipes.ts";
 import { CookedLog, IngredientList, RECIPE_EMOJI, RecipeCard, ScaleControl, Stars, StepList, useScale } from "../components/recipes";
-import { IconBack, IconEdit, IconExternal, IconMore, IconPlus, IconSearch } from "../components/Icons";
+import { IconBack, IconEdit, IconExternal, IconMore, IconPlay, IconPlus, IconSearch } from "../components/Icons";
+import { unlockAudio } from "../lib/timers";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { RecipeSheet } from "../components/RecipeSheet";
@@ -111,6 +112,7 @@ export function RecipePage({ d, ix }: { d: Doc; ix: Index }) {
           ]} />
         </div>
         <div className="btn-row">
+          {(p.steps.length > 0 || p.ingredients.length > 0) && <button type="button" className="btn primary sm" onClick={() => { unlockAudio(); openSheet({ kind: "cook", path: d.path }); }}><IconPlay /> Cook</button>}
           {r.source && <a className="btn sm" href={r.source} target="_blank" rel="noopener">Source <IconExternal /></a>}
           <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}><IconEdit /> {editing ? "Done" : "Edit"}</button>
         </div>

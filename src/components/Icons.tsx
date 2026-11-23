@@ -86,6 +86,9 @@ export const IconRecipe = (p: P) => (
 export const IconPlay = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><path d="M8 5.5v13l10.5-6.5Z" fill="currentColor" /></svg>
 );
+export const IconPause = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><rect x="7" y="6" width="3.5" height="12" rx="1" fill="currentColor" stroke="none" /><rect x="13.5" y="6" width="3.5" height="12" rx="1" fill="currentColor" stroke="none" /></svg>
+);
 export const IconStop = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" /></svg>
 );

@@ -126,7 +126,7 @@ export const stripMd = (s: string) => s
   .replace(/(\*\*|__)(.+?)\1/g, "$2").replace(/(\*|_)(.+?)\1/g, "$2");
 
 /** A step's text with its times marked (cook mode makes them timer buttons). */
-export function StepText({ text, time }: { text: string; time?: (t: ReturnType<typeof findTimes>[number], label: ReactNode) => ReactNode }) {
+export function StepText({ text, time }: { text: string; time?: (t: ReturnType<typeof findTimes>[number], label: string) => ReactNode }) {
   const plain = stripMd(text);
   const times = findTimes(plain);
   const out: ReactNode[] = [];

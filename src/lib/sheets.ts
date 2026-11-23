@@ -11,7 +11,9 @@ export type SheetReq =
   /** draw: a new sketch for `note`, or change the sketch at `path` */
   | { kind: "sketch"; path?: string; note?: string }
   /** the passphrase for private notes; `then`: a note to make private once it's set */
-  | { kind: "private"; then?: string };
+  | { kind: "private"; then?: string }
+  /** cook a recipe, full screen */
+  | { kind: "cook"; path: string };
 
 let cur: SheetReq | null = null;
 const ls = new Set<() => void>();
