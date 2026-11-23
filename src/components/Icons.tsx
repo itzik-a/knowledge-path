@@ -80,6 +80,9 @@ export const IconTrash = (p: P) => (
 export const IconHabit = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" /><path d="M19.5 4v4h-4" /><path d="m8.8 12.2 2.2 2.2 4.2-4.4" /></svg>
 );
+export const IconRecipe = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><path d="M4 11h16v4.5a4.5 4.5 0 0 1-4.5 4.5h-7A4.5 4.5 0 0 1 4 15.5Z" /><path d="M2.5 11h19M9 7.5c0-1 .8-1.3.8-2.3S9 4 9 3M14.5 7.5c0-1 .8-1.3.8-2.3s-.8-1.2-.8-2.2" /></svg>
+);
 export const IconPlay = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><path d="M8 5.5v13l10.5-6.5Z" fill="currentColor" /></svg>
 );

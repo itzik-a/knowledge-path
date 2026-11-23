@@ -70,7 +70,7 @@ function NoTopic({ id }: { id: string }) {
   );
 }
 
-type Section = "resources" | "notes" | "journal" | "paths" | "habits";
+type Section = "resources" | "notes" | "journal" | "paths" | "habits" | "recipes";
 type Filter = "all" | Status;
 
 function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
@@ -89,14 +89,16 @@ function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
       journal: items.filter((d) => d.kind === "journal").sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
       paths: items.filter((d) => d.kind === "path"),
       habits: items.filter((d) => d.kind === "habit").sort((a, b) => a.title.localeCompare(b.title)),
+      recipes: items.filter((d) => d.kind === "recipe").sort((a, b) => a.title.localeCompare(b.title)),
     };
   }, [items]);
-  const section: Section = chosen === "habits" && !groups.habits.length ? "resources" : chosen;
+  const section: Section = (chosen === "habits" || chosen === "recipes") && !groups[chosen].length ? "resources" : chosen;
   const resources = filter === "all" ? groups.resources : groups.resources.filter((d) => d.resource!.status === filter);
   const list = section === "resources" ? resources : groups[section];
   const tabs: { id: Section; label: string }[] = [
     { id: "resources", label: "Resources" }, { id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }, { id: "paths", label: "Paths" },
     ...(groups.habits.length ? [{ id: "habits" as Section, label: "Habits" }] : []),
+    ...(groups.recipes.length ? [{ id: "recipes" as Section, label: "Recipes" }] : []),
   ];
 
   function add() {
@@ -104,6 +106,7 @@ function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
     else if (section === "notes") go(docHref(createNote({ title: "Untitled", topics: [t.id] })));
     else if (section === "paths") go(docHref(createPath(`${t.name} path`, [t.id])));
     else if (section === "habits") openSheet({ kind: "habit", topics: [t.id] });
+    else if (section === "recipes") openSheet({ kind: "capture", init: { topics: [t.id], mode: "recipe" } });
   }
 
   return (
@@ -170,7 +173,7 @@ function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
           <p className="muted small">{EMPTY[section]}</p>
         )}
         {section !== "journal" && (
-          <button type="button" className="btn ghost sm" onClick={add}><IconPlus /> {section === "resources" ? "Add a resource" : section === "notes" ? "New note" : section === "habits" ? "New habit" : "New study path"}</button>
+          <button type="button" className="btn ghost sm" onClick={add}><IconPlus /> {section === "resources" ? "Add a resource" : section === "notes" ? "New note" : section === "habits" ? "New habit" : section === "recipes" ? "New recipe" : "New study path"}</button>
         )}
       </section>
     </>
@@ -183,6 +186,7 @@ const EMPTY: Record<Section, string> = {
   journal: "Journal entries that mention this topic (with [[its name]] or #its-tag) show up here.",
   paths: "A study path is an ordered list of things to read, watch and do.",
   habits: "Habits that list this topic show up here.",
+  recipes: "Recipes that list this topic show up here.",
 };
 
 const rank = (d: Doc) => ({ "in-progress": 0, next: 1, saved: 2, done: 3 })[d.resource!.status];

@@ -7,6 +7,7 @@ import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
 import { IconCheck, IconClose, IconLock, IconPlus, IconSearch } from "./Icons";
+import { RecipeRow } from "./recipes";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
 export const TYPE_EMOJI: Record<ResourceType, string> = { article: "📄", video: "▶️", book: "📕", podcast: "🎧", paper: "📑", course: "🎓", site: "🌐", other: "📎" };
@@ -142,11 +143,11 @@ export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Ind
 
 export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const label = d.kind === "journal" && d.date ? shortDate(d.date) : d.title;
-  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
+  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
   return (
     <li>
       <RowShell path={d.path} sel={sel}>
-        <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : "📝"}</span>
+        <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : "📝"}</span>
         <span className="item-main">
           <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Locked" aria-hidden={false} />}</span>
           {d.excerpt && <span className="item-meta clamp" dir="auto">{d.excerpt}</span>}
@@ -163,6 +164,7 @@ export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; 
 }
 
 export function DocRow({ d, ix, showTopics, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
+  if (d.kind === "recipe" && !sel?.on) return <RecipeRow d={d} ix={ix} showTopics={showTopics} />;
   return d.kind === "resource" ? <ResourceRow d={d} ix={ix} showTopics={showTopics} sel={sel} /> : <NoteRow d={d} ix={ix} showTopics={showTopics} sel={sel} />;
 }
 

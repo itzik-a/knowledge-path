@@ -6,7 +6,7 @@ import { CaptureSheet } from "./components/CaptureSheet";
 import { ConfirmDialog } from "./components/Confirm";
 import { DataPill, DataSheet } from "./components/DataSheet";
 import { HabitSheet } from "./components/HabitSheet";
-import { IconHabit, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
@@ -23,6 +23,7 @@ import { Habits } from "./views/Habits";
 import { Home } from "./views/Home";
 import { Inbox } from "./views/Inbox";
 import { Library } from "./views/Library";
+import { Recipes } from "./views/Recipes";
 import { Notes, TagPage } from "./views/Notes";
 import { Topics } from "./views/Topics";
 
@@ -38,11 +39,11 @@ const TABS: { id: Tab; label: string; Icon: ComponentType<SVGProps<SVGSVGElement
 function tabOf(r: Route): Tab {
   if (r.view === "doc" && r.sub) {
     const k = kindOf(r.sub);
-    return k === "resource" ? "library" : k === "path" ? "topics" : k === "habit" ? "home" : "notes";
+    return k === "resource" ? "library" : k === "path" ? "topics" : k === "habit" || k === "recipe" ? "home" : "notes";
   }
   if (r.view === "tag") return "notes";
   if (r.view === "inbox") return "library";
-  return r.view === "capture" || r.view === "habits" ? "home" : (r.view as Tab);
+  return r.view === "capture" || r.view === "habits" || r.view === "recipes" ? "home" : (r.view as Tab);
 }
 
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
@@ -84,8 +85,9 @@ export function App() {
   }, []);
 
   const tab = tabOf(route);
-  /** the sidebar marks Habits and the Inbox on their own, not the tab they belong to */
+  /** the sidebar marks Habits, Recipes and the Inbox on their own, not the tab they belong to */
   const habitsOpen = route.view === "habits" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "habit");
+  const recipesOpen = route.view === "recipes" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "recipe");
   const waiting = ready ? inbox(ix).length : 0;
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const onCaptureClose = () => {
@@ -107,9 +109,10 @@ export function App() {
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && !habitsOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
+            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && !habitsOpen && !recipesOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
           ))}
           <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
+          <a href="#recipes" aria-current={recipesOpen ? "page" : undefined}><IconRecipe /><span>Recipes</span></a>
           <a href="#inbox" aria-current={route.view === "inbox" ? "page" : undefined}><IconInbox /><span>Inbox</span>{waiting > 0 && <span className="badge">{waiting}</span>}</a>
         </nav>
         <nav className="side-topics" aria-label="Topics">
@@ -141,6 +144,7 @@ export function App() {
           : route.view === "notes" ? <Notes sub={route.sub} />
           : route.view === "inbox" ? <Inbox />
           : route.view === "habits" ? <Habits />
+          : route.view === "recipes" ? <Recipes />
           : route.view === "tag" && route.sub ? <TagPage tag={route.sub} />
           : route.view === "doc" && route.sub ? <DocPage path={route.sub} />
           : <Home />}

@@ -1,4 +1,4 @@
-/* One file's page: a resource, a note, a journal entry or a study path (#doc/<path>). */
+/* One file's page: a resource, a note, a journal entry, a study path, a habit or a recipe (#doc/<path>). */
 import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
@@ -16,6 +16,7 @@ import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setSta
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
+import { RecipePage } from "./Recipes";
 import { LockedBody, PrivateBadge } from "../components/PrivateNotes";
 import { getPassphrase } from "../lib/passphrase";
 import { setPrivate } from "../state/privacy";
@@ -31,6 +32,7 @@ export function DocPage({ path }: { path: string }) {
   if (d.kind === "resource") return <ResourcePage d={d} ix={ix} />;
   if (d.kind === "path") return <PathPage d={d} ix={ix} />;
   if (d.kind === "habit") return <HabitPage d={d} ix={ix} />;
+  if (d.kind === "recipe") return <RecipePage d={d} ix={ix} />;
   return <NotePage d={d} ix={ix} />;
 }
 
@@ -60,7 +62,7 @@ function Missing({ path }: { path: string }) {
   );
 }
 
-function LinkedFrom({ ix, path }: { ix: Index; path: string }) {
+export function LinkedFrom({ ix, path }: { ix: Index; path: string }) {
   const from = (ix.backlinks.get(path) ?? []).map((p) => ix.docs.get(p)).filter((x): x is Doc => !!x);
   if (!from.length) return null;
   return (
@@ -268,7 +270,7 @@ function HighlightForm({ quote = "", comment = "", onSave, onCancel, onRemove }:
 }
 
 // ── note ──────────────────────────────────────────────────────
-function TitleInput({ d }: { d: Doc }) {
+export function TitleInput({ d }: { d: Doc }) {
   const [v, setV] = useState(d.title);
   useEffect(() => setV(d.title), [d.title]);
   const commit = () => {
@@ -446,3 +448,5 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
     </>
   );
 }
+
+export { Topics as DocTopics, Tags as DocTags };

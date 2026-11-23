@@ -6,6 +6,7 @@ import {
   slug, splitFrontmatter, strList, type Kind, type Link, type Resource,
 } from "./vault.ts";
 import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
+import { parseRecipe, recipeOf, summarize, type Recipe, type RecipeSummary } from "./recipes.ts";
 import { isLockedName, sealedPayload } from "./private.ts";
 
 export interface Doc {
@@ -22,6 +23,9 @@ export interface Doc {
   habit?: Habit;
   /** a habit's log, newest first */
   log?: LogEntry[];
+  recipe?: Recipe;
+  /** a recipe's ingredient names, the days it was cooked (newest first) and its total time */
+  cooking?: RecipeSummary;
   date?: string;
   excerpt: string;
   mtime: number;
@@ -77,7 +81,9 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
     resource: kind === "resource" ? resourceOf(fm) : undefined,
     habit: kind === "habit" ? habitOf(fm) : undefined,
     log: kind === "habit" ? parseLog(body) : undefined,
-    excerpt: kind === "hub" ? "" : excerpt(kind === "habit" ? body.replace(/^##\s+log\s*$[\s\S]*/im, "") : body),
+    recipe: kind === "recipe" ? recipeOf(fm) : undefined,
+    cooking: kind === "recipe" ? summarize(recipeOf(fm), body) : undefined,
+    excerpt: kind === "hub" ? "" : excerpt(kind === "habit" ? body.replace(/^##\s+log\s*$[\s\S]*/im, "") : kind === "recipe" ? parseRecipe(body).intro : body),
   };
 }
 

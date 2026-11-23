@@ -5,7 +5,10 @@ import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
 import { ResourceRow, topicColor } from "../components/bits";
 import { HabitRow } from "../components/habits";
 import { habitsOf } from "./Habits";
-import { IconHabit, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
+import { recipesOf } from "./Recipes";
+import { RecipeRow } from "../components/recipes";
+import { addDays } from "../lib/dates";
+import { IconHabit, IconRecipe, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
@@ -43,6 +46,15 @@ export function Home() {
   // a habit with no schedule ("whenever") is never due, so it isn't counted in "N of M today"
   const due = habits.filter((d) => d.habit!.goal.per !== "any");
   const habitsDone = due.filter((d) => d.log?.some((e) => e.date === today)).length;
+  const recipes = useMemo(() => recipesOf(ix), [ix]);
+  // made before, not in the last three weeks: the favourites first
+  const again = useMemo(() => {
+    const before = addDays(today, -21);
+    const old = recipes.filter((d) => d.cooking?.cooked.length && d.cooking.cooked[0] < before)
+      .sort((a, b) => b.cooking!.cooked.length - a.cooking!.cooked.length || (b.recipe!.rating ?? 0) - (a.recipe!.rating ?? 0));
+    return (old.length ? old : [...recipes].sort((a, b) => String(b.fm.added ?? "").localeCompare(String(a.fm.added ?? "")) || b.mtime - a.mtime)).slice(0, 3);
+  }, [recipes, today]);
+  const againOld = again.some((d) => d.cooking?.cooked.length);
 
   return (
     <>
@@ -73,6 +85,22 @@ export function Home() {
         <a className="card journal-card" href="#habits">
           <span className="journal-icon"><IconHabit /></span>
           <span className="grow"><b>Track a habit</b><span className="muted small">Something to do every day, or a few times a week.</span></span>
+          <span className="chev">›</span>
+        </a>
+      )}
+
+      {recipes.length > 0 ? (
+        <section className="card">
+          <div className="card-head">
+            <h2>Recipes{againOld && <span className="muted"> · cook again</span>}</h2>
+            <a className="link" href="#recipes">All {recipes.length}</a>
+          </div>
+          <ul className="item-list">{again.map((d) => <RecipeRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
+        </section>
+      ) : (
+        <a className="card journal-card" href="#recipes">
+          <span className="journal-icon"><IconRecipe /></span>
+          <span className="grow"><b>Save a recipe</b><span className="muted small">Paste a link or write it down; scale it and cook from it step by step.</span></span>
           <span className="chev">›</span>
         </a>
       )}

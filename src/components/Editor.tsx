@@ -55,7 +55,7 @@ function complete(ctx: CompletionContext) {
       const label = d.name;
       if (q && !label.toLowerCase().includes(q) && !d.title.toLowerCase().includes(q)) continue;
       options.push({
-        label, detail: d.kind === "topic" ? "topic" : d.kind === "resource" ? d.resource?.type : d.kind === "journal" ? "journal" : d.kind === "path" ? "path" : d.kind === "habit" ? "habit" : undefined,
+        label, detail: d.kind === "topic" ? "topic" : d.kind === "resource" ? d.resource?.type : d.kind === "journal" ? "journal" : d.kind === "path" ? "path" : d.kind === "habit" ? "habit" : d.kind === "recipe" ? "recipe" : undefined,
         boost: d.kind === "topic" ? 2 : d.kind === "resource" ? 1 : 0,
         apply: (view, _c, from, to) => {
           const after = view.state.sliceDoc(to, to + 2);

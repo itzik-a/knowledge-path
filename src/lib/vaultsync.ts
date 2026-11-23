@@ -67,7 +67,7 @@ export interface SyncResult {
 }
 
 /** A line-based three-way merge; null when the two sides change the same lines differently.
-    With `logs` (habit files), a clash made only of log lines keeps the days logged on either side. */
+    With `logs` (habit and recipe files), a clash made only of log lines keeps the days logged on either side. */
 export function merge3(base: string, mine: string, theirs: string, opts: { logs?: boolean } = {}): string | null {
   if (mine === theirs || theirs === base) return mine;
   if (mine === base) return theirs;
@@ -159,7 +159,7 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opt
     if (r.deleted) { apply.push({ path, content: theirs, sha }); pulled++; continue; }
     if (r.content === theirs) { apply.push({ path, content: theirs, sha }); continue; }
     const merged = (isSketchPath(path) ? mergeSketch(r.base ?? "", r.content, theirs) : null)
-      ?? merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" });
+      ?? merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" || kindOf(path) === "recipe" });
     if (merged != null) {
       apply.push({ path, content: merged, sha, base: theirs, dirty: merged !== theirs });
       if (merged !== r.content) pulled++;

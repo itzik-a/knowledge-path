@@ -8,12 +8,13 @@ import { getPassphrase } from "../lib/passphrase";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
-import { createNote, createResource } from "../state/actions";
+import { createNote, createRecipe, createResource } from "../state/actions";
 import { TopicPicker, TYPE_LABEL } from "./bits";
 import { IconLock, IconUnlock } from "./Icons";
 import { Field, Seg, Select, Sheet, closeSheet } from "./ui";
 
-export interface CaptureInit { url?: string; title?: string; text?: string; topics?: string[]; mode?: "link" | "note" }
+type Mode = "link" | "note" | "recipe";
+export interface CaptureInit { url?: string; title?: string; text?: string; topics?: string[]; mode?: Mode }
 
 const firstUrl = (s: string) => s.match(/https?:\/\/[^\s<>"]+/)?.[0];
 
@@ -30,7 +31,7 @@ async function youtube(url: string): Promise<{ title?: string; author?: string; 
 
 export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: () => void }) {
   const startUrl = init.url ?? (init.text ? firstUrl(init.text) : undefined);
-  const [mode, setMode] = useState<"link" | "note">(init.mode ?? (startUrl || !init.text ? "link" : "note"));
+  const [mode, setMode] = useState<Mode>(init.mode ?? (startUrl || !init.text ? "link" : "note"));
   const [url, setUrl] = useState(startUrl ?? "");
   const [title, setTitle] = useState(init.title ?? "");
   const [titleTouched, setTitleTouched] = useState(!!init.title);
@@ -64,6 +65,14 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
 
   function save(e: FormEvent) {
     e.preventDefault();
+    if (mode === "recipe") {
+      const t = title.trim();
+      if (!t) { setErr("Give it a name."); return; }
+      const path = createRecipe({ title: t, topics });
+      closeSheet(form.current);
+      go(docHref(path));
+      return;
+    }
     if (mode === "link") {
       const u = url.trim();
       if (u && !isHttpUrl(u)) { setErr("That doesn't look like a web address (it should start with https://)."); return; }
@@ -88,9 +97,9 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   return (
     <Sheet title="Add" onClose={onClose}>
       <form ref={form} className="form-grid" onSubmit={save}>
-        <Seg<"link" | "note" | "habit"> className="full" label="What to add" value={mode}
+        <Seg<Mode | "habit"> className="full" label="What to add" value={mode}
           onChange={(m) => { if (m === "habit") { openSheet({ kind: "habit", topics }); return; } setMode(m); setErr(""); }}
-          options={[{ id: "link", label: "Link" }, { id: "note", label: "Note" }, { id: "habit", label: "Habit" }]} />
+          options={[{ id: "link", label: "Link" }, { id: "note", label: "Note" }, { id: "recipe", label: "Recipe" }, { id: "habit", label: "Habit" }]} />
         {mode === "link" ? (
           <>
             <Field label="Link">
@@ -114,6 +123,10 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
               <Seg<Status> label="When" value={status} onChange={setStatus} options={[{ id: "saved", label: "Someday" }, { id: "next", label: "Up next" }, { id: "in-progress", label: "Now" }]} />
             </div>
           </>
+        ) : mode === "recipe" ? (
+          <Field label="Name">
+            <input className="text-input" dir="auto" placeholder="e.g. Shakshuka" data-autofocus value={title} onChange={(e) => { setTitle(e.target.value); setErr(""); }} />
+          </Field>
         ) : (
           <Field label="Title">
             <input className="text-input" dir="auto" placeholder="Optional: the first line is used" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -123,10 +136,12 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
           <span className="field-label">Topics</span>
           <TopicPicker value={topics} onChange={setTopics} />
         </div>
-        <Field label={mode === "link" ? "Why I saved it" : "Note"}>
-          <textarea className="text-input" dir="auto" rows={mode === "note" ? 6 : 3} placeholder={mode === "link" ? "Optional" : "Write it down…"} data-autofocus={(mode === "note" && !init.text) || undefined}
-            value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
+        {mode !== "recipe" && (
+          <Field label={mode === "link" ? "Why I saved it" : "Note"}>
+            <textarea className="text-input" dir="auto" rows={mode === "note" ? 6 : 3} placeholder={mode === "link" ? "Optional" : "Write it down…"} data-autofocus={(mode === "note" && !init.text) || undefined}
+              value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+        )}
         {mode === "note" && (
           <div className="private-pick">
             <button type="button" className="chip" aria-pressed={priv} onClick={() => setPriv((p) => !p)}>{priv ? <IconLock className="inline-icon" /> : <IconUnlock className="inline-icon" />} {priv ? "Locked" : "Lock"}</button>
@@ -134,7 +149,7 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
           </div>
         )}
         {err && <p className="form-error" role="alert">{err}</p>}
-        <button className="btn primary" type="submit">{mode === "link" ? "Save" : priv ? "Save locked note" : "Save note"}</button>
+        <button className="btn primary" type="submit">{mode === "recipe" ? "Write the recipe" : mode === "link" ? "Save" : priv ? "Save locked note" : "Save note"}</button>
       </form>
     </Sheet>
   );

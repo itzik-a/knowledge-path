@@ -34,7 +34,7 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
       key: d.path, href: docHref(d.path),
       title: d.kind === "journal" && d.date ? `Journal · ${shortDate(d.date)}` : d.title,
       sub: d.resource ? [d.resource.author, snippet(d.body, q, 90) || d.resource.summary].filter(Boolean).join(" · ") : snippet(d.body, q),
-      icon: <span aria-hidden="true">{d.resource ? TYPE_EMOJI[d.resource.type] : d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : "📝"}</span>,
+      icon: <span aria-hidden="true">{d.resource ? TYPE_EMOJI[d.resource.type] : d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : "📝"}</span>,
     }));
     return [...topics, ...docs];
   }, [ix, q]);

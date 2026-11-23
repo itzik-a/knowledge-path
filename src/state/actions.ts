@@ -7,6 +7,7 @@ import {
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
 import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
+import { recipeBody, setCooked } from "../../shared/recipes.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
 import { sketchesOnlyIn } from "./sketches";
@@ -157,6 +158,7 @@ export async function deleteDocs(paths: string[], label?: string): Promise<boole
       [count((d) => d?.kind === "resource"), "resource"],
       [count((d) => d?.kind === "note" || d?.kind === "path"), "note"],
       [count((d) => d?.kind === "journal"), "journal entry"],
+      [count((d) => d?.kind === "recipe"), "recipe"],
     ] as [number, string][]).filter(([n]) => n).map(([n, w]) => `${n} ${n > 1 ? (w.endsWith("y") ? w.slice(0, -1) + "ies" : w + "s") : w}`);
     name = parts.length ? parts.join(" and ") : `${paths.length} items`;
   }
@@ -257,6 +259,75 @@ export function unlogHabit(path: string, date: string, label?: string) {
 export function setArchived(path: string, archived: boolean) {
   patch(path, { archived: archived || undefined });
   showToast(archived ? "Archived: hidden from Home" : "Back on Home", { label: "Undo", run: () => patch(path, { archived: !archived || undefined }) });
+}
+
+// ── recipes ───────────────────────────────────────────────────
+export interface NewRecipe {
+  title: string; topics?: string[]; source?: string; image?: string; site?: string;
+  /** the body; a template with empty Ingredients and Steps when missing */
+  body?: string;
+  /** saved from a link with no title yet: the enricher names it after the page */
+  provisional?: boolean;
+  /** frontmatter beyond the usual (servings, prep, cook, tags…) */
+  more?: Record<string, unknown>;
+}
+
+export function createRecipe(r: NewRecipe): string {
+  const path = uniquePath(FOLDER.recipes, r.title, taken);
+  const fm: Record<string, unknown> = {
+    title: safeName(r.title) !== r.title.trim() ? r.title.trim() : undefined,
+    ...r.more,
+    source: r.source, image: r.image, site: r.site,
+    topics: (r.topics ?? []).map(topicLink), added: todayISO(),
+    enrich: r.source ? "pending" : undefined,
+    provisional: r.provisional || undefined,
+  };
+  writeFile(path, setFrontmatter("", fm) + (r.body ?? recipeBody()));
+  return path;
+}
+
+export interface RecipeFields { title: string; servings?: string; prep?: string; cook?: string; source?: string; image?: string; tags: string[] }
+
+/** Edit a recipe's details (renaming the file when the title changes). A new source link is fetched again. Returns its path. */
+export function updateRecipe(path: string, f: RecipeFields): string {
+  const c = readFile(path);
+  if (c == null) return path;
+  const { fm } = splitFrontmatter(c);
+  const num = (v?: string) => (v && /^\d+(?:\.\d+)?$/.test(v.trim()) ? Number(v) : v?.trim() || undefined);
+  const srcChanged = (f.source?.trim() || undefined) !== (typeof fm.source === "string" ? fm.source : undefined);
+  const next = f.title.trim() && f.title.trim() !== getIndex().docs.get(path)?.title ? retitle(path, f.title) : path;
+  patch(next, {
+    servings: num(f.servings), prep: num(f.prep), cook: num(f.cook),
+    source: f.source?.trim() || undefined, image: f.image?.trim() || undefined,
+    tags: f.tags.length ? f.tags : undefined,
+    ...(srcChanged && f.source?.trim() ? { enrich: "pending", enrichError: undefined } : {}),
+  });
+  return next;
+}
+
+export function setRating(path: string, rating?: number) {
+  patch(path, { rating: rating || undefined });
+}
+
+/** Log a day this recipe was made (or change its note); Undo puts the day back as it was. */
+export function logCooked(path: string, date: string, note?: string, prev?: { note?: string } | null) {
+  const c = readFile(path);
+  if (c == null) return;
+  writeFile(path, setBody(c, setCooked(splitFrontmatter(c).body, date, note ?? "")));
+  if (prev !== undefined) {
+    showToast(prev ? "Note saved" : "Cooked: logged for today", {
+      label: "Undo",
+      run: () => { const now = readFile(path); if (now != null) writeFile(path, setBody(now, setCooked(splitFrontmatter(now).body, date, prev ? prev.note ?? "" : null))); },
+    });
+  }
+}
+
+/** Take a day off the Cooked log, with Undo. */
+export function unlogCooked(path: string, date: string, note?: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  writeFile(path, setBody(c, setCooked(splitFrontmatter(c).body, date, null)));
+  showToast(`Removed ${date}`, { label: "Undo", run: () => logCooked(path, date, note) });
 }
 
 // ── topics ────────────────────────────────────────────────────
