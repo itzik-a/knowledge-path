@@ -1068,3 +1068,15 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 @media (min-width: 768px) { .timer-dock { bottom: 24px; left: calc(50% + var(--sidebar-w) / 2); } }
 .timer-dock.ringing { animation-name: ring-dock; }
 @keyframes ring-dock { 50% { transform: translateX(-50%) scale(1.05); } }
+
+/* ---------- Shopping list ---------- */
+.shop-add { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
+.shop-add .text-input { flex: 1; min-width: 0; }
+.shop-aisle h2 { font-size: .8rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.shop-list > li { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.shop-list > li:last-child { border-bottom: 0; }
+.shop-list .ing-check { flex: 1; min-width: 0; }
+.shop-text { display: grid; gap: 1px; min-width: 0; }
+.shop-list > li.done .shop-text > span:first-child { color: var(--muted); text-decoration: line-through; }
+.shop-pick { max-height: 55vh; overflow: auto; }
+.shop-link { display: inline-flex; align-items: center; gap: 6px; }

@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import type { Doc, Index } from "../../shared/index.ts";
 import { allIngredients, allSteps, parseRecipe, recipeTags } from "../../shared/recipes.ts";
 import { CookedLog, IngredientList, RECIPE_EMOJI, RecipeCard, ScaleControl, Stars, StepList, useScale } from "../components/recipes";
-import { IconBack, IconEdit, IconExternal, IconMore, IconPlay, IconPlus, IconSearch } from "../components/Icons";
+import { IconBack, IconCart, IconEdit, IconExternal, IconMore, IconPlay, IconPlus, IconSearch } from "../components/Icons";
+import { SHOPPING_PATH } from "../../shared/shopping.ts";
+import { shoppingLeft } from "./Shopping";
 import { unlockAudio } from "../lib/timers";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
@@ -34,6 +36,7 @@ export function Recipes() {
     return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t);
   }, [all]);
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const toBuy = shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body);
   const shown = all
     .filter((d) => !tag || recipeTags(d.fm).includes(tag))
     // every word in the title or in an ingredient: "eggplant tahini"
@@ -52,6 +55,12 @@ export function Recipes() {
         </div>
         <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "recipe" } })}><IconPlus /> New recipe</button>
       </div>
+
+      <a className="card journal-card" href="#shopping">
+        <span className="journal-icon"><IconCart /></span>
+        <span className="grow"><b>Shopping list</b><span className="muted small">{toBuy ? `${toBuy} to buy` : "Empty: add a recipe's ingredients from its page"}</span></span>
+        <span className="chev">›</span>
+      </a>
 
       {all.length ? (
         <>
@@ -113,6 +122,7 @@ export function RecipePage({ d, ix }: { d: Doc; ix: Index }) {
         </div>
         <div className="btn-row">
           {(p.steps.length > 0 || p.ingredients.length > 0) && <button type="button" className="btn primary sm" onClick={() => { unlockAudio(); openSheet({ kind: "cook", path: d.path }); }}><IconPlay /> Cook</button>}
+          {p.ingredients.length > 0 && <button type="button" className="btn sm" onClick={() => openSheet({ kind: "shop", path: d.path })}><IconCart /> Add to list</button>}
           {r.source && <a className="btn sm" href={r.source} target="_blank" rel="noopener">Source <IconExternal /></a>}
           <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}><IconEdit /> {editing ? "Done" : "Edit"}</button>
         </div>

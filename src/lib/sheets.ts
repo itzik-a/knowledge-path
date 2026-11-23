@@ -13,7 +13,9 @@ export type SheetReq =
   /** the passphrase for private notes; `then`: a note to make private once it's set */
   | { kind: "private"; then?: string }
   /** cook a recipe, full screen */
-  | { kind: "cook"; path: string };
+  | { kind: "cook"; path: string }
+  /** add a recipe's ingredients to the shopping list */
+  | { kind: "shop"; path: string };
 
 let cur: SheetReq | null = null;
 const ls = new Set<() => void>();

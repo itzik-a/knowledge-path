@@ -6,9 +6,11 @@ import { ResourceRow, topicColor } from "../components/bits";
 import { HabitRow } from "../components/habits";
 import { habitsOf } from "./Habits";
 import { recipesOf } from "./Recipes";
+import { shoppingLeft } from "./Shopping";
+import { SHOPPING_PATH } from "../../shared/shopping.ts";
 import { RecipeRow } from "../components/recipes";
 import { addDays } from "../lib/dates";
-import { IconHabit, IconRecipe, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
+import { IconCart, IconHabit, IconRecipe, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
@@ -55,6 +57,7 @@ export function Home() {
     return (old.length ? old : [...recipes].sort((a, b) => String(b.fm.added ?? "").localeCompare(String(a.fm.added ?? "")) || b.mtime - a.mtime)).slice(0, 3);
   }, [recipes, today]);
   const againOld = again.some((d) => d.cooking?.cooked.length);
+  const toBuy = shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body);
 
   return (
     <>
@@ -96,6 +99,7 @@ export function Home() {
             <a className="link" href="#recipes">All {recipes.length}</a>
           </div>
           <ul className="item-list">{again.map((d) => <RecipeRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
+          {toBuy > 0 && <a className="link small shop-link" href="#shopping"><IconCart width={16} height={16} /> Shopping list · {toBuy} to buy</a>}
         </section>
       ) : (
         <a className="card journal-card" href="#recipes">

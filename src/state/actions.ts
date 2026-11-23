@@ -8,6 +8,7 @@ import {
 } from "../../shared/vault.ts";
 import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
+import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
 import { sketchesOnlyIn } from "./sketches";
@@ -328,6 +329,42 @@ export function makeRecipe(path: string): string | undefined {
     run: () => { if (renameFile(to, path)) writeFile(path, c); undoArticle?.(); },
   });
   return to;
+}
+
+// ── the shopping list ─────────────────────────────────────────
+/** Add to the shopping list (the note is made if missing), with Undo. */
+export function addToShopping(items: NewItem[], label?: string, quiet = false) {
+  const before = readFile(SHOPPING_PATH);
+  const body = before != null ? splitFrontmatter(before).body : "";
+  const next = addItems(body, items);
+  writeFile(SHOPPING_PATH, before != null ? setBody(before, next) : next);
+  if (quiet) return;
+  showToast(label ?? `Added ${items.length} to the shopping list`, {
+    label: "Undo",
+    run: () => { if (before == null) removeFiles([SHOPPING_PATH]); else writeFile(SHOPPING_PATH, before); },
+  });
+}
+
+/** Take the ticked items off the list, with Undo. */
+export function clearShopping() {
+  const c = readFile(SHOPPING_PATH);
+  if (c == null) return;
+  const n = parseShopping(splitFrontmatter(c).body).filter((x) => x.done).length;
+  if (!n) return;
+  writeFile(SHOPPING_PATH, setBody(c, clearDone(splitFrontmatter(c).body)));
+  showToast(`Cleared ${n} ticked`, { label: "Undo", run: () => writeFile(SHOPPING_PATH, c) });
+}
+
+/** Remove one item, with Undo. */
+export function removeShopItem(line: number) {
+  const c = readFile(SHOPPING_PATH);
+  if (c == null) return;
+  const { body } = splitFrontmatter(c);
+  const lines = body.split("\n");
+  const was = lines[line];
+  lines.splice(line, 1);
+  writeFile(SHOPPING_PATH, setBody(c, lines.join("\n")));
+  showToast("Removed from the list", { label: "Undo", run: () => { const now = readFile(SHOPPING_PATH); if (now == null) return; const ls = splitFrontmatter(now).body.split("\n"); ls.splice(line, 0, was); writeFile(SHOPPING_PATH, setBody(now, ls.join("\n"))); } });
 }
 
 export function setRating(path: string, rating?: number) {
