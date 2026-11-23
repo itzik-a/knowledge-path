@@ -5,7 +5,12 @@
    The Pencil draws and fingers scroll and pinch, so a resting palm never marks the page. Until this device
    has seen a Pencil, fingers draw too (on the iPhone); the hand button switches that by hand. The mouse
    or trackpad draws on the Mac. The page is 1000 units wide whatever the screen, and gets longer as you
-   draw near the bottom; it's saved trimmed to the drawing. */
+   draw near the bottom; it's saved trimmed to the drawing.
+
+   Speed: the Pencil reports ~240 points a second. Points closer than MIN_STEP to the last one are dropped
+   and its pressure is smoothed (raw, both make wobbly outlines and heavy strokes). The stroke being drawn,
+   the lasso loop and a dragged selection are drawn straight into the SVG, once per frame, without
+   re-rendering React; the eraser tests only strokes whose box is near the pen, once per frame. */
 import { getStroke, type StrokeOptions } from "perfect-freehand";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import {
@@ -22,6 +27,13 @@ type InkTool = "pen" | "highlighter";
 const SIZES: Record<InkTool, number[]> = { pen: [3.5, 6, 11], highlighter: [20, 30, 44] };
 const COLOR_NAMES: Record<string, string> = { [INK]: "Ink", "#2A78D6": "Blue", "#E34948": "Red", "#1BAF7A": "Green" };
 const ERASE_R = 10;
+/** the smallest step between two kept points of a stroke (page units; about 2.5 px on an iPad) */
+const MIN_STEP = 3;
+/** how much each new Pencil position counts (a running average: slow strokes move a pixel at a time,
+    and the raw staircase shows as ripples along the edge); about 12 ms of lag at 240 readings a second */
+const POSITION_EASE = 0.35;
+/** how much each new Pencil pressure reading counts (the rest is the running average) */
+const PRESSURE_EASE = 0.3;
 /** room around a selection that still grabs it (in page units) */
 const SEL_PAD = 14;
 const GROW_AT = 260, GROW_BY = 700;
@@ -30,10 +42,10 @@ const PENCIL_KEY = "knowledgePath.pencil";
 function strokeOptions(tool: InkTool, size: number, pen: boolean, last: boolean): StrokeOptions {
   return tool === "highlighter"
     ? { size, thinning: 0, smoothing: 0.6, streamline: 0.6, simulatePressure: false, last }
-    : { size, thinning: pen ? 0.65 : 0.5, smoothing: 0.55, streamline: pen ? 0.35 : 0.5, simulatePressure: !pen, last, start: { cap: true }, end: { cap: true } };
+    : { size, thinning: pen ? 0.5 : 0.45, smoothing: 0.6, streamline: 0.5, simulatePressure: !pen, last, start: { cap: true }, end: { cap: true } };
 }
 
-interface Live { id: number; tool: InkTool; size: number; color: string; pen: boolean; points: number[][] }
+interface Live { id: number; tool: InkTool; size: number; color: string; pen: boolean; points: number[][]; pressure: number; sx: number; sy: number }
 
 export function SketchSheet({ path, note, onClose }: { path?: string; note?: string; onClose: () => void }) {
   const initial = useMemo(() => (path ? parseSketch(readFile(path) ?? "") : null), [path]);
@@ -45,11 +57,9 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   const [finger, setFinger] = useState(() => localStorage.getItem(PENCIL_KEY) !== "1");
   const [height, setHeight] = useState(() => (initial?.height ?? 0) + GROW_BY);
   const [scale, setScale] = useState(1);
-  const [liveD, setLiveD] = useState("");
-  // the lasso: what's selected, the loop being drawn, and how far the selection has been dragged
+  // the lasso: what's selected, and whether it's being dragged (the drag itself is drawn without React)
   const [sel, setSel] = useState<Set<Stroke>>(() => new Set());
-  const [loop, setLoop] = useState<number[][] | null>(null);
-  const [drag, setDrag] = useState<[number, number]>([0, 0]);
+  const [dragging, setDragging] = useState(false);
   const [overSel, setOverSel] = useState(false);
   const dirty = useRef(false);
 
@@ -57,10 +67,15 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   const scroller = useRef<HTMLDivElement>(null);
   const surface = useRef<SVGSVGElement>(null);
   const live = useRef<Live | null>(null);
-  const erasing = useRef<{ id: number; before: Stroke[]; now: Stroke[] } | null>(null);
+  const erasing = useRef<{ id: number; before: Stroke[]; now: Stroke[]; queue: number[][]; last?: number[] } | null>(null);
   const lassoing = useRef<{ id: number; points: number[][] } | null>(null);
   const moving = useRef<{ id: number; x: number; y: number; dx: number; dy: number } | null>(null);
   const frame = useRef(0);
+  // drawn into directly, once per frame
+  const livePath = useRef<SVGPathElement>(null);
+  const loopEl = useRef<SVGPolygonElement>(null);
+  const liftG = useRef<SVGGElement>(null);
+  const rect = useRef<DOMRect | null>(null);
   const fingerRef = useRef(finger);
   fingerRef.current = finger;
 
@@ -136,32 +151,64 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
 
   // ── pointer input ──
   const at = (e: { clientX: number; clientY: number }) => {
-    const r = surface.current!.getBoundingClientRect();
+    const r = rect.current ?? surface.current!.getBoundingClientRect();
     const k = SKETCH_WIDTH / r.width;
     return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
   };
   const growIfNear = (y: number) => { if (y > height - GROW_AT) setHeight((h) => (y > h - GROW_AT ? h + GROW_BY : h)); };
 
-  const paths = useMemo(() => new Map<Stroke, Path2D>(), []);
+  const geo = useMemo(() => new Map<Stroke, { p: Path2D; x0: number; y0: number; x1: number; y1: number }>(), []);
   const hitCtx = useMemo(() => document.createElement("canvas").getContext("2d")!, []);
   function hits(s: Stroke, x: number, y: number) {
-    let p = paths.get(s);
-    if (!p) { p = new Path2D(s.d); paths.set(s, p); }
+    let g = geo.get(s);
+    if (!g) {
+      const b = boundsOf([s]) ?? { x: 0, y: 0, w: 0, h: 0 };
+      g = { p: new Path2D(s.d), x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h };
+      geo.set(s, g);
+    }
+    if (x < g.x0 - ERASE_R || x > g.x1 + ERASE_R || y < g.y0 - ERASE_R || y > g.y1 + ERASE_R) return false;
     hitCtx.lineWidth = ERASE_R * 2;
-    return hitCtx.isPointInPath(p, x, y) || hitCtx.isPointInStroke(p, x, y);
+    return hitCtx.isPointInPath(g.p, x, y) || hitCtx.isPointInStroke(g.p, x, y);
   }
-  function eraseAt(x: number, y: number) {
-    const e = erasing.current!;
-    const keep = e.now.filter((s) => !hits(s, x, y));
+  /** Erase along the readings that came in since the last frame (and the gaps between them). */
+  function eraseQueued() {
+    const e = erasing.current;
+    if (!e || !e.queue.length) return;
+    const pts: number[][] = [];
+    for (const q of e.queue) {
+      const from = e.last;
+      if (from) {
+        const n = Math.floor(Math.hypot(q[0] - from[0], q[1] - from[1]) / ERASE_R);
+        for (let i = 1; i <= n; i++) pts.push([from[0] + ((q[0] - from[0]) * i) / (n + 1), from[1] + ((q[1] - from[1]) * i) / (n + 1)]);
+      }
+      pts.push(q);
+      e.last = q;
+    }
+    e.queue = [];
+    const keep = e.now.filter((s) => !pts.some(([x, y]) => hits(s, x, y)));
     if (keep.length !== e.now.length) { e.now = keep; setStrokes(keep); }
+  }
+
+  /** Add a reading to the stroke: dropped if it's too close to the last kept point; pressure smoothed. */
+  function addPoint(l: Live, rx: number, ry: number, raw: number, final = false) {
+    if (l.pen) l.pressure += (Math.max(0.05, raw) - l.pressure) * PRESSURE_EASE;
+    // the running average of the position; the last point is where the pen actually lifted
+    l.sx += (rx - l.sx) * POSITION_EASE;
+    l.sy += (ry - l.sy) * POSITION_EASE;
+    const x = final ? rx : l.sx, y = final ? ry : l.sy;
+    const last = l.points[l.points.length - 1];
+    if (last && !final && Math.hypot(x - last[0], y - last[1]) < MIN_STEP) return;
+    if (last && final && x === last[0] && y === last[1]) return;
+    l.points.push([x, y, l.pen ? l.pressure : 0.5]);
   }
 
   function renderLive() {
     frame.current = 0;
     const l = live.current, lz = lassoing.current, mv = moving.current;
-    if (l) setLiveD(outlineToPath(getStroke(l.points, strokeOptions(l.tool, l.size, l.pen, false))));
-    if (lz) setLoop([...lz.points]);
-    if (mv) setDrag([mv.dx, mv.dy]);
+    if (l) livePath.current?.setAttribute("d", outlineToPath(getStroke(l.points, strokeOptions(l.tool, l.size, l.pen, false))));
+    if (lz) loopEl.current?.setAttribute("points", lz.points.map((p) => `${Math.round(p[0])},${Math.round(p[1])}`).join(" "));
+    if (mv) liftG.current?.setAttribute("transform", `translate(${mv.dx} ${mv.dy})`);
+    eraseQueued();
   }
   const schedule = () => { if (!frame.current) frame.current = requestAnimationFrame(renderLive); };
 
@@ -172,10 +219,11 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
     surface.current!.setPointerCapture(e.pointerId);
+    rect.current = surface.current!.getBoundingClientRect();
     const [x, y] = at(e);
     if (tool === "eraser") {
-      erasing.current = { id: e.pointerId, before: strokes, now: strokes };
-      eraseAt(x, y);
+      erasing.current = { id: e.pointerId, before: strokes, now: strokes, queue: [[x, y]] };
+      schedule();
       return;
     }
     if (tool === "lasso") {
@@ -183,14 +231,18 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
       if (sel.size && inBox(x, y)) { moving.current = { id: e.pointerId, x, y, dx: 0, dy: 0 }; return; }
       setSel(new Set());
       lassoing.current = { id: e.pointerId, points: [[x, y]] };
-      setLoop([[x, y]]);
+      loopEl.current?.setAttribute("points", "");
       return;
     }
     const pen = e.pointerType === "pen";
-    live.current = {
-      id: e.pointerId, tool, pen, points: [[x, y, pen ? Math.max(0.05, e.pressure) : 0.5]],
-      size: SIZES[tool][sizeIx], color: tool === "highlighter" ? HIGHLIGHT : color,
-    };
+    const p0 = pen ? Math.max(0.05, e.pressure) : 0.5;
+    const l: Live = { id: e.pointerId, tool, pen, points: [[x, y, p0]], pressure: p0, sx: x, sy: y, size: SIZES[tool][sizeIx], color: tool === "highlighter" ? HIGHLIGHT : color };
+    live.current = l;
+    const el = livePath.current;
+    if (el) {
+      el.setAttribute("fill", l.color === INK ? "currentColor" : l.color);
+      if (l.tool === "highlighter") el.setAttribute("fill-opacity", String(HIGHLIGHT_OPACITY)); else el.removeAttribute("fill-opacity");
+    }
     renderLive();
   }
 
@@ -207,6 +259,7 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
       // keep the selection on the page
       mv.dx = Math.min(Math.max(x - mv.x, -box.x), SKETCH_WIDTH - box.x - box.w);
       mv.dy = Math.max(y - mv.y, -box.y);
+      if (!dragging && (mv.dx || mv.dy)) setDragging(true);
       growIfNear(box.y + box.h + mv.dy);
       schedule();
       return;
@@ -214,19 +267,20 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     const evs = e.nativeEvent.getCoalescedEvents?.() ?? [];
     for (const ev of evs.length ? evs : [e.nativeEvent]) {
       const [x, y] = at(ev);
-      if (er) { eraseAt(x, y); continue; }
-      if (lz) { lz.points.push([x, y]); continue; }
-      l!.points.push([x, y, l!.pen ? Math.max(0.05, ev.pressure) : 0.5]);
-      growIfNear(y);
+      if (er) { er.queue.push([x, y]); continue; }
+      if (lz) { const q = lz.points[lz.points.length - 1]; if (Math.hypot(x - q[0], y - q[1]) >= MIN_STEP * 2) lz.points.push([x, y]); continue; }
+      addPoint(l!, x, y, ev.pressure);
     }
-    if (l || lz) schedule();
+    if (l) growIfNear(l.points[l.points.length - 1][1]);
+    schedule();
   }
 
   function onUp(e: RPointerEvent<SVGSVGElement>) {
     const lz = lassoing.current, mv = moving.current;
+    rect.current = null;
     if (lz && lz.id === e.pointerId) {
       lassoing.current = null;
-      setLoop(null);
+      loopEl.current?.setAttribute("points", "");
       setSel(new Set(strokes.filter((s) => inLasso(s.d, lz.points))));
       return;
     }
@@ -234,7 +288,8 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
       moving.current = null;
       cancelAnimationFrame(frame.current);
       frame.current = 0;
-      setDrag([0, 0]);
+      liftG.current?.setAttribute("transform", "");
+      setDragging(false);
       if (!mv.dx && !mv.dy) return;
       const moved = new Set<Stroke>();
       change(strokes.map((s) => { if (!sel.has(s)) return s; const m = moveStroke(s, mv.dx, mv.dy); moved.add(m); return m; }));
@@ -243,6 +298,7 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     }
     const er = erasing.current;
     if (er && er.id === e.pointerId) {
+      eraseQueued();
       erasing.current = null;
       if (er.now !== er.before) change(er.now, er.before);
       return;
@@ -252,12 +308,16 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     live.current = null;
     cancelAnimationFrame(frame.current);
     frame.current = 0;
-    setLiveD("");
-    if (e.type === "pointercancel" && l.points.length < 3) return;
+    if (e.type === "pointercancel" && l.points.length < 3) { livePath.current?.setAttribute("d", ""); return; }
+    const [x, y] = at(e);
+    addPoint(l, x, y, e.pressure, true);
     const d = outlineToPath(getStroke(l.points, strokeOptions(l.tool, l.size, l.pen, true)));
-    if (!d) return;
+    if (!d) { livePath.current?.setAttribute("d", ""); return; }
+    // the live path is cleared once the finished stroke is on screen (no flicker in between)
     change([...strokes, l.tool === "highlighter" ? { d, fill: l.color, opacity: HIGHLIGHT_OPACITY } : { d, fill: l.color }]);
   }
+
+  useLayoutEffect(() => { if (!live.current) livePath.current?.setAttribute("d", ""); }, [strokes]);
 
   // ── leaving ──
   async function cancel() {
@@ -297,9 +357,6 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   const ink = (s: Stroke, i: number) => <path key={i} d={s.d} fill={s.fill === INK ? "currentColor" : s.fill} fillOpacity={s.opacity} />;
   const drawn = useMemo(() => layered(strokes.filter((s) => !sel.has(s))).map(ink), [strokes, sel]);
   const lifted = useMemo(() => layered(selected).map(ink), [selected]);
-  const [dx, dy] = drag;
-  const dragging = dx !== 0 || dy !== 0;
-  const l = live.current;
   const notOurs = !!path && !initial;
 
   return (
@@ -357,13 +414,13 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
                 style={{ height: height * scale }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
                 {drawn}
                 {box && (
-                  <g transform={`translate(${dx} ${dy})`}>
+                  <g ref={liftG}>
                     <rect className="sel-box" x={box.x - SEL_PAD} y={box.y - SEL_PAD} width={box.w + SEL_PAD * 2} height={box.h + SEL_PAD * 2} rx={10} />
                     {lifted}
                   </g>
                 )}
-                {loop && loop.length > 1 && <polygon className="lasso-loop" points={loop.map((p) => p.join(",")).join(" ")} />}
-                {l && liveD && <path d={liveD} fill={l.color === INK ? "currentColor" : l.color} fillOpacity={l.tool === "highlighter" ? HIGHLIGHT_OPACITY : undefined} />}
+                <polygon ref={loopEl} className="lasso-loop" points="" />
+                <path ref={livePath} d="" />
               </svg>
               {box && !dragging && (
                 <div className="sel-actions" style={{
