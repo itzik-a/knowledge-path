@@ -7,7 +7,9 @@
    app, and on Sync now. localStorage "knowledgePath.vault" holds the token and repo; IndexedDB meta
    "sync" holds the last head and tree. */
 import { useSyncExternalStore } from "react";
+import { makeCodec } from "../../shared/private.ts";
 import { VAULT_README } from "../../shared/seed.ts";
+import { getPassphrase } from "../lib/passphrase";
 import { showToast } from "../lib/toast";
 import { Moved, syncOnce, type Head, type LocalStore, type Remote, type SyncState, type TreeEntry } from "../lib/vaultsync";
 import { getMeta, setMeta } from "./db";
@@ -207,11 +209,12 @@ export function syncNow(force = false): Promise<void> {
     setStatus({ kind: "busy" });
     try {
       const prev = ((await getMeta<SyncState>("sync")) ?? {}) as SyncState;
-      const r = await syncOnce(githubRemote(cfg), localStore, prev, { force });
+      const r = await syncOnce(githubRemote(cfg), localStore, prev, { force, codec: makeCodec(getPassphrase) });
       await setMeta("sync", r.state);
       if (Object.keys(r.other).length || force) lastOther = r.other;
       status.last = Date.now();
-      setStatus({ kind: allRecords().some((x) => x.dirty) ? "pending" : "ok" });
+      if (r.held.length) setStatus({ kind: "pending", text: "Needs passphrase", detail: `${r.held.length === 1 ? "A private note waits" : `${r.held.length} private notes wait`} for your passphrase on this device before they go to the vault (Private notes, below).` });
+      else setStatus({ kind: allRecords().some((x) => x.dirty) ? "pending" : "ok" });
       if (r.conflicts.length) showToast(r.conflicts.length === 1 ? "Edited in two places: kept both copies" : `${r.conflicts.length} files edited in two places: kept both copies`);
       if (r.pulled) syncListeners.forEach((l) => l());
     } catch (e) {
@@ -224,6 +227,9 @@ export function syncNow(force = false): Promise<void> {
   })();
   return running;
 }
+
+/** Resolves when no sync is running. */
+export async function whenIdle() { while (running) await running.catch(() => {}); }
 
 /** A change was made here: push it soon. */
 function schedulePush() {

@@ -238,6 +238,20 @@ export function settle(done: { path: string; rev: number; content: string | null
   rebuild();
 }
 
+/** The same files with other text and nothing to sync: private notes decrypted or locked on this device. */
+export function replaceTexts(changes: { path: string; content: string; base?: string }[]) {
+  const touched: string[] = [];
+  for (const c of changes) {
+    const r = files.get(c.path);
+    if (!r || r.deleted) continue;
+    files.set(c.path, { ...r, content: c.content, base: c.base ?? r.base, rev: r.rev + 1 });
+    touched.push(c.path);
+  }
+  if (!touched.length) return;
+  persist(touched);
+  rebuild();
+}
+
 /** Mark files dirty without changing them (a backup import, or a fresh empty vault to fill). */
 export function markDirty(paths: string[]) {
   for (const p of paths) { const r = files.get(p); if (r) files.set(p, { ...r, dirty: true, rev: r.rev + 1 }); }

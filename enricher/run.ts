@@ -152,7 +152,7 @@ async function main() {
   await save(`${HUB}/status.json`, JSON.stringify(status, null, 2) + "\n");
   console.log(`Done: ${enriched} filled in, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
 
-  /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles. */
+  /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles (not private ones). */
   function exploreContext(id: string): string {
     const t = index.topics.get(id)!;
     const chain: string[] = [];
@@ -161,8 +161,9 @@ async function main() {
     const items = itemsIn(index, id);
     const res = items.filter((d) => d.kind === "resource").slice(0, 120)
       .map((d) => `- ${d.title}${d.resource!.author ? ` (${d.resource!.author})` : ""} · ${d.resource!.type} · ${d.resource!.status}${d.resource!.rating ? ` · rated ${d.resource!.rating}/5` : ""}`);
-    const notes = items.filter((d) => d.kind === "note" || d.kind === "path").slice(0, 60).map((d) => `- ${d.title}`);
-    const journal = items.filter((d) => d.kind === "journal").length;
+    // private notes stay out of it altogether, titles included
+    const notes = items.filter((d) => (d.kind === "note" || d.kind === "path") && !d.private).slice(0, 60).map((d) => `- ${d.title}`);
+    const journal = items.filter((d) => d.kind === "journal" && !d.private).length;
     return [
       `Topic: ${chain.join(" › ")}`,
       t.description ? `Description: ${t.description}` : "",

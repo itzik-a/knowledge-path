@@ -6,7 +6,7 @@ import { medDate, shortDate } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
-import { IconCheck, IconClose, IconPlus, IconSearch } from "./Icons";
+import { IconCheck, IconClose, IconLock, IconPlus, IconSearch } from "./Icons";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
 export const TYPE_EMOJI: Record<ResourceType, string> = { article: "📄", video: "▶️", book: "📕", podcast: "🎧", paper: "📑", course: "🎓", site: "🌐", other: "📎" };
@@ -148,7 +148,7 @@ export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; 
       <RowShell path={d.path} sel={sel}>
         <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : "📝"}</span>
         <span className="item-main">
-          <span className="item-title" dir="auto">{label}</span>
+          <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Private" aria-hidden={false} />}</span>
           {d.excerpt && <span className="item-meta clamp" dir="auto">{d.excerpt}</span>}
           {(showTopics || when) && (
             <span className="item-tags">

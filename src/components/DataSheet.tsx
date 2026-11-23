@@ -8,6 +8,7 @@ import { clearAll } from "../state/db";
 import { allRecords, readFile, useVault, writeFiles } from "../state/store";
 import { DEFAULT_REPO, TOKEN_URL, checkRepo, connect, disconnect, getConfig, syncNow, useSyncStatus, type RepoCheck, type SyncStatus } from "../state/sync";
 import { IconExternal } from "./Icons";
+import { PrivateForm } from "./PrivateNotes";
 import { Sheet } from "./ui";
 
 const dotClass = (s: SyncStatus) => (s.kind === "ok" ? "ok" : s.kind === "busy" ? "busy" : s.kind === "pending" ? "pending" : s.kind === "error" ? "err" : "");
@@ -28,6 +29,10 @@ export function DataSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Vault & settings" onClose={onClose}>
       <SyncSection />
+      <section className="dlg-section" aria-labelledby="priv-title">
+        <h3 id="priv-title">Private notes</h3>
+        <PrivateForm />
+      </section>
       <EnricherSection />
       <CaptureSection />
       <MoreSection />
@@ -116,7 +121,7 @@ function Connected() {
           <span className="muted small">Last synced {s.last ? ago(s.last) : "not yet"} · <a href={`https://github.com/${cfg?.owner}/${cfg?.repo}`} target="_blank" rel="noopener">{cfg?.owner}/{cfg?.repo}</a></span>
         </div>
       </div>
-      {s.detail && (s.kind === "error" || s.kind === "offline") && <p className="small">{s.detail}</p>}
+      {s.detail && s.kind !== "ok" && s.kind !== "busy" && <p className="small">{s.detail}</p>}
       <div className="dlg-actions">
         <button type="button" className="btn primary" disabled={s.kind === "busy"} onClick={() => void syncNow(true)}>Sync now</button>
         <button type="button" className="btn ghost danger" onClick={async () => { if (await confirmAsk({ title: "Disconnect this device?", body: "It stops syncing. Everything stays here and in the vault.", ok: "Disconnect" })) void disconnect(); }}>

@@ -1,4 +1,4 @@
-/* Which sheet is open (one at a time), so any view can open the capture, topic, habit, search, vault or sketch sheet. */
+/* Which sheet is open (one at a time), so any view can open the capture, topic, habit, search, vault, sketch or private-notes sheet. */
 import { useSyncExternalStore } from "react";
 import type { CaptureInit } from "../components/CaptureSheet";
 
@@ -9,7 +9,9 @@ export type SheetReq =
   | { kind: "search" }
   | { kind: "data" }
   /** draw: a new sketch for `note`, or change the sketch at `path` */
-  | { kind: "sketch"; path?: string; note?: string };
+  | { kind: "sketch"; path?: string; note?: string }
+  /** the passphrase for private notes; `then`: a note to make private once it's set */
+  | { kind: "private"; then?: string };
 
 let cur: SheetReq | null = null;
 const ls = new Set<() => void>();

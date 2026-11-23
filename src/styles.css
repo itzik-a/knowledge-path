@@ -431,6 +431,15 @@ code { font: .85em ui-monospace, "SF Mono", Menlo, monospace; background: var(--
 .eyebrow .swatch { margin-right: 4px; }
 .chev { color: var(--muted); flex: none; }
 
+/* private notes */
+.inline-icon { width: 1em; height: 1em; vertical-align: -0.12em; margin-inline: 4px; color: var(--muted); }
+.private-badge { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 8px; color: var(--accent); }
+.private-badge svg { width: 12px; height: 12px; }
+.locked-body { display: grid; justify-items: center; gap: 10px; padding: 28px 16px; border-radius: 14px; background: var(--accent-soft); text-align: center; }
+.locked-body > svg { width: 28px; height: 28px; color: var(--accent); }
+.locked-body p { max-width: 34ch; }
+.locked-body .btn { justify-self: center; }
+
 /* forms */
 .form-grid { display: grid; gap: 16px; }
 .form-grid > .btn { justify-self: stretch; }

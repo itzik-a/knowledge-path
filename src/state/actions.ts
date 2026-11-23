@@ -1,6 +1,7 @@
 /* Every change the app makes to the vault, in vault terms. Each one writes Markdown files through the
    store, so the same change made in Obsidian looks the same. */
 import { topicIdOf } from "../../shared/index.ts";
+import { isSealed } from "../../shared/private.ts";
 import {
   addHighlight as addHl, FOLDER, journalPath, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
@@ -35,6 +36,7 @@ export function patchResource(path: string, p: Record<string, unknown>) {
 
 export function setBodyOf(path: string, body: string, opts: { lazy?: boolean } = {}) {
   const c = readFile(path) ?? "";
+  if (isSealed(c)) return; // a private note this device can't read: its encrypted body stays as it is
   writeFile(path, setBody(c, body), opts);
 }
 

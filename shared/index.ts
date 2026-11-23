@@ -6,6 +6,7 @@ import {
   slug, splitFrontmatter, strList, type Kind, type Link, type Resource,
 } from "./vault.ts";
 import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
+import { sealedPayload } from "./private.ts";
 
 export interface Doc {
   path: string;
@@ -24,6 +25,10 @@ export interface Doc {
   date?: string;
   excerpt: string;
   mtime: number;
+  /** `private: true`: encrypted in the vault (shared/private.ts) */
+  private?: boolean;
+  /** still encrypted on this device (no passphrase yet): the body is empty here */
+  sealed?: boolean;
 }
 
 export interface Topic {
@@ -54,12 +59,16 @@ export interface Index {
 
 export function parseDoc(path: string, content: string, mtime = 0): Doc {
   const kind = kindOf(path);
-  const { fm, body } = splitFrontmatter(content);
+  const split = splitFrontmatter(content);
+  const { fm } = split;
+  const sealed = sealedPayload(split.body) != null;
+  const body = sealed ? "" : split.body;
   const name = basename(path);
   const date = kind === "journal" ? journalDate(path) : undefined;
   const fmTitle = typeof fm.title === "string" && fm.title.trim() ? fm.title.trim() : undefined;
   return {
     path, kind, name, fm, body, mtime, date,
+    private: fm.private === true || undefined, sealed: sealed || undefined,
     title: fmTitle ?? (name === "Untitled" ? firstLine(body) || name : name),
     links: kind === "hub" ? [] : extractLinks(body),
     tags: kind === "hub" ? [] : extractTags(body, fm),

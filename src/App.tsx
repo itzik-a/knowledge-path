@@ -14,6 +14,7 @@ import { Toast } from "./components/Toast";
 const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
 import { TopicSheet } from "./components/TopicSheet";
 import { readHash, topicHref, type Route } from "./lib/route";
+import { PrivateSheet } from "./components/PrivateNotes";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useVault } from "./state/store";
 import { syncNow } from "./state/sync";
@@ -154,6 +155,7 @@ export function App() {
       {sheet?.kind === "habit" && <HabitSheet key={sheet.path ?? "new"} path={sheet.path} topics={sheet.topics} onClose={closeSheetReq} />}
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
       {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} />}
+      {sheet?.kind === "private" && <PrivateSheet then={sheet.then} onClose={closeSheetReq} />}
       {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
 
       <nav className="tabbar" aria-label="Sections">

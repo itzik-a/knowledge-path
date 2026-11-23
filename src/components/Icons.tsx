@@ -108,3 +108,6 @@ export const IconHand = (p: P) => (
 export const IconLasso = (p: P) => (
   <svg {...base(p)}><path d="M12 4.5c4.4 0 8 2.3 8 5.2s-3.6 5.1-8 5.1-8-2.3-8-5.1 3.6-5.2 8-5.2Z" strokeDasharray="2.6 2.6" /><path d="M7.4 13.6c-.9.9-1.4 1.9-1.4 3a2.9 2.9 0 0 0 5.2 1.8" /></svg>
 );
+export const IconLock = (p: P) => (
+  <svg {...base(p)}><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></svg>
+);

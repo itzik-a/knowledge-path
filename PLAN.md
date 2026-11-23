@@ -73,13 +73,14 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 - Kindle / Readwise highlight import.
 - A timeline view for History (resources and notes by period).
 - Note templates; a richer editor (live preview, slash commands, a mobile toolbar).
-- Optional encryption for the journal.
+- Private notes, later: encrypt a private note's sketches too; hide a private note's title (its file name) in the vault.
 - Sketches, later: resize or recolour a lasso selection, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
 - Explore and summaries with my Anthropic key on the device (answers in seconds instead of a minute).
 
 ## 6. Decisions (2026-11-21)
 
 - 2026-11-23: Apple Pencil sketches as SVG files in `Sketches/`, embedded with `![[…svg]]` (option 2 of: Scribble only / SVG sketches / Excalidraw). Text, so they sync like notes and open in Obsidian.
+- 2026-11-23: **Private notes** (notes and journal entries, one by one, `private: true`): the body is encrypted with a passphrase on the way into the vault, in the Meld Encrypt plugin's inline v3 format (so Obsidian with that plugin opens them, and without it hides the block). The frontmatter and file name stay readable, so topics and the title still work everywhere. The passphrase is typed once per device (kept in localStorage like the token) and can't be recovered. On a device with it a private note is an ordinary note (search, links, tags); without it, it's locked. Explore leaves private notes out. The rest of the vault stays unencrypted, as decided below.
 
 - **Name**: knowledge-path. Accent: plum (`#9C2F5A`, dark `#F08DB4`).
 - **Storage**: a private GitHub repo of Markdown files instead of a gist: one file per note scales, keeps history, and opens in Obsidian. Not encrypted (a private repo isn't readable by URL; encryption would break Obsidian, search and the enricher).

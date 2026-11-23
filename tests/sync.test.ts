@@ -2,7 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED } from "../shared/seed.ts";
-import { merge3, Moved, syncOnce, type Head, type LocalStore, type Remote, type SyncState } from "../src/lib/vaultsync.ts";
+import { merge3, Moved, syncOnce, type Codec, type Head, type LocalStore, type Remote, type SyncState } from "../src/lib/vaultsync.ts";
 
 const sha1 = (s: string) => createHash("sha1").update(s).digest("hex");
 
@@ -68,7 +68,7 @@ class FakeGitHub {
 
 type Store = typeof import("../src/state/store.ts");
 
-async function device(): Promise<{ s: Store; local: LocalStore; state: SyncState; sync: (gh: FakeGitHub) => Promise<Awaited<ReturnType<typeof syncOnce>>> }> {
+async function device(codec?: Codec): Promise<{ s: Store; local: LocalStore; state: SyncState; sync: (gh: FakeGitHub) => Promise<Awaited<ReturnType<typeof syncOnce>>> }> {
   vi.resetModules();
   const s = (await import("../src/state/store.ts")) as Store;
   s.memoryOnly();
@@ -76,7 +76,7 @@ async function device(): Promise<{ s: Store; local: LocalStore; state: SyncState
   const local: LocalStore = { records: s.allRecords, get: s.getRecord, applyRemote: s.applyRemote, settle: s.settle, add: (p, c) => s.writeFile(p, c) };
   const d = {
     s, local, state: {} as SyncState,
-    async sync(gh: FakeGitHub) { const r = await syncOnce(gh.remote(), local, d.state); d.state = r.state; return r; },
+    async sync(gh: FakeGitHub) { const r = await syncOnce(gh.remote(), local, d.state, { codec }); d.state = r.state; return r; },
   };
   return d;
 }
@@ -309,5 +309,90 @@ describe("sketches", () => {
     expect(parseSketch(gh.files().get(p)!)!.strokes).toEqual([s1, s2, s3]);
     await a.sync(gh);
     expect(a.s.readFile(p)).toBe(gh.files().get(p));
+  });
+});
+
+describe("private notes", () => {
+  const P = "Notes/Diary.md";
+  const note = '---\nprivate: true\ntopics: ["[[Philosophy]]"]\n---\nWhat I really think about [[Stoicism]] #secret\n';
+  const codecWith = async (pass: { v: string }) => (await import("../shared/private.ts")).makeCodec(() => pass.v);
+
+  it("go to the vault encrypted, come back readable with the passphrase, and stay sealed without it", async () => {
+    const { isSealed } = await import("../shared/private.ts");
+    const gh = new FakeGitHub();
+    const a = await device(await codecWith({ v: "correct horse" })); await a.sync(gh);
+    a.s.writeFile(P, note);
+    a.s.writeFile("Notes/Open.md", "Plain\n");
+    await a.sync(gh);
+    const inVault = gh.files().get(P)!;
+    expect(inVault).toMatch(/^---\nprivate: true\ntopics: \["\[\[Philosophy\]\]"\]\n---\n%%🔐γ [A-Za-z0-9+/=]+ 🔐%%\n$/u);
+    expect(inVault).not.toContain("Stoicism");
+    expect(gh.files().get("Notes/Open.md")).toBe("Plain\n");
+    expect(a.s.readFile(P)).toBe(note); // this device keeps the plain text
+    expect(dirtyCount(a.s)).toBe(0);
+
+    const b = await device(await codecWith({ v: "correct horse" })); await b.sync(gh);
+    expect(b.s.readFile(P)).toBe(note);
+    expect(b.s.getIndex().docs.get(P)).toMatchObject({ private: true, tags: ["secret"] });
+
+    const c = await device(await codecWith({ v: "" })); await c.sync(gh);
+    expect(isSealed(c.s.readFile(P)!)).toBe(true);
+    const doc = c.s.getIndex().docs.get(P)!;
+    expect(doc).toMatchObject({ private: true, sealed: true, body: "", tags: [], links: [] });
+    expect(doc.topicRefs).toEqual(["Philosophy"]); // its frontmatter still files it
+  });
+
+  it("edits merge on the plain text; a device without the passphrase can still change the frontmatter", async () => {
+    const gh = new FakeGitHub();
+    const a = await device(await codecWith({ v: "pw-12345" })); await a.sync(gh);
+    a.s.writeFile(P, note); await a.sync(gh);
+    const b = await device(await codecWith({ v: "pw-12345" })); await b.sync(gh);
+    // both edit different lines before syncing: a three-way merge, no conflict copy
+    a.s.writeFile(P, note.replace("What I really think", "What I think"));
+    b.s.writeFile(P, note + "\nAnd more.\n");
+    await a.sync(gh);
+    const r = await b.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    const both = note.replace("What I really think", "What I think") + "\nAnd more.\n";
+    expect(b.s.readFile(P)).toBe(both);
+    await a.sync(gh);
+    expect(a.s.readFile(P)).toBe(both);
+
+    // no passphrase: retopic it; the encrypted body goes back untouched, and a reads the change
+    const c = await device(await codecWith({ v: "" })); await c.sync(gh);
+    const sealed = c.s.readFile(P)!;
+    c.s.writeFile(P, sealed.replace("[[Philosophy]]", "[[History]]"));
+    const rc = await c.sync(gh);
+    expect(rc.held).toEqual([]);
+    await a.sync(gh);
+    expect(a.s.readFile(P)).toBe(both.replace("[[Philosophy]]", "[[History]]"));
+  });
+
+  it("are never sent in the clear: without the passphrase a new private note waits", async () => {
+    const gh = new FakeGitHub();
+    const pass = { v: "" };
+    const a = await device(await codecWith(pass)); await a.sync(gh);
+    a.s.writeFile(P, note);
+    a.s.writeFile("Notes/Open.md", "Plain\n");
+    const r = await a.sync(gh);
+    expect(r.held).toEqual([P]);
+    expect(gh.files().has(P)).toBe(false);
+    expect(gh.files().get("Notes/Open.md")).toBe("Plain\n");
+    expect(a.s.getRecord(P)!.dirty).toBe(true);
+    pass.v = "now I have one";
+    const r2 = await a.sync(gh);
+    expect(r2.held).toEqual([]);
+    expect(gh.files().get(P)).toContain("%%🔐γ ");
+    expect(dirtyCount(a.s)).toBe(0);
+  });
+
+  it("no longer private: back to plain text in the vault", async () => {
+    const { setFrontmatter } = await import("../shared/vault.ts");
+    const gh = new FakeGitHub();
+    const a = await device(await codecWith({ v: "pw-12345" })); await a.sync(gh);
+    a.s.writeFile(P, note); await a.sync(gh);
+    a.s.writeFile(P, setFrontmatter(note, { private: undefined })); await a.sync(gh);
+    expect(gh.files().get(P)).toBe(a.s.readFile(P));
+    expect(gh.files().get(P)).toMatch(/^---\ntopics: .*Philosophy.*\n---\nWhat I really think about \[\[Stoicism\]\] #secret\n$/);
   });
 });

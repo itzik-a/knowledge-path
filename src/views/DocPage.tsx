@@ -16,6 +16,9 @@ import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setSta
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
+import { LockedBody, PrivateBadge } from "../components/PrivateNotes";
+import { getPassphrase } from "../lib/passphrase";
+import { setPrivate } from "../state/privacy";
 
 
 export function DocPage({ path }: { path: string }) {
@@ -91,6 +94,19 @@ function SketchButton({ note }: { note: string }) {
       <IconSketch />
     </button>
   );
+}
+
+/** The More menu's Make private / Stop keeping private. */
+function privateItem(path: string, on: boolean) {
+  return {
+    label: on ? "Stop keeping private" : "Make private",
+    run: async () => {
+      if (on) {
+        if (await confirmAsk({ title: "Stop keeping it private?", body: "Its text goes to the vault unencrypted, readable by anyone who can open the repo.", ok: "Stop keeping private" })) setPrivate(path, false);
+      } else if (!getPassphrase()) openSheet({ kind: "private", then: path });
+      else setPrivate(path, true);
+    },
+  };
 }
 
 function useEditing(empty: boolean) {
@@ -272,20 +288,21 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
       <section className="card note-card-main">
         <div className="note-head">
           <div className="grow">
-            <span className="eyebrow">{folder || "Vault"}{typeof d.fm.created === "string" ? ` · ${medDate(d.fm.created)}` : ""}</span>
+            <span className="eyebrow">{folder || "Vault"}{typeof d.fm.created === "string" ? ` · ${medDate(d.fm.created)}` : ""}{d.private && <PrivateBadge />}</span>
             <TitleInput d={d} />
           </div>
           <div className="head-tools">
-            <SketchButton note={d.path} />
-            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
+            {!d.sealed && <SketchButton note={d.path} />}
+            {!d.sealed && <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>}
             <Menu label="More" icon={<IconMore />} items={[
+              !d.sealed && privateItem(d.path, !!d.private),
               { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
             ]} />
           </div>
         </div>
         <Topics ix={ix} d={d} />
         <div className="body-wrap">
-          <NoteBody path={d.path} body={d.body} editing={editing} autoFocus={!d.body.trim()} placeholder="Write… [[ links a note or topic, # adds a tag." />
+          {d.sealed ? <LockedBody /> : <NoteBody path={d.path} body={d.body} editing={editing} autoFocus={!d.body.trim()} placeholder="Write… [[ links a note or topic, # adds a tag." />}
         </div>
         <Tags d={d} />
       </section>
@@ -313,20 +330,23 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
       <section className="card note-card-main">
         <div className="note-head">
           <div className="grow">
-            <span className="eyebrow">{date === today ? "Today" : date === addDays(today, -1) ? "Yesterday" : "Journal"}</span>
+            <span className="eyebrow">{date === today ? "Today" : date === addDays(today, -1) ? "Yesterday" : "Journal"}{d?.private && <PrivateBadge />}</span>
             <h1 className="display">{longDate(date)}</h1>
           </div>
           <div className="head-tools">
-            <SketchButton note={path} />
-            <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : body.trim() ? "Edit" : "Write"}</button>
-            {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
+            {!d?.sealed && <SketchButton note={path} />}
+            {!d?.sealed && <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : body.trim() ? "Edit" : "Write"}</button>}
+            {d && <Menu label="More" icon={<IconMore />} items={[
+              !d.sealed && privateItem(path, !!d.private),
+              { label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) },
+            ]} />}
           </div>
         </div>
         {d && <Topics ix={ix} d={d} />}
         <HabitsThatDay ix={ix} date={date} />
         <div className="body-wrap">
-          <NoteBody key={path} path={path} body={body} editing={editing} autoFocus={!body.trim()}
-            placeholder="How was today? What did you read, think, notice? [[Stoicism]] puts this entry under that topic." />
+          {d?.sealed ? <LockedBody /> : <NoteBody key={path} path={path} body={body} editing={editing} autoFocus={!body.trim()}
+            placeholder="How was today? What did you read, think, notice? [[Stoicism]] puts this entry under that topic." />}
         </div>
         {d && <Tags d={d} />}
       </section>

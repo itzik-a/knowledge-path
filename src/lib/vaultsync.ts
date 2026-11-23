@@ -13,7 +13,12 @@
      gone from the vault, mine clean    → remove here
      gone from the vault, mine dirty    → push mine again
      never synced (a starter file)      → kept if the vault has it or the vault is empty, dropped otherwise
-   Then all pushes go out as one commit. If the vault moved meanwhile, the whole thing runs again. */
+   Then all pushes go out as one commit. If the vault moved meanwhile, the whole thing runs again.
+
+   A `Codec` (private notes, shared/private.ts) changes text on the way: `open` what comes from the vault
+   (decrypt; what it can't open stays as it is), `seal` what goes to it (encrypt; null holds a file back,
+   still dirty, e.g. a private note on a device without the passphrase). Everything in between, merges
+   included, sees the plain text. */
 import { diff3Merge } from "node-diff3";
 import { mergeLogLines } from "../../shared/habits.ts";
 import { isSketchPath, mergeSketch } from "../../shared/sketch.ts";
@@ -43,6 +48,11 @@ export interface LocalStore {
   add(path: string, content: string): void;
 }
 
+export interface Codec {
+  open(path: string, text: string): Promise<string>;
+  seal(path: string, text: string): Promise<string | null>;
+}
+
 export interface SyncState { head?: string; tree?: string; files?: Record<string, string> }
 
 export interface SyncResult {
@@ -52,6 +62,8 @@ export interface SyncResult {
   conflicts: string[];
   /** Files in the vault the app doesn't keep (images, PDFs): path → sha */
   other: Record<string, string>;
+  /** Files not pushed because the codec held them back. */
+  held: string[];
 }
 
 /** A line-based three-way merge; null when the two sides change the same lines differently.
@@ -94,7 +106,9 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); }));
 }
 
-export async function syncOnce(remote: Remote, local: LocalStore, prev: SyncState, opts: { force?: boolean; message?: string } = {}): Promise<SyncResult> {
+interface Opts { force?: boolean; message?: string; codec?: Codec }
+
+export async function syncOnce(remote: Remote, local: LocalStore, prev: SyncState, opts: Opts = {}): Promise<SyncResult> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await run(remote, local, prev, opts);
@@ -105,10 +119,11 @@ export async function syncOnce(remote: Remote, local: LocalStore, prev: SyncStat
   }
 }
 
-async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { force?: boolean; message?: string }): Promise<SyncResult> {
+async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opts): Promise<SyncResult> {
+  const codec = opts.codec;
   const dirty = local.records().some((r) => r.dirty && isSynced(r.path));
   const h = await remote.head(opts.force ? undefined : prev.head);
-  if (h === "unchanged" && !dirty && prev.files) return { state: prev, pulled: 0, pushed: 0, conflicts: [], other: {} };
+  if (h === "unchanged" && !dirty && prev.files) return { state: prev, pulled: 0, pushed: 0, conflicts: [], other: {}, held: [] };
 
   const head: Head = h === "unchanged" ? { commit: prev.head!, tree: prev.tree! } : h;
   let entries: TreeEntry[];
@@ -127,7 +142,10 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { f
     if (!r || r.baseSha !== sha) need.push({ path, sha });
   }
   const got = new Map<string, string>();
-  await pool(need, 8, async ({ path, sha }) => { got.set(path, await remote.blob(sha)); });
+  await pool(need, 8, async ({ path, sha }) => {
+    const text = await remote.blob(sha);
+    got.set(path, codec ? await codec.open(path, text) : text);
+  });
 
   // decide, using this device's records as they are now (edits may have happened while downloading)
   const apply: Parameters<LocalStore["applyRemote"]>[0] = [];
@@ -171,9 +189,18 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { f
     .filter((r) => isSynced(r.path) && (r.dirty || (vaultEmpty && !r.baseSha && !r.deleted)))
     .filter((r) => !(r.deleted && !remoteFiles.has(r.path)))
     .map((r) => ({ path: r.path, rev: r.rev, content: r.deleted ? null : r.content }));
+  // what the vault gets (encrypted where it must be); the device keeps what it has
+  const out = new Map<string, string | null>();
+  const held: string[] = [];
+  for (const p of push) {
+    const sealed = p.content == null || !codec ? p.content : await codec.seal(p.path, p.content);
+    if (sealed == null && p.content != null) held.push(p.path);
+    else out.set(p.path, sealed);
+  }
+  if (held.length) push.splice(0, push.length, ...push.filter((p) => out.has(p.path)));
   let state: SyncState = { head: head.commit, tree: head.tree, files: Object.fromEntries(remoteFiles) };
   if (push.length) {
-    const next = await remote.commit(head, push.map(({ path, content }) => ({ path, content })), opts.message ?? commitMessage(push));
+    const next = await remote.commit(head, push.map(({ path }) => ({ path, content: out.get(path) ?? null })), opts.message ?? commitMessage(push));
     const tree = await remote.tree(next.tree);
     const shas = new Map<string, string>();
     const files: Record<string, string> = {};
@@ -181,7 +208,7 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { f
     local.settle(push.map((p) => ({ ...p, sha: p.content == null ? undefined : shas.get(p.path) })));
     state = { head: next.commit, tree: next.tree, files };
   }
-  return { state, pulled, pushed: push.length, conflicts, other };
+  return { state, pulled, pushed: push.length, conflicts, other, held };
 }
 
 function commitMessage(push: { path: string; content: string | null }[]): string {
