@@ -4,6 +4,7 @@
    (the iOS Shortcut and the bookmarklet). */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guessType, isHttpUrl, RESOURCE_TYPES, titleFromUrl, type ResourceType, type Status } from "../../shared/vault.ts";
+import { parseRecipeText, recipeBody } from "../../shared/recipes.ts";
 import { getPassphrase } from "../lib/passphrase";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
@@ -43,6 +44,7 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   const [note, setNote] = useState(init.text && init.text.trim() !== startUrl ? init.text.replace(startUrl ?? "", "").trim() : "");
   const [topics, setTopics] = useState<string[]>(init.topics ?? []);
   const [priv, setPriv] = useState(false);
+  const [recipeText, setRecipeText] = useState(init.mode === "recipe" ? init.text ?? "" : "");
   const [err, setErr] = useState("");
   const form = useRef<HTMLFormElement>(null);
 
@@ -66,9 +68,14 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   function save(e: FormEvent) {
     e.preventDefault();
     if (mode === "recipe") {
-      const t = title.trim();
-      if (!t) { setErr("Give it a name."); return; }
-      const path = createRecipe({ title: t, topics });
+      // a link (the enricher fills it in), pasted text (split here), or just a name (written by hand)
+      const u = url.trim();
+      if (u && !isHttpUrl(u)) { setErr("That doesn't look like a web address (it should start with https://)."); return; }
+      const pasted = recipeText.trim() ? parseRecipeText(recipeText) : null;
+      const name = title.trim() || pasted?.title || (u ? titleFromUrl(u) : "");
+      if (!name) { setErr("Give it a name, a link, or paste the recipe."); return; }
+      const path = createRecipe({ title: name, topics, source: u || undefined, provisional: !!u && !title.trim() && !pasted?.title, body: pasted ? recipeBody(pasted) : undefined });
+      if (u) showToast("Saved: the recipe is filled in from the page after the next sync");
       closeSheet(form.current);
       go(docHref(path));
       return;
@@ -124,9 +131,18 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
             </div>
           </>
         ) : mode === "recipe" ? (
-          <Field label="Name">
-            <input className="text-input" dir="auto" placeholder="e.g. Shakshuka" data-autofocus value={title} onChange={(e) => { setTitle(e.target.value); setErr(""); }} />
-          </Field>
+          <>
+            <Field label="Link" hint="A recipe page: the ingredients, steps, times and photo are read from it.">
+              <input className="text-input" type="url" inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://…" data-autofocus
+                value={url} onChange={(e) => { setUrl(e.target.value); setErr(""); }} />
+            </Field>
+            <Field label="Name" hint={url || recipeText ? "Leave empty to use the recipe's own name." : undefined}>
+              <input className="text-input" dir="auto" placeholder="e.g. Shakshuka" value={title} onChange={(e) => { setTitle(e.target.value); setErr(""); }} />
+            </Field>
+            <Field label="Or paste the recipe" hint="From a message, a book or Notes: it's split into ingredients and steps.">
+              <textarea className="text-input" dir="auto" rows={5} placeholder={"Ingredients\n2 cups flour…\n\nSteps\n1. Mix…"} value={recipeText} onChange={(e) => { setRecipeText(e.target.value); setErr(""); }} />
+            </Field>
+          </>
         ) : (
           <Field label="Title">
             <input className="text-input" dir="auto" placeholder="Optional: the first line is used" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -149,7 +165,7 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
           </div>
         )}
         {err && <p className="form-error" role="alert">{err}</p>}
-        <button className="btn primary" type="submit">{mode === "recipe" ? "Write the recipe" : mode === "link" ? "Save" : priv ? "Save locked note" : "Save note"}</button>
+        <button className="btn primary" type="submit">{mode === "recipe" ? (url.trim() || recipeText.trim() ? "Save the recipe" : "Write the recipe") : mode === "link" ? "Save" : priv ? "Save locked note" : "Save note"}</button>
       </form>
     </Sheet>
   );

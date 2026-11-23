@@ -365,7 +365,10 @@ function readSteps(lines: string[], s: Section, groups: Group<StepLine>[]) {
     if (head) { g = { title: head[1], items: [] }; groups.push(g); open = false; continue; }
     const li = LIST_ITEM.exec(raw);
     const last = g.items[g.items.length - 1];
-    if (li && li[1].length === 0) { g.items.push({ text: li[3].trim(), line: i }); open = true; continue; }
+    if (li && li[1].length === 0) {
+      if (li[3].trim()) { g.items.push({ text: li[3].trim(), line: i }); open = true; } // "1. " alone is the empty template
+      continue;
+    }
     // an indented line or a nested bullet belongs to the step above
     if (last && (open || /^\s{2,}|^\t/.test(raw))) { last.text += (li ? "\n" : " ") + (li ? li[3] : t).trim(); continue; }
     const gt = !li ? groupLine(t) : undefined;
@@ -626,3 +629,85 @@ export function summarize(r: Recipe, body: string): RecipeSummary {
 
 /** Tags written in the frontmatter (for the filter chips). */
 export const recipeTags = (fm: Record<string, unknown>) => strList(fm.tags).map((t) => t.replace(/^#/, "").toLowerCase()).filter(Boolean);
+
+// ── Pasted text ───────────────────────────────────────────────
+
+const BULLET = /^\s*(?:[-*+•·▪▢□☐◦‣⁃]\s*|\[[ xX]\]\s*|-\s*\[[ xX]\]\s*)/;
+const NUMBERED = /^\s*(?:step\s*|שלב\s*)?\d{1,2}\s*[.):\-–]\s*/i;
+const stripBullet = (s: string) => s.replace(BULLET, "").trim();
+
+/** A heading on a line of its own in pasted text ("Ingredients", "**Method:**", "## אופן ההכנה"), or null. */
+function pastedHead(line: string): "ingredients" | "steps" | "notes" | null {
+  const t = line.trim().replace(/^#+\s*/, "").replace(/^(\*\*|__)(.*)\1$/, "$2").replace(/[:：]$/, "").trim();
+  if (!t || t.length > 40) return null;
+  const k = headKind(t);
+  return k === "ingredients" || k === "steps" || k === "notes" ? k : null;
+}
+
+/** A group heading inside a list ("### For the sauce", "For the sauce:"), or undefined. */
+const pastedGroup = (t: string) => /^#{1,6}\s+(.+)$/.exec(t)?.[1].trim() ?? (BULLET.test(t) ? undefined : groupLine(t));
+
+/** Steps from pasted lines: numbered lines start a step and the lines after continue it; without numbers, one line is one step. */
+function pastedSteps(lines: string[]): string[] {
+  const out: string[] = [];
+  const numbered = lines.some((l) => NUMBERED.test(l));
+  for (const l of lines) {
+    const t = l.trim();
+    if (!t) continue;
+    const g = !NUMBERED.test(t) ? pastedGroup(t) : undefined;
+    if (g != null && t.length < 50) { out.push(`### ${g}`); continue; }
+    if (numbered && !NUMBERED.test(t) && out.length && !out[out.length - 1].startsWith("### ")) { out[out.length - 1] += " " + stripBullet(t); continue; }
+    out.push(stripBullet(t.replace(NUMBERED, "")));
+  }
+  return out.filter(Boolean);
+}
+
+/** A recipe pasted as text (from a message, a book, Notes): its title, intro, ingredients and steps.
+    With headings ("Ingredients", "מצרכים", "Method", "אופן ההכנה") they decide; without, a line that starts
+    with an amount is an ingredient and what comes after the ingredients is the steps. */
+export function parseRecipeText(text: string): RecipeParts & { title?: string } {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/\s+$/, ""));
+  const pre: string[] = [], ing: string[] = [], stepLines: string[] = [], notes: string[] = [];
+  let mode: "pre" | "ingredients" | "steps" | "notes" = "pre";
+  let headed = false;
+  for (const l of lines) {
+    const h = pastedHead(l);
+    if (h) { mode = h; headed = true; continue; }
+    if (mode === "pre") pre.push(l);
+    else if (mode === "ingredients") {
+      const t = l.trim();
+      if (!t) continue;
+      const g = pastedGroup(t);
+      ing.push(g != null ? `### ${g}` : stripBullet(t));
+    } else if (mode === "steps") stepLines.push(l);
+    else notes.push(l);
+  }
+  let intro = pre;
+  if (!headed) {
+    // no headings: amounts mark the ingredients, and the steps follow them
+    intro = [];
+    let phase: "pre" | "ingredients" | "steps" = "pre";
+    for (const l of pre) {
+      const t = l.trim();
+      const isIng = !!t && t.length <= 90 && !!parseIngredient(stripBullet(t)).qty && !/[.!?]$/.test(t);
+      if (phase !== "steps" && isIng) { phase = "ingredients"; ing.push(stripBullet(t)); continue; }
+      if (phase === "ingredients" && t && BULLET.test(l) && !NUMBERED.test(t)) { ing.push(stripBullet(t)); continue; }
+      if (phase === "ingredients" && t) phase = "steps";
+      if (phase === "steps") stepLines.push(l);
+      else intro.push(l);
+    }
+  }
+  const firstIdx = intro.findIndex((l) => l.trim());
+  let title: string | undefined;
+  if (firstIdx >= 0) {
+    const t = intro[firstIdx].trim().replace(/^#+\s*/, "");
+    if (t.length <= 80 && !/[.!?]$/.test(t)) { title = t; intro = intro.slice(firstIdx + 1); }
+  }
+  return {
+    title,
+    intro: intro.join("\n").replace(/\n{3,}/g, "\n\n").trim() || undefined,
+    ingredients: ing.filter((x) => x && x !== "### "),
+    steps: pastedSteps(stepLines),
+    notes: notes.join("\n").trim() || undefined,
+  };
+}

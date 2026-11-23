@@ -998,3 +998,5 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .cooked-note { display: block; }
 .inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; }
 .inline-form .text-input { flex: 1 1 200px; min-width: 0; }
+.recipe-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-soft); }
+.recipe-nudge .grow { flex: 1 1 220px; }

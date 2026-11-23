@@ -3,7 +3,7 @@
 import { topicIdOf } from "../../shared/index.ts";
 import { isPrivate, isSealed, newLockedName, withTitle } from "../../shared/private.ts";
 import {
-  addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
+  addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, resourceOf, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
 import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
@@ -303,6 +303,31 @@ export function updateRecipe(path: string, f: RecipeFields): string {
     ...(srcChanged && f.source?.trim() ? { enrich: "pending", enrichError: undefined } : {}),
   });
   return next;
+}
+
+/** A saved link becomes a recipe: the file moves to Recipes/ (same name), the link becomes its source and the enricher
+    fills in the recipe from the page; my notes and highlights go under Notes. With Undo. Returns the new path. */
+export function makeRecipe(path: string): string | undefined {
+  const c = readFile(path);
+  if (c == null) return undefined;
+  const { fm, body } = splitFrontmatter(c);
+  const r = resourceOf(fm);
+  const to = uniquePath(FOLDER.recipes, path.slice(path.lastIndexOf("/") + 1, -3), taken);
+  if (!renameFile(path, to)) return undefined;
+  const notes = body.trim();
+  writeFile(to, setFrontmatter("", {
+    title: fm.title, source: r.url, image: r.image, site: r.site, author: r.author,
+    topics: fm.topics, tags: fm.tags, rating: r.rating, added: r.added ?? todayISO(),
+    enrich: r.url ? "pending" : undefined,
+  }) + recipeBody({ notes: notes || undefined }));
+  // the saved article text isn't needed any more
+  const article = typeof fm.article === "string" && exists(fm.article) ? fm.article : undefined;
+  const undoArticle = article ? removeFiles([article]) : undefined;
+  showToast("Now a recipe", {
+    label: "Undo",
+    run: () => { if (renameFile(to, path)) writeFile(path, c); undoArticle?.(); },
+  });
+  return to;
 }
 
 export function setRating(path: string, rating?: number) {

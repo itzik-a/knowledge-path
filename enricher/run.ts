@@ -3,6 +3,10 @@
    1. Resources with `enrich: pending` and a url: read the page (title, author, site, image, year, article
       text → .hub/articles/<name>.md); with ANTHROPIC_API_KEY, Claude Haiku writes a summary and suggests
       topics. Captured links (`provisional: true`) are renamed to their title. Failures get `enrich: failed`.
+      A saved link whose page has a recipe gets `recipe: true` (the app offers to make it a recipe).
+   1b. Recipes with `enrich: pending` and a `source`: the page's schema.org Recipe data (Claude Haiku reads the
+      page when it has none) fills in an empty recipe, its servings, times, photo and tags; a recipe saved from a
+      link alone (`provisional: true`) is renamed to the dish's name.
    2. .hub/requests/*.json (Explore): Claude Opus maps the topic into .hub/explore/<topic>.json.
    3. .hub/status.json: when it ran, what it did, what it cost (this month too).
    It only writes files; the workflow commits them. */
@@ -11,9 +15,11 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promise
 import { join } from "node:path";
 import { buildIndex, itemsIn, parseDoc, type Doc } from "../shared/index.ts";
 import {
-  basename, explorePath, guessType, HUB, isSynced, safeName, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
+  basename, explorePath, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
 } from "../shared/vault.ts";
-import { Declined, describe, explore, spend } from "./claude.ts";
+import { fillRecipe } from "../shared/recipes.ts";
+import { Declined, describe, explore, extractRecipe, spend } from "./claude.ts";
+import type { Imported } from "./recipe.ts";
 import { readPage, shortDescription } from "./extract.ts";
 import { pool } from "./net.ts";
 
@@ -87,6 +93,7 @@ async function main() {
         summary: fm.summary ?? ai?.summary ?? shortDescription(page.description),
         suggestedTopics: !hasTopics && ai?.topics.length ? ai.topics.map((id) => `[[${id}]]`) : undefined,
         article: articlePath ?? fm.article,
+        recipe: page.recipe ? true : fm.recipe,
         enrich: "done",
         enrichError: undefined,
         provisional: undefined,
@@ -104,6 +111,64 @@ async function main() {
       const msg = (e as Error).message.slice(0, 120);
       errors.push(`${d.name}: ${msg}`);
       console.warn(`  ✗ ${d.name}: ${msg}`);
+      await save(d.path, setFrontmatter(text, { enrich: "failed", enrichError: msg, provisional: undefined }));
+    }
+  });
+
+  // ── 1b. recipes ─────────────────────────────────────────────
+  const recipes = [...index.docs.values()].filter((d) => d.kind === "recipe" && d.fm.enrich === "pending").slice(0, MAX_PER_RUN);
+  let recipesDone = 0;
+  await pool(recipes, 4, async (d) => {
+    const url = d.recipe?.source;
+    let text = files.get(d.path)!;
+    if (!url) { await save(d.path, setFrontmatter(text, { enrich: undefined })); return; }
+    try {
+      const page = await readPage(url);
+      let found: Imported | undefined = page.recipe;
+      if (!found && CLAUDE && page.text) {
+        try {
+          const x = await extractRecipe({ url, title: page.title, text: page.text });
+          if (x.found && (x.ingredients.length || x.steps.length)) {
+            found = { title: x.title || undefined, intro: x.intro ?? undefined, servings: x.servings ?? undefined, prep: x.prep ?? undefined, cook: x.cook ?? undefined, tags: [], ingredients: x.ingredients, steps: x.steps };
+          }
+        } catch (e) { if (!(e instanceof Declined)) throw e; console.warn(`  ${d.name}: ${(e as Error).message}`); }
+      }
+      const fm = d.fm;
+      const title = (found?.title || page.title || "").trim();
+      let path = d.path;
+      if (fm.provisional === true && title) {
+        const taken = (p: string) => p !== d.path && (files.has(p) || existsSync(join(VAULT, p)));
+        path = uniquePath("Recipes", title, taken);
+      }
+      const why = found ? undefined : CLAUDE ? "no recipe on the page" : "no recipe data on the page (Claude can read it once ANTHROPIC_API_KEY is set)";
+      text = setFrontmatter(text, {
+        title: path !== d.path && safeName(title) !== title ? title : fm.title,
+        servings: fm.servings ?? found?.servings,
+        prep: fm.prep ?? found?.prep,
+        cook: fm.cook ?? found?.cook,
+        total: fm.total ?? found?.total,
+        image: fm.image ?? found?.image ?? page.image,
+        site: fm.site ?? page.site,
+        author: fm.author ?? found?.author,
+        tags: fm.tags ?? (found?.tags.length ? found.tags : undefined),
+        enrich: found ? "done" : "failed",
+        enrichError: why,
+        provisional: undefined,
+      });
+      if (found) text = setBody(text, fillRecipe(splitFrontmatter(text).body, found));
+      if (path !== d.path) {
+        console.log(`  rename ${d.path} → ${path}`);
+        files.delete(d.path);
+        if (!DRY) await rename(join(VAULT, d.path), join(VAULT, path));
+      }
+      await save(path, text);
+      if (found) { recipesDone++; console.log(`  ✓ recipe ${basename(path)}: ${found.ingredients.length} ingredients, ${found.steps.length} steps`); }
+      else { failed++; errors.push(`${d.name}: ${why}`); console.warn(`  ✗ recipe ${d.name}: ${why}`); }
+    } catch (e) {
+      failed++;
+      const msg = (e as Error).message.slice(0, 120);
+      errors.push(`${d.name}: ${msg}`);
+      console.warn(`  ✗ recipe ${d.name}: ${msg}`);
       await save(d.path, setFrontmatter(text, { enrich: "failed", enrichError: msg, provisional: undefined }));
     }
   });
@@ -139,18 +204,18 @@ async function main() {
   }
 
   // ── 3. status ───────────────────────────────────────────────
-  if (!pending.length && !requests.length) { console.log("Nothing to do."); return; }
+  if (!pending.length && !recipes.length && !requests.length) { console.log("Nothing to do."); return; }
   const month = new Date().toISOString().slice(0, 7);
   let prev: { month?: string; monthUsd?: number } = {};
   try { prev = JSON.parse(files.get(`${HUB}/status.json`) ?? "{}"); } catch { /* fresh */ }
   const status = {
-    at: new Date().toISOString(), enriched, failed, explored, claude: CLAUDE,
+    at: new Date().toISOString(), enriched, recipes: recipesDone, failed, explored, claude: CLAUDE,
     costUsd: Math.round(spend.usd * 10000) / 10000,
     month, monthUsd: Math.round(((prev.month === month ? prev.monthUsd ?? 0 : 0) + spend.usd) * 10000) / 10000,
     error: errors.length ? errors.slice(0, 3).join(" · ") : undefined,
   };
   await save(`${HUB}/status.json`, JSON.stringify(status, null, 2) + "\n");
-  console.log(`Done: ${enriched} filled in, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
+  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
 
   /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles (not private ones). */
   function exploreContext(id: string): string {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIndex, parseDoc, type Doc } from "../shared/index.ts";
 import {
   allIngredients, allSteps, fillRecipe, findTimes, fmtFraction, fmtMetric, minutesOf, parseIngredient, parseRecipe, readNumber,
-  recipeBody, recipeOf, setCooked, showIngredient, timeText, totalMinutes,
+  parseRecipeText, recipeBody, recipeOf, setCooked, showIngredient, timeText, totalMinutes,
 } from "../shared/recipes.ts";
 import { merge3 } from "../src/lib/vaultsync.ts";
 import { kindOf } from "../shared/vault.ts";
@@ -169,6 +169,7 @@ describe("recipe bodies", () => {
 
   it("write a new recipe, and fill an empty one without overwriting", () => {
     expect(recipeBody()).toBe("## Ingredients\n\n- \n\n## Steps\n\n1. \n");
+    expect(parseRecipe(recipeBody())).toMatchObject({ ingredients: [], steps: [] });
     const body = recipeBody({ intro: "Nice.", ingredients: ["1 cup rice", "### Sauce", "2 tbsp soy"], steps: ["Cook.", "Serve."] });
     expect(body).toBe("Nice.\n\n## Ingredients\n\n- 1 cup rice\n\n### Sauce\n- 2 tbsp soy\n\n## Steps\n\n1. Cook.\n2. Serve.\n");
     expect(parseRecipe(body).ingredients.map((g) => g.title)).toEqual([undefined, "Sauce"]);
@@ -221,5 +222,35 @@ describe("times in steps", () => {
 describe("the recipe page helpers", () => {
   it("know every ingredient line", () => {
     expect(allIngredients(parseRecipe(SHAKSHUKA)).map((x) => x.line)).toEqual([4, 5, 6, 7, 8, 11]);
+  });
+});
+
+describe("pasted recipes", () => {
+  it("split on their headings", () => {
+    const p = parseRecipeText(`Lemon cake\nMoist and quick.\n\nIngredients:\n• 2 cups flour\n• 1 cup sugar\nFor the glaze:\n• 1 lemon\n\nMethod\n1. Mix the dry things.\n2. Add the eggs\nand stir well.\n3. Bake 35 minutes.\n\nNotes\nKeeps 3 days.`);
+    expect(p.title).toBe("Lemon cake");
+    expect(p.intro).toBe("Moist and quick.");
+    expect(p.ingredients).toEqual(["2 cups flour", "1 cup sugar", "### For the glaze", "1 lemon"]);
+    expect(p.steps).toEqual(["Mix the dry things.", "Add the eggs and stir well.", "Bake 35 minutes."]);
+    expect(p.notes).toBe("Keeps 3 days.");
+  });
+  it("read Hebrew", () => {
+    const p = parseRecipeText(`עוגת גבינה\n\nמצרכים:\n- 500 גרם גבינה\n- 3 ביצים\n\nאופן ההכנה:\nמערבבים הכל.\nאופים 50 דקות.`);
+    expect(p.title).toBe("עוגת גבינה");
+    expect(p.ingredients).toEqual(["500 גרם גבינה", "3 ביצים"]);
+    expect(p.steps).toEqual(["מערבבים הכל.", "אופים 50 דקות."]);
+  });
+  it("find the ingredients by their amounts when there are no headings", () => {
+    const p = parseRecipeText(`Pancakes\n1 cup flour\n1 egg\n1 cup milk\nWhisk everything together.\nFry in a hot pan, 2 minutes a side.`);
+    expect(p.title).toBe("Pancakes");
+    expect(p.ingredients).toEqual(["1 cup flour", "1 egg", "1 cup milk"]);
+    expect(p.steps).toEqual(["Whisk everything together.", "Fry in a hot pan, 2 minutes a side."]);
+    expect(p.intro).toBeUndefined();
+  });
+  it("make a body that reads back the same", () => {
+    const p = parseRecipeText(`Ingredients\n- 1 cup rice\nSteps\n1. Cook it.`);
+    const r = parseRecipe(recipeBody(p));
+    expect(allIngredients(r).map((x) => x.text)).toEqual(["1 cup rice"]);
+    expect(allSteps(r).map((x) => x.text)).toEqual(["Cook it."]);
   });
 });

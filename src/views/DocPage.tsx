@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
@@ -12,7 +12,7 @@ import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addHighlight, deleteDocs, editHighlight, makeRecipe, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
@@ -129,6 +129,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
   const article = articlePath ? readFile(articlePath) : undefined;
   const [reading, setReading] = useState(false);
   const hls = parseHighlights(d.body);
+  const toRecipe = () => { const to = makeRecipe(d.path); if (to) { history.replaceState(history.state, "", docHref(to)); window.dispatchEvent(new HashChangeEvent("hashchange")); } };
 
   return (
     <>
@@ -145,6 +146,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
+            { label: "Make it a recipe", run: toRecipe },
             { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#library"); } },
           ]} />
         </div>
@@ -155,6 +157,12 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
         </div>
         {r.enrich === "pending" && r.url && <p className="muted small">Fetching the details: they arrive after the next sync (a minute or two).</p>}
         {r.enrich === "failed" && <p className="muted small">Couldn't read the page{r.enrichError ? ` (${r.enrichError})` : ""}. Add the details by hand.</p>}
+        {d.fm.recipe === true && (
+          <div className="recipe-nudge">
+            <span className="grow"><b>There's a recipe on this page.</b> <span className="muted">Make it a recipe to scale it and cook from it.</span></span>
+            <button type="button" className="btn primary sm" onClick={toRecipe}><IconRecipe /> Make it a recipe</button>
+          </div>
+        )}
 
         <div className="field">
           <span className="field-label">Status</span>

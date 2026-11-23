@@ -5,6 +5,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import TurndownService from "turndown";
 import { decodeEntities, getText, isHttpUrl } from "./net.ts";
+import { recipeFromLd, type Imported } from "./recipe.ts";
 
 export interface Page {
   url: string;
@@ -18,6 +19,8 @@ export interface Page {
   markdown?: string;
   /** Plain text for the summary (article, or description). */
   text: string;
+  /** The page's schema.org Recipe, when it has one with ingredients or steps. */
+  recipe?: Imported;
 }
 
 export const MAX_TEXT_CHARS = 40_000;
@@ -71,6 +74,8 @@ export async function readPage(url: string): Promise<Page> {
   const site = meta(document, "og:site_name") || host;
   const published = meta(document, "article:published_time", "datePublished", "date", "dc.date");
   const author = meta(document, "author", "article:author", "dc.creator", "parsely-author");
+  let recipe: Imported | undefined;
+  try { recipe = recipeFromLd([...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent ?? "")); } catch { /* no recipe */ }
 
   if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) {
     const m = /"shortDescription":"((?:[^"\\]|\\.)*)"/.exec(page.text);
@@ -84,7 +89,8 @@ export async function readPage(url: string): Promise<Page> {
   let article: { title?: string | null; byline?: string | null; content?: string | null; textContent?: string | null } | null = null;
   try { article = new Readability(document.cloneNode(true) as Document, { charThreshold: 500 }).parse(); } catch { /* not an article */ }
   const text = tidy(article?.textContent ?? "");
-  const isArticle = text.length >= 800 && !!article?.content;
+  // a recipe page's text is mostly its recipe: keep it even when Readability thinks it's short
+  const isArticle = (text.length >= 800 || (!!recipe && text.length >= 200)) && !!article?.content;
   let markdown: string | undefined;
   if (isArticle) {
     try { markdown = td.turndown(article!.content!).replace(/\n{3,}/g, "\n\n").trim(); } catch { markdown = text; }
@@ -96,5 +102,6 @@ export async function readPage(url: string): Promise<Page> {
     site, image, year: yearOf(published), description,
     markdown,
     text: (isArticle ? text : description || text).slice(0, MAX_TEXT_CHARS),
+    recipe,
   };
 }
