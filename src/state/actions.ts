@@ -253,7 +253,7 @@ export function logSession(path: string, date: string, minutes: number, title: s
   const r = addToLog(body, date, minutes, unit);
   writeFile(path, setBody(c, r.body));
   const total = (r.prev?.amount ?? 0) + minutes;
-  showToast(`${title}: ${fmtAmount(minutes)} ${unit ?? "min"} logged${r.prev?.amount ? ` · ${fmtAmount(total)} today` : ""}`, {
+  showToast(`${title}: ${fmtAmount(minutes)} ${unit ?? "min"} logged${r.prev?.amount ? ` · ${fmtAmount(total)} ${unit ?? "min"} today` : ""}`, {
     label: "Undo",
     run: () => { const now = readFile(path); if (now != null) writeFile(path, setBody(now, setLogEntry(splitFrontmatter(now).body, date, r.prev ? r.prev.amount : null, unit))); },
   });

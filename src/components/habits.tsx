@@ -2,7 +2,7 @@
    (Home and #habits), a timed habit's timer card, a minutes habit's session timer card and button, the last-7-days strip, the calendar heatmap and the log list. */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Doc } from "../../shared/index.ts";
-import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, parseHours, parseStamp, shiftDay, stampOf, stampTime, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
+import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, isMinutesHabit, parseHours, parseStamp, shiftDay, stampOf, stampTime, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { longDate, medDate, parseISO, shortDate } from "../lib/dates";
 import { docHref } from "../lib/route";
@@ -258,6 +258,7 @@ export function HabitRow({ d, strip }: { d: Doc; strip?: boolean }) {
             {strip && <MiniWeek d={d} today={today} />}
           </span>
         </a>
+        {isMinutesHabit(d.habit) && <SessionButton d={d} />}
         {d.habit?.timer ? <TimerButton d={d} now={now} /> : <HabitCheck d={d} date={today} onAsk={() => setAsking(true)} />}
       </div>
       {asking && <AmountForm d={d} date={today} onDone={() => setAsking(false)} />}

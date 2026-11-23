@@ -1114,4 +1114,5 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .sit-round { width: 64px; height: 64px; border-radius: 50%; padding: 0; justify-content: center; }
 .sit-end { min-height: 56px; padding: 10px 26px; font-size: 1.05rem; }
 .sit-done { align-content: center; justify-items: center; text-align: center; }
+.sit-done .btn { justify-self: center; min-width: 140px; justify-content: center; }
 @media (prefers-reduced-motion: reduce) { .sit-dial .ring-fill { transition: none; } }
