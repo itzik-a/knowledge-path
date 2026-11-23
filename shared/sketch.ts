@@ -144,3 +144,49 @@ export function mergeSketch(base: string, mine: string, theirs: string): string 
   const addedByMe = m.strokes.filter((s) => !inBase.has(key(s)) && !inTheirs.has(key(s)));
   return serializeSketch({ width: t.width, height: Math.max(m.height, t.height), strokes: [...keepTheirs, ...addedByMe] });
 }
+
+// ── the lasso: select strokes inside a loop, move them ──
+
+/** A stroke's outline points (every coordinate pair in its path data). */
+export function strokePoints(d: string): [number, number][] {
+  const nums = d.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  const out: [number, number][] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) out.push([nums[i], nums[i + 1]]);
+  return out;
+}
+
+/** Even-odd test: is the point inside the polygon (closed implicitly)? */
+export function inPolygon(x: number, y: number, poly: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** A stroke is caught by the lasso when at least half of its outline is inside the loop. */
+export function inLasso(d: string, loop: number[][]): boolean {
+  if (loop.length < 3) return false;
+  const pts = strokePoints(d);
+  if (!pts.length) return false;
+  return pts.filter(([x, y]) => inPolygon(x, y, loop)).length * 2 >= pts.length;
+}
+
+/** The same stroke moved by dx, dy. */
+export function moveStroke(s: Stroke, dx: number, dy: number): Stroke {
+  let i = 0;
+  const d = s.d.replace(/-?\d+(?:\.\d+)?/g, (n) => r1(Number(n) + (i++ % 2 === 0 ? dx : dy)));
+  return { ...s, d };
+}
+
+export interface Box { x: number; y: number; w: number; h: number }
+
+/** The box around some strokes. */
+export function boundsOf(strokes: Stroke[]): Box | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of strokes) for (const [x, y] of strokePoints(s.d)) {
+    if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+  }
+  return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}

@@ -1,5 +1,6 @@
-/* Drawing a sketch, full screen: pen (its width follows the Apple Pencil's pressure), highlighter and
-   eraser (it takes whole strokes), four ink colours, three sizes, undo and redo.
+/* Drawing a sketch, full screen: pen (its width follows the Apple Pencil's pressure), highlighter,
+   eraser (it takes whole strokes), lasso (draw a loop around strokes, then drag them somewhere else, or
+   delete them), four ink colours, three sizes, undo and redo.
 
    The Pencil draws and fingers scroll and pinch, so a resting palm never marks the page. Until this device
    has seen a Pencil, fingers draw too (on the iPhone); the hand button switches that by hand. The mouse
@@ -8,27 +9,31 @@
 import { getStroke, type StrokeOptions } from "perfect-freehand";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import {
-  HIGHLIGHT, HIGHLIGHT_OPACITY, INK, layered, outlineToPath, parseSketch, PEN_COLORS, SKETCH_WIDTH, trimmedHeight, type Stroke,
+  boundsOf, HIGHLIGHT, HIGHLIGHT_OPACITY, INK, inLasso, layered, moveStroke, outlineToPath, parseSketch, PEN_COLORS, SKETCH_WIDTH,
+  trimmedHeight, type Stroke,
 } from "../../shared/sketch.ts";
 import { confirmAsk } from "../lib/confirm";
 import { deleteSketch, saveSketch } from "../state/sketches";
 import { readFile } from "../state/store";
-import { IconEraser, IconHand, IconHighlighter, IconRedo, IconSketch, IconTrash, IconUndo } from "./Icons";
+import { IconEraser, IconHand, IconHighlighter, IconLasso, IconRedo, IconSketch, IconTrash, IconUndo } from "./Icons";
 
-type Tool = "pen" | "highlighter" | "eraser";
-const SIZES: Record<Exclude<Tool, "eraser">, number[]> = { pen: [3.5, 6, 11], highlighter: [20, 30, 44] };
+type Tool = "pen" | "highlighter" | "eraser" | "lasso";
+type InkTool = "pen" | "highlighter";
+const SIZES: Record<InkTool, number[]> = { pen: [3.5, 6, 11], highlighter: [20, 30, 44] };
 const COLOR_NAMES: Record<string, string> = { [INK]: "Ink", "#2A78D6": "Blue", "#E34948": "Red", "#1BAF7A": "Green" };
 const ERASE_R = 10;
+/** room around a selection that still grabs it (in page units) */
+const SEL_PAD = 14;
 const GROW_AT = 260, GROW_BY = 700;
 const PENCIL_KEY = "knowledgePath.pencil";
 
-function strokeOptions(tool: Exclude<Tool, "eraser">, size: number, pen: boolean, last: boolean): StrokeOptions {
+function strokeOptions(tool: InkTool, size: number, pen: boolean, last: boolean): StrokeOptions {
   return tool === "highlighter"
     ? { size, thinning: 0, smoothing: 0.6, streamline: 0.6, simulatePressure: false, last }
     : { size, thinning: pen ? 0.65 : 0.5, smoothing: 0.55, streamline: pen ? 0.35 : 0.5, simulatePressure: !pen, last, start: { cap: true }, end: { cap: true } };
 }
 
-interface Live { id: number; tool: Exclude<Tool, "eraser">; size: number; color: string; pen: boolean; points: number[][] }
+interface Live { id: number; tool: InkTool; size: number; color: string; pen: boolean; points: number[][] }
 
 export function SketchSheet({ path, note, onClose }: { path?: string; note?: string; onClose: () => void }) {
   const initial = useMemo(() => (path ? parseSketch(readFile(path) ?? "") : null), [path]);
@@ -41,6 +46,11 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   const [height, setHeight] = useState(() => (initial?.height ?? 0) + GROW_BY);
   const [scale, setScale] = useState(1);
   const [liveD, setLiveD] = useState("");
+  // the lasso: what's selected, the loop being drawn, and how far the selection has been dragged
+  const [sel, setSel] = useState<Set<Stroke>>(() => new Set());
+  const [loop, setLoop] = useState<number[][] | null>(null);
+  const [drag, setDrag] = useState<[number, number]>([0, 0]);
+  const [overSel, setOverSel] = useState(false);
   const dirty = useRef(false);
 
   const dlg = useRef<HTMLDialogElement>(null);
@@ -48,6 +58,8 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   const surface = useRef<SVGSVGElement>(null);
   const live = useRef<Live | null>(null);
   const erasing = useRef<{ id: number; before: Stroke[]; now: Stroke[] } | null>(null);
+  const lassoing = useRef<{ id: number; points: number[][] } | null>(null);
+  const moving = useRef<{ id: number; x: number; y: number; dx: number; dy: number } | null>(null);
   const frame = useRef(0);
   const fingerRef = useRef(finger);
   fingerRef.current = finger;
@@ -100,6 +112,7 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     if (!prev) return;
     hist.current.redo.push(strokes);
     dirty.current = true;
+    setSel(new Set());
     setStrokes(prev);
   }
   function redo() {
@@ -107,7 +120,18 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     if (!next) return;
     hist.current.undo.push(strokes);
     dirty.current = true;
+    setSel(new Set());
     setStrokes(next);
+  }
+  function pick(t: Tool) { setTool(t); setSel(new Set()); }
+
+  const selected = useMemo(() => strokes.filter((s) => sel.has(s)), [strokes, sel]);
+  const box = useMemo(() => boundsOf(selected), [selected]);
+  const inBox = (x: number, y: number) => !!box && x >= box.x - SEL_PAD && x <= box.x + box.w + SEL_PAD && y >= box.y - SEL_PAD && y <= box.y + box.h + SEL_PAD;
+  function deleteSelected() {
+    if (!sel.size) return;
+    change(strokes.filter((s) => !sel.has(s)));
+    setSel(new Set());
   }
 
   // ── pointer input ──
@@ -134,13 +158,15 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
 
   function renderLive() {
     frame.current = 0;
-    const l = live.current;
-    if (!l) return;
-    setLiveD(outlineToPath(getStroke(l.points, strokeOptions(l.tool, l.size, l.pen, false))));
+    const l = live.current, lz = lassoing.current, mv = moving.current;
+    if (l) setLiveD(outlineToPath(getStroke(l.points, strokeOptions(l.tool, l.size, l.pen, false))));
+    if (lz) setLoop([...lz.points]);
+    if (mv) setDrag([mv.dx, mv.dy]);
   }
+  const schedule = () => { if (!frame.current) frame.current = requestAnimationFrame(renderLive); };
 
   function onDown(e: RPointerEvent<SVGSVGElement>) {
-    if (live.current || erasing.current) return;
+    if (live.current || erasing.current || lassoing.current || moving.current) return;
     if (e.pointerType === "pen" && localStorage.getItem(PENCIL_KEY) !== "1") { localStorage.setItem(PENCIL_KEY, "1"); setFinger(false); }
     if (e.pointerType === "touch" && !finger) return; // fingers scroll
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -152,6 +178,14 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
       eraseAt(x, y);
       return;
     }
+    if (tool === "lasso") {
+      // on the selection: move it; anywhere else: a new loop
+      if (sel.size && inBox(x, y)) { moving.current = { id: e.pointerId, x, y, dx: 0, dy: 0 }; return; }
+      setSel(new Set());
+      lassoing.current = { id: e.pointerId, points: [[x, y]] };
+      setLoop([[x, y]]);
+      return;
+    }
     const pen = e.pointerType === "pen";
     live.current = {
       id: e.pointerId, tool, pen, points: [[x, y, pen ? Math.max(0.05, e.pressure) : 0.5]],
@@ -161,19 +195,52 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
   }
 
   function onMove(e: RPointerEvent<SVGSVGElement>) {
-    const l = live.current, er = erasing.current;
-    if (!(l && l.id === e.pointerId) && !(er && er.id === e.pointerId)) return;
+    const l = live.current, er = erasing.current, lz = lassoing.current, mv = moving.current;
+    const mine = (o: { id: number } | null) => !!o && o.id === e.pointerId;
+    if (!mine(l) && !mine(er) && !mine(lz) && !mine(mv)) {
+      // hovering (mouse, trackpad or a hovering Pencil): show that the selection can be grabbed
+      if (tool === "lasso" && sel.size) { const [x, y] = at(e); const over = inBox(x, y); if (over !== overSel) setOverSel(over); }
+      return;
+    }
+    if (mv && box) {
+      const [x, y] = at(e);
+      // keep the selection on the page
+      mv.dx = Math.min(Math.max(x - mv.x, -box.x), SKETCH_WIDTH - box.x - box.w);
+      mv.dy = Math.max(y - mv.y, -box.y);
+      growIfNear(box.y + box.h + mv.dy);
+      schedule();
+      return;
+    }
     const evs = e.nativeEvent.getCoalescedEvents?.() ?? [];
     for (const ev of evs.length ? evs : [e.nativeEvent]) {
       const [x, y] = at(ev);
       if (er) { eraseAt(x, y); continue; }
+      if (lz) { lz.points.push([x, y]); continue; }
       l!.points.push([x, y, l!.pen ? Math.max(0.05, ev.pressure) : 0.5]);
       growIfNear(y);
     }
-    if (l && !frame.current) frame.current = requestAnimationFrame(renderLive);
+    if (l || lz) schedule();
   }
 
   function onUp(e: RPointerEvent<SVGSVGElement>) {
+    const lz = lassoing.current, mv = moving.current;
+    if (lz && lz.id === e.pointerId) {
+      lassoing.current = null;
+      setLoop(null);
+      setSel(new Set(strokes.filter((s) => inLasso(s.d, lz.points))));
+      return;
+    }
+    if (mv && mv.id === e.pointerId) {
+      moving.current = null;
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+      setDrag([0, 0]);
+      if (!mv.dx && !mv.dy) return;
+      const moved = new Set<Stroke>();
+      change(strokes.map((s) => { if (!sel.has(s)) return s; const m = moveStroke(s, mv.dx, mv.dy); moved.add(m); return m; }));
+      setSel(moved);
+      return;
+    }
     const er = erasing.current;
     if (er && er.id === e.pointerId) {
       erasing.current = null;
@@ -215,9 +282,10 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     dlg.current?.close();
   }
 
-  // ⌘Z / ⇧⌘Z on the Mac
+  // ⌘Z / ⇧⌘Z on the Mac; Delete removes the selection
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if ((e.key === "Backspace" || e.key === "Delete") && sel.size) { e.preventDefault(); deleteSelected(); return; }
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
       e.preventDefault();
       if (e.shiftKey) redo(); else undo();
@@ -226,15 +294,17 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
     return () => window.removeEventListener("keydown", k);
   });
 
-  const drawn = useMemo(() => layered(strokes).map((s, i) => (
-    <path key={i} d={s.d} fill={s.fill === INK ? "currentColor" : s.fill} fillOpacity={s.opacity} />
-  )), [strokes]);
+  const ink = (s: Stroke, i: number) => <path key={i} d={s.d} fill={s.fill === INK ? "currentColor" : s.fill} fillOpacity={s.opacity} />;
+  const drawn = useMemo(() => layered(strokes.filter((s) => !sel.has(s))).map(ink), [strokes, sel]);
+  const lifted = useMemo(() => layered(selected).map(ink), [selected]);
+  const [dx, dy] = drag;
+  const dragging = dx !== 0 || dy !== 0;
   const l = live.current;
   const notOurs = !!path && !initial;
 
   return (
     <dialog ref={dlg} className="sketch-dlg" aria-label={path ? "Sketch" : "New sketch"} onClose={onClose}
-      onCancel={(e) => { e.preventDefault(); void cancel(); }}>
+      onCancel={(e) => { e.preventDefault(); if (sel.size) setSel(new Set()); else void cancel(); }}>
       <header className="sketch-bar">
         <button type="button" className="btn ghost sm" onClick={() => void cancel()}>Cancel</button>
         <h2 className="sketch-title"><IconSketch width={18} height={18} /> {path ? "Sketch" : "New sketch"}</h2>
@@ -247,8 +317,8 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
         <>
           <div className="sketch-tools" role="toolbar" aria-label="Drawing tools">
             <div className="tool-group" role="group" aria-label="Tool">
-              {([["pen", "Pen", IconSketch], ["highlighter", "Highlighter", IconHighlighter], ["eraser", "Eraser", IconEraser]] as const).map(([t, label, Icon]) => (
-                <button key={t} type="button" className="tool" aria-pressed={tool === t} aria-label={label} title={label} onClick={() => setTool(t)}><Icon /></button>
+              {([["pen", "Pen", IconSketch], ["highlighter", "Highlighter", IconHighlighter], ["eraser", "Eraser", IconEraser], ["lasso", "Lasso: select strokes to move", IconLasso]] as const).map(([t, label, Icon]) => (
+                <button key={t} type="button" className="tool" aria-pressed={tool === t} aria-label={label.split(":")[0]} title={label} onClick={() => pick(t)}><Icon /></button>
               ))}
             </div>
             {/* every group stays put (dimmed when it doesn't apply), so the page never shifts under the Pencil */}
@@ -262,8 +332,8 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
             </div>
             <div className="tool-group" role="group" aria-label="Size">
                 {[0, 1, 2].map((i) => (
-                  <button key={i} type="button" className="tool" aria-pressed={tool !== "eraser" && sizeIx === i} aria-label={["Fine", "Medium", "Thick"][i]} title={["Fine", "Medium", "Thick"][i]}
-                    disabled={tool === "eraser"} onClick={() => setSizeIx(i)}>
+                  <button key={i} type="button" className="tool" aria-pressed={(tool === "pen" || tool === "highlighter") && sizeIx === i} aria-label={["Fine", "Medium", "Thick"][i]} title={["Fine", "Medium", "Thick"][i]}
+                    disabled={tool !== "pen" && tool !== "highlighter"} onClick={() => setSizeIx(i)}>
                     <span className={`size-dot${tool === "highlighter" ? " marker" : ""}`}
                       style={tool === "highlighter" ? { height: 5 + i * 4 } : { width: 4 + i * 4, height: 4 + i * 4 }} />
                   </button>
@@ -281,14 +351,33 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
           </div>
 
           <div className="sketch-scroll" ref={scroller}>
-            <svg ref={surface} className={`sketch-surface${finger ? " finger" : ""}`} viewBox={`0 0 ${SKETCH_WIDTH} ${height}`}
-              style={{ height: height * scale }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-              {drawn}
-              {l && liveD && <path d={liveD} fill={l.color === INK ? "currentColor" : l.color} fillOpacity={l.tool === "highlighter" ? HIGHLIGHT_OPACITY : undefined} />}
-            </svg>
+            <div className="sketch-page">
+              <svg ref={surface} className={`sketch-surface${finger ? " finger" : ""}${tool === "lasso" ? " lasso" : ""}${overSel || moving.current ? " grab" : ""}`}
+                viewBox={`0 0 ${SKETCH_WIDTH} ${height}`}
+                style={{ height: height * scale }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+                {drawn}
+                {box && (
+                  <g transform={`translate(${dx} ${dy})`}>
+                    <rect className="sel-box" x={box.x - SEL_PAD} y={box.y - SEL_PAD} width={box.w + SEL_PAD * 2} height={box.h + SEL_PAD * 2} rx={10} />
+                    {lifted}
+                  </g>
+                )}
+                {loop && loop.length > 1 && <polygon className="lasso-loop" points={loop.map((p) => p.join(",")).join(" ")} />}
+                {l && liveD && <path d={liveD} fill={l.color === INK ? "currentColor" : l.color} fillOpacity={l.tool === "highlighter" ? HIGHLIGHT_OPACITY : undefined} />}
+              </svg>
+              {box && !dragging && (
+                <div className="sel-actions" style={{
+                  left: Math.min(Math.max((box.x + box.w / 2) * scale, 120), SKETCH_WIDTH * scale - 120), // stays on the page
+                  top: Math.max(4, (box.y - SEL_PAD) * scale - 52),
+                }}>
+                  <span className="small">{selected.length} {selected.length === 1 ? "stroke" : "strokes"} · drag to move</span>
+                  <button type="button" className="tool danger" onClick={deleteSelected} aria-label="Delete the selected strokes" title="Delete (⌫)"><IconTrash /></button>
+                </div>
+              )}
+            </div>
             <div className="sketch-foot">
               <button type="button" className="btn ghost sm" onClick={() => setHeight((h) => h + GROW_BY)}>More room</button>
-              <span className="muted small">{finger ? "Fingers draw. Tap the hand so only the Pencil does." : "The Pencil draws; fingers scroll."}</span>
+              <span className="muted small">{tool === "lasso" ? "Draw a loop around strokes, then drag them. Tap outside to let go." : finger ? "Fingers draw. Tap the hand so only the Pencil does." : "The Pencil draws; fingers scroll."}</span>
             </div>
           </div>
         </>

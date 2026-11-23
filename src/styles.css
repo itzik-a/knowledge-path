@@ -925,10 +925,22 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
   cursor: crosshair;
 }
 .sketch-surface.finger { touch-action: none; }
+.sketch-surface.lasso { cursor: default; }
+.sketch-surface.grab { cursor: move; }
+.sketch-page { position: relative; }
+.lasso-loop { fill: var(--accent-soft); fill-opacity: .35; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.sel-box { fill: var(--accent-soft); fill-opacity: .18; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.sel-actions {
+  position: absolute; transform: translateX(-50%); z-index: 1;
+  display: flex; align-items: center; gap: 4px; padding: 2px 2px 2px 14px;
+  border-radius: 999px; background: var(--raised); box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+}
 .sketch-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 16px 20px; }
 .sketch-note { margin: 16px; }
 @media (min-width: 768px) {
   .sketch-scroll { padding: 20px 24px; background: var(--bg); }
-  .sketch-surface { max-width: 1000px; margin: 0 auto; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+  .sketch-page { max-width: 1000px; margin: 0 auto; }
+  .sketch-surface { border-radius: var(--radius-sm); box-shadow: var(--shadow); }
   .sketch-foot { max-width: 1000px; margin: 0 auto; padding-left: 0; }
 }

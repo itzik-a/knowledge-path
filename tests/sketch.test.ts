@@ -80,3 +80,23 @@ describe("two devices drew on the same sketch", () => {
     expect(mergeSketch("", "<svg/>", svg([a]))).toBeNull();
   });
 });
+
+describe("the lasso", () => {
+  const square = [[0, 0], [100, 0], [100, 100], [0, 100]];
+  it("catches strokes mostly inside the loop", async () => {
+    const { inLasso, inPolygon } = await import("../shared/sketch.ts");
+    expect(inPolygon(50, 50, square)).toBe(true);
+    expect(inPolygon(150, 50, square)).toBe(false);
+    expect(inLasso("M10,10 L20,20 L30,10 Z", square)).toBe(true);
+    expect(inLasso("M90,50 L95,50 L110,50 L120,50 L130,50 Z", square)).toBe(false); // 2 of 5 points inside
+    expect(inLasso("M10,10 L20,20 Z", [[0, 0], [10, 10]])).toBe(false); // not a loop
+  });
+  it("moves strokes and boxes them", async () => {
+    const { moveStroke, boundsOf } = await import("../shared/sketch.ts");
+    const s = { d: "M10,10 Q20,20 30,30 T40,40 50,-5 Z", fill: INK };
+    expect(moveStroke(s, 5, -2.5).d).toBe("M15,7.5 Q25,17.5 35,27.5 T45,37.5 55,-7.5 Z");
+    expect(moveStroke(s, 0, 0)).toEqual(s);
+    expect(boundsOf([s, b])).toEqual({ x: 10, y: -5, w: 120, h: 235 });
+    expect(boundsOf([])).toBeNull();
+  });
+});

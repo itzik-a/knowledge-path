@@ -74,7 +74,7 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 - A timeline view for History (resources and notes by period).
 - Note templates; a richer editor (live preview, slash commands, a mobile toolbar).
 - Optional encryption for the journal.
-- Sketches, later: a lasso to move strokes, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
+- Sketches, later: resize or recolour a lasso selection, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
 - Explore and summaries with my Anthropic key on the device (answers in seconds instead of a minute).
 
 ## 6. Decisions (2026-11-21)
