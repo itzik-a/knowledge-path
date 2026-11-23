@@ -98,7 +98,11 @@ const mdKeys: KeyBinding[] = [
   } },
 ];
 
-export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label }: { value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string }) {
+export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
+  /** Gets a function that puts text on its own line at the cursor (null when the editor goes away). */
+  onInsertReady?: (insert: ((text: string) => void) | null) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const mine = useRef<string[]>([value]);
@@ -136,7 +140,15 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label 
     });
     view.current = v;
     if (autoFocus) { v.focus(); v.dispatch({ selection: { anchor: v.state.doc.length } }); }
-    return () => { v.destroy(); view.current = null; };
+    onInsertReady?.((text) => {
+      const at = v.state.selection.main.head;
+      const line = v.state.doc.lineAt(at);
+      const before = at > line.from ? "\n" : "";
+      const after = at < line.to || line.number < v.state.doc.lines ? "\n" : "";
+      const insert = `${before}${text}${after || "\n"}`;
+      v.dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length }, scrollIntoView: true });
+    });
+    return () => { onInsertReady?.(null); v.destroy(); view.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

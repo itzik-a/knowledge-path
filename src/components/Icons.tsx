@@ -86,3 +86,22 @@ export const IconPlay = (p: P) => (
 export const IconStop = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" /></svg>
 );
+// drawing
+export const IconSketch = (p: P) => (
+  <svg {...base(p)}><path d="M4 20c2.5-.4 3.6-1.6 4.6-3.4 1-1.9 1.9-3.5 4-3.6" /><path d="m12.6 13 6.9-6.9a1.9 1.9 0 0 0-2.7-2.7L9.9 10.3l-.6 3.3Z" /></svg>
+);
+export const IconHighlighter = (p: P) => (
+  <svg {...base(p)}><path d="m9 15.5-3 3.5h5l1.5-1.5" /><path d="m8.5 14.5 3 3 8.3-8.3a2.1 2.1 0 0 0-3-3Z" /><path d="M4 21h16" /></svg>
+);
+export const IconEraser = (p: P) => (
+  <svg {...base(p)}><path d="M8.5 20H20" /><path d="m4.6 14.4 9.8-9.8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 18l-2 2H8.4a2 2 0 0 1-1.4-.6l-2.4-2.4a2 2 0 0 1 0-2.6Z" /><path d="m9 10 5 5" /></svg>
+);
+export const IconUndo = (p: P) => (
+  <svg {...base(p)}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
+);
+export const IconRedo = (p: P) => (
+  <svg {...base(p)}><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>
+);
+export const IconHand = (p: P) => (
+  <svg {...base(p)}><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11m0-6.5V4a1.5 1.5 0 0 1 3 0v7m0-5.5a1.5 1.5 0 0 1 3 0V12m0-3.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.2a6 6 0 0 1-4.7-2.3L4.3 14.4a1.6 1.6 0 0 1 2.5-2Z" /></svg>
+);

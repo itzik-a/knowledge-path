@@ -18,11 +18,12 @@ export type Kind = "topic" | "resource" | "journal" | "path" | "habit" | "note" 
 export const FOLDER = { topics: "Topics", resources: "Resources", journal: "Journal", paths: "Paths", habits: "Habits", notes: "Notes" } as const;
 export const HUB = ".hub";
 
-/** Paths the app keeps in step with the vault. Everything else (images, .obsidian settings, the workflow) is left alone. */
+/** Paths the app keeps in step with the vault: notes, and SVG drawings (text, so they sync like notes).
+    Everything else (photos, PDFs, .obsidian settings, the workflow) is left alone. */
 export function isSynced(path: string): boolean {
   if (/(^|\/)\.(obsidian|git|github|trash)(\/|$)/.test(path) || path.startsWith(".git") || path === "README.md") return false;
   if (path.startsWith(HUB + "/")) return /\.(md|json)$/.test(path);
-  return path.endsWith(".md");
+  return path.endsWith(".md") || /\.svg$/i.test(path);
 }
 
 export function kindOf(path: string): Kind {

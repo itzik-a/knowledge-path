@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType, type SVGProps } from "react";
 import { inbox } from "../shared/index.ts";
 import { kindOf } from "../shared/vault.ts";
 import { topicColor } from "./components/bits";
@@ -9,6 +9,9 @@ import { HabitSheet } from "./components/HabitSheet";
 import { IconHabit, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
+
+// the drawing sheet loads the first time a sketch is opened
+const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
 import { TopicSheet } from "./components/TopicSheet";
 import { readHash, topicHref, type Route } from "./lib/route";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
@@ -151,6 +154,7 @@ export function App() {
       {sheet?.kind === "habit" && <HabitSheet key={sheet.path ?? "new"} path={sheet.path} topics={sheet.topics} onClose={closeSheetReq} />}
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
       {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} />}
+      {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
 
       <nav className="tabbar" aria-label="Sections">
         {TABS.map(({ id, label, Icon }) => (

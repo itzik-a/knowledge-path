@@ -74,9 +74,12 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 - A timeline view for History (resources and notes by period).
 - Note templates; a richer editor (live preview, slash commands, a mobile toolbar).
 - Optional encryption for the journal.
+- Sketches, later: a lasso to move strokes, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
 - Explore and summaries with my Anthropic key on the device (answers in seconds instead of a minute).
 
 ## 6. Decisions (2026-11-21)
+
+- 2026-11-23: Apple Pencil sketches as SVG files in `Sketches/`, embedded with `![[…svg]]` (option 2 of: Scribble only / SVG sketches / Excalidraw). Text, so they sync like notes and open in Obsidian.
 
 - **Name**: knowledge-path. Accent: plum (`#9C2F5A`, dark `#F08DB4`).
 - **Storage**: a private GitHub repo of Markdown files instead of a gist: one file per note scales, keeps history, and opens in Obsidian. Not encrypted (a private repo isn't readable by URL; encryption would break Obsidian, search and the enricher).

@@ -8,6 +8,7 @@
      vault changed, mine clean          → take the vault's
      vault changed, mine dirty          → three-way merge (base, mine, vault); if lines clash, the vault's copy
                                           keeps the name and mine is saved beside it as "… (conflict <date>).md"
+                                          (a sketch merges by strokes: what either side drew or erased)
      vault changed, I removed it        → the vault's edit wins (the file comes back)
      gone from the vault, mine clean    → remove here
      gone from the vault, mine dirty    → push mine again
@@ -15,6 +16,7 @@
    Then all pushes go out as one commit. If the vault moved meanwhile, the whole thing runs again. */
 import { diff3Merge } from "node-diff3";
 import { mergeLogLines } from "../../shared/habits.ts";
+import { isSketchPath, mergeSketch } from "../../shared/sketch.ts";
 import { basename, dirname, isSynced, kindOf, todayISO } from "../../shared/vault.ts";
 import type { FileRec } from "../state/db";
 
@@ -79,8 +81,8 @@ export function merge3(base: string, mine: string, theirs: string, opts: { logs?
 
 export function conflictPath(path: string, taken: (p: string) => boolean, day = todayISO()): string {
   const dir = dirname(path);
-  const name = basename(path);
   const ext = path.match(/\.[a-z]+$/i)?.[0] ?? ".md";
+  const name = basename(path).replace(new RegExp(`\\${ext}$`), "");
   for (let i = 1; ; i++) {
     const p = `${dir ? dir + "/" : ""}${name} (conflict ${day}${i > 1 ? ` ${i}` : ""})${ext}`;
     if (!taken(p)) return p;
@@ -138,7 +140,8 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: { f
     if (!r || !r.dirty) { apply.push({ path, content: theirs, sha }); if (!r || r.content !== theirs) pulled++; continue; }
     if (r.deleted) { apply.push({ path, content: theirs, sha }); pulled++; continue; }
     if (r.content === theirs) { apply.push({ path, content: theirs, sha }); continue; }
-    const merged = merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" });
+    const merged = (isSketchPath(path) ? mergeSketch(r.base ?? "", r.content, theirs) : null)
+      ?? merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" });
     if (merged != null) {
       apply.push({ path, content: merged, sha, base: theirs, dirty: merged !== theirs });
       if (merged !== r.content) pulled++;

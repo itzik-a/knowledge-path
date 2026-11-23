@@ -4,12 +4,17 @@ import { useMemo, type MouseEvent } from "react";
 import { resolve } from "../../shared/index.ts";
 import { renderMarkdown } from "../lib/markdown";
 import { docHref, go } from "../lib/route";
+import { openSheet } from "../lib/sheets";
+import { findSketch } from "../state/sketches";
 import { createNote } from "../state/actions";
-import { useIndex } from "../state/store";
+import { readFile, useIndex } from "../state/store";
 
 export function Markdown({ body, from, onToggle, className, empty }: { body: string; from?: string; onToggle?: (line: number) => void; className?: string; empty?: string }) {
   const ix = useIndex();
-  const html = useMemo(() => renderMarkdown(body, { resolve: (t) => resolve(ix, t, from) }), [body, ix, from]);
+  const html = useMemo(() => renderMarkdown(body, {
+    resolve: (t) => resolve(ix, t, from),
+    sketch: (t) => { const p = findSketch(t); const svg = p ? readFile(p) : undefined; return p && svg != null ? { path: p, svg } : undefined; },
+  }), [body, ix, from]);
   if (!body.trim()) return empty ? <p className="muted small">{empty}</p> : null;
 
   function onClick(e: MouseEvent<HTMLDivElement>) {
@@ -19,6 +24,8 @@ export function Markdown({ body, from, onToggle, className, empty }: { body: str
       onToggle(Number(el.dataset.line));
       return;
     }
+    const sk = el.closest<HTMLElement>("[data-sketch]");
+    if (sk?.dataset.sketch) { openSheet({ kind: "sketch", path: sk.dataset.sketch, note: from }); return; }
     const a = el.closest("a");
     const create = a?.getAttribute("data-create");
     if (create) {

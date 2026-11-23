@@ -1,5 +1,6 @@
 /* A file's body: rendered for reading, or the editor. Saves as I type; a file that doesn't exist yet
    (today's journal entry) is created by the first keystroke. */
+import { registerEditor } from "../lib/insert";
 import { setBodyOf, toggleStep } from "../state/actions";
 import { exists, writeFile } from "../state/store";
 import { lazy, Suspense } from "react";
@@ -31,7 +32,8 @@ export function NoteBody({ path, body, editing, placeholder, empty, autoFocus, h
   if (editing) {
     return (
       <Suspense fallback={<div className="editor loading" aria-busy="true" />}>
-        <Editor value={body} onChange={write} placeholder={placeholder} autoFocus={autoFocus} onBlur={onBlur} />
+        <Editor value={body} onChange={write} placeholder={placeholder} autoFocus={autoFocus} onBlur={onBlur}
+          onInsertReady={(insert) => registerEditor(path, insert)} />
       </Suspense>
     );
   }

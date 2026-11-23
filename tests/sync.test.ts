@@ -286,3 +286,28 @@ describe("sync", () => {
     expect(dirtyCount(a.s)).toBe(0);
   });
 });
+
+describe("sketches", () => {
+  it("sync as files, and two devices drawing on one sketch keep both drawings (no conflict copy)", async () => {
+    const { serializeSketch, parseSketch, INK } = await import("../shared/sketch.ts");
+    const gh = new FakeGitHub();
+    const p = "Sketches/Sketch 2026-11-23 10.00.00.svg";
+    const s1 = { d: "M1,1 L2,2 L1,3 Z", fill: INK }, s2 = { d: "M5,5 L6,6 L5,7 Z", fill: INK }, s3 = { d: "M9,9 L8,8 L9,7 Z", fill: "#E34948" };
+    const svg = (strokes: typeof s1[]) => serializeSketch({ width: 1000, height: 300, strokes });
+    const a = await device(); await a.sync(gh);
+    a.s.writeFile(p, svg([s1]));
+    a.s.writeFile("Notes/Pic.md", "![[Sketch 2026-11-23 10.00.00.svg]]\n");
+    await a.sync(gh);
+    expect(gh.files().get(p)).toBe(svg([s1]));
+    const b = await device(); await b.sync(gh);
+    expect(b.s.readFile(p)).toBe(svg([s1]));
+    a.s.writeFile(p, svg([s1, s2]));
+    await a.sync(gh);
+    b.s.writeFile(p, svg([s1, s3]));
+    const r = await b.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    expect(parseSketch(gh.files().get(p)!)!.strokes).toEqual([s1, s2, s3]);
+    await a.sync(gh);
+    expect(a.s.readFile(p)).toBe(gh.files().get(p));
+  });
+});

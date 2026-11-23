@@ -3,10 +3,15 @@
    and English paragraphs each read the right way. Raw HTML in notes is not rendered (html: false). */
 import MarkdownIt from "markdown-it";
 import type { StateCore, StateInline, Token } from "markdown-it";
+import { parseSketch, sketchMarkup } from "../../shared/sketch.ts";
 import { parseLinkInner } from "../../shared/vault.ts";
 import { docHref, tagHref } from "./route";
 
-export interface MdEnv { resolve: (target: string) => string | undefined }
+export interface MdEnv {
+  resolve: (target: string) => string | undefined;
+  /** An embedded drawing: its path and SVG text, if the vault has it. */
+  sketch?: (target: string) => { path: string; svg: string } | undefined;
+}
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true, typographer: false });
 
@@ -73,6 +78,13 @@ md.renderer.rules.wikilink = (tokens: Token[], idx: number, _o, envAny) => {
   const env = envAny as MdEnv | undefined;
   const { target, heading, alias, embed } = tokens[idx].meta as { target: string; heading?: string; alias?: string; embed: boolean };
   const label = alias ?? (heading ? `${target} › ${heading}` : target);
+  if (embed && /\.svg$/i.test(target)) {
+    const f = env?.sketch?.(target);
+    const s = f && parseSketch(f.svg);
+    if (f && s) return `<button type="button" class="sketch-embed" data-sketch="${esc(f.path)}" aria-label="Sketch: tap to draw on it">${sketchMarkup(s)}</button>`;
+    // an SVG from elsewhere: shown as an image (an <img> never runs anything inside it)
+    if (f) return `<img class="sketch-img" alt="${esc(alias ?? target)}" src="data:image/svg+xml;charset=utf-8,${esc(encodeURIComponent(f.svg))}">`;
+  }
   if (embed && !/\.md$/i.test(target) && /\.[a-z0-9]{2,4}$/i.test(target)) return `<span class="embed-chip">📎 ${esc(target)}</span>`;
   const path = env?.resolve?.(target);
   if (path) return `<a class="wikilink" href="${esc(docHref(path))}">${esc(label)}</a>`;

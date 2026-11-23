@@ -8,6 +8,7 @@ import {
 import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { showToast } from "../lib/toast";
 import { confirmAsk } from "../lib/confirm";
+import { sketchesOnlyIn } from "./sketches";
 import { allRecords, exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
 
 /** How an item links to a topic in its `topics:` property: by name, or by path when two topics share a name. */
@@ -153,7 +154,7 @@ export async function deleteDocs(paths: string[], label?: string): Promise<boole
     body: `${paths.length > 1 ? "They're" : "It's"} deleted from the vault on every device. You can undo for a few seconds after.`,
   });
   if (!ok) return false;
-  const undo = removeFiles(paths);
+  const undo = removeFiles([...paths, ...sketchesOnlyIn(paths)]); // a note's own sketches go with it
   showToast(`Deleted ${paths.length > 1 ? name : docs[0]?.title ?? name}`, { label: "Undo", run: undo });
   return true;
 }

@@ -4,13 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBack, IconEdit, IconExternal, IconMore, IconNext, IconQuote, IconRead } from "../components/Icons";
+import { IconBack, IconEdit, IconExternal, IconMore, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
+import { openSheet } from "../lib/sheets";
 import { addHighlight, deleteDocs, editHighlight, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
@@ -83,6 +84,15 @@ function Topics({ ix, d }: { ix: Index; d: Doc }) {
 }
 
 /** Edit / Done for a body; on a wide screen an empty body starts in the editor. */
+/** Draw a sketch and put it in this note (at the cursor while editing, else at the end). */
+function SketchButton({ note }: { note: string }) {
+  return (
+    <button type="button" className="icon-btn subtle" onClick={() => openSheet({ kind: "sketch", note })} aria-label="Add a sketch" title="Add a sketch">
+      <IconSketch />
+    </button>
+  );
+}
+
 function useEditing(empty: boolean) {
   return useState(empty);
 }
@@ -266,6 +276,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
             <TitleInput d={d} />
           </div>
           <div className="head-tools">
+            <SketchButton note={d.path} />
             <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
             <Menu label="More" icon={<IconMore />} items={[
               { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
@@ -306,6 +317,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
             <h1 className="display">{longDate(date)}</h1>
           </div>
           <div className="head-tools">
+            <SketchButton note={path} />
             <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : body.trim() ? "Edit" : "Write"}</button>
             {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
           </div>
