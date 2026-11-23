@@ -73,7 +73,7 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 - Kindle / Readwise highlight import.
 - A timeline view for History (resources and notes by period).
 - Note templates; a richer editor (live preview, slash commands, a mobile toolbar).
-- Private notes, later: encrypt a private note's sketches too; hide a private note's title (its file name) in the vault.
+- Locked notes, later: hide a locked note's title (its file name) in the vault.
 - Sketches, later: resize or recolour a lasso selection, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
 - Explore and summaries with my Anthropic key on the device (answers in seconds instead of a minute).
 

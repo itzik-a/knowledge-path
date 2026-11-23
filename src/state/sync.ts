@@ -10,6 +10,7 @@ import { useSyncExternalStore } from "react";
 import { makeCodec } from "../../shared/private.ts";
 import { VAULT_README } from "../../shared/seed.ts";
 import { getPassphrase } from "../lib/passphrase";
+import { lockedSketches } from "./sketches";
 import { showToast } from "../lib/toast";
 import { Moved, syncOnce, type Head, type LocalStore, type Remote, type SyncState, type TreeEntry } from "../lib/vaultsync";
 import { getMeta, setMeta } from "./db";
@@ -209,7 +210,9 @@ export function syncNow(force = false): Promise<void> {
     setStatus({ kind: "busy" });
     try {
       const prev = ((await getMeta<SyncState>("sync")) ?? {}) as SyncState;
-      const r = await syncOnce(githubRemote(cfg), localStore, prev, { force, codec: makeCodec(getPassphrase) });
+      let locked: Set<string> | undefined; // worked out once per sync, if a sketch goes out
+      const codec = makeCodec(getPassphrase, (p) => (locked ??= lockedSketches()).has(p));
+      const r = await syncOnce(githubRemote(cfg), localStore, prev, { force, codec });
       await setMeta("sync", r.state);
       if (Object.keys(r.other).length || force) lastOther = r.other;
       status.last = Date.now();

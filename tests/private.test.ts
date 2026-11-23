@@ -1,6 +1,7 @@
 /* Private notes: the encrypted block (Meld Encrypt's inline v3 format) and whole files in and out. */
 import { describe, expect, it } from "vitest";
-import { decryptText, encryptText, isPrivate, isSealed, openFile, sealedPayload, sealFile } from "../shared/private.ts";
+import { decryptText, encryptText, isPrivate, isSealed, isSealedSketch, makeCodec, openFile, openSketch, sealedPayload, sealFile, sealSketch } from "../shared/private.ts";
+import { INK, parseSketch, serializeSketch } from "../shared/sketch.ts";
 
 const note = "---\nprivate: true\ncreated: 2026-11-23\n---\n# שלום and hello\n\n[[Stoicism]] #secret\n";
 
@@ -49,5 +50,31 @@ describe("whole files", () => {
     expect(await sealFile(plain, "pw")).toBe(plain);
     expect(await openFile(plain, "pw")).toBe(plain);
     expect(isPrivate("---\nprivate: yes\n---\nx")).toBe(false); // only a real true
+  });
+});
+
+describe("sketches in locked notes", () => {
+  const svg = serializeSketch({ width: 1000, height: 900, strokes: [{ d: "M10,10 Q20,20 30,30 T40,40 Z", fill: INK }] });
+  it("become a 'Locked sketch' picture with the drawing encrypted inside, always the same size", async () => {
+    const sealed = await sealSketch(svg, "pw-12345");
+    expect(isSealedSketch(sealed)).toBe(true);
+    expect(sealed).not.toContain("M10,10");
+    expect(sealed).toContain('viewBox="0 0 1000 240"');
+    expect(sealed).toContain("Locked sketch");
+    expect(parseSketch(sealed)).toBeNull(); // not a drawing the sheet would edit
+    expect(sealed.match(/<!--([^]*?)-->/)![1]).not.toContain("--");
+    expect(await openSketch(sealed, "pw-12345")).toBe(svg);
+    expect(await openSketch(sealed, "nope")).toBeNull();
+    expect(await sealSketch(sealed, "pw-12345")).toBe(sealed);
+  });
+  it("the codec encrypts only the sketches it's told are locked, and holds them back without a passphrase", async () => {
+    const p = "Sketches/Sketch 1.svg";
+    const c = makeCodec(() => "pw-12345", (x) => x === p);
+    const out = (await c.seal(p, svg))!;
+    expect(isSealedSketch(out)).toBe(true);
+    expect(await c.open(p, out)).toBe(svg);
+    expect(await c.seal("Sketches/Other.svg", svg)).toBe(svg);
+    expect(await makeCodec(() => "", () => true).seal(p, svg)).toBeNull();
+    expect(await makeCodec(() => "", () => true).open(p, out)).toBe(out); // can't open: stays as it is
   });
 });

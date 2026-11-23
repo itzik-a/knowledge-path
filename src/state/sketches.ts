@@ -1,5 +1,6 @@
 /* Sketch files in vault terms: find the one an embed names, save a drawing (new or changed) and put its
    embed in the note, delete one (and its embed), and the sketches that go with a deleted note. */
+import { isPrivate, isSealed } from "../../shared/private.ts";
 import { appendEmbed, isSketchPath, removeEmbed, serializeSketch, SKETCH_FOLDER, sketchEmbeds, sketchName, type Sketch } from "../../shared/sketch.ts";
 import { setBody, splitFrontmatter } from "../../shared/vault.ts";
 import { insertInEditor } from "../lib/insert";
@@ -72,3 +73,17 @@ export function sketchesOnlyIn(paths: string[]): string[] {
   }
   return [...mine].filter((p) => !elsewhere.has(p));
 }
+
+/** Sketches embedded in a locked note (one this device can read): they're encrypted in the vault too. */
+export function lockedSketches(): Set<string> {
+  const out = new Set<string>();
+  for (const r of allRecords()) {
+    if (r.deleted || !r.path.endsWith(".md") || r.path.startsWith(".hub/")) continue;
+    if (!isPrivate(r.content) || isSealed(r.content)) continue;
+    for (const name of sketchEmbeds(r.content)) { const p = findSketch(name); if (p) out.add(p); }
+  }
+  return out;
+}
+
+/** The sketches a note embeds. */
+export const sketchesOf = (text: string) => sketchEmbeds(text).map(findSketch).filter((p): p is string => !!p);

@@ -14,6 +14,11 @@
    salt; the additional authenticated data is JSON.stringify({ version, kdf, cipher }) in that key order.
    Spec: github.com/meld-cp/obsidian-encrypt, docs/dev-notes.md, "Encryption format v3".
 
+   A sketch (an SVG in Sketches/) embedded in a locked note is encrypted whole. In the vault it is a small
+   valid SVG that shows "Locked sketch" (so Obsidian shows that, not junk), with the drawing encrypted
+   the same way in a comment: <!-- 🔐γ <base64> 🔐 --> (base64 never contains "--"). Always the same size,
+   so it doesn't even give away how much was drawn. Which sketches: the caller says (`lockedSketch`).
+
    Encryption happens only on the way into the vault and decryption on the way out (the sync does both),
    so on a device with the passphrase a private note is an ordinary note. No DOM or Node APIs: Web Crypto
    is in browsers and Node alike. */
@@ -124,18 +129,56 @@ export async function openFile(text: string, pass: string): Promise<string | nul
   return plain == null ? null : head + plain;
 }
 
-/** The sync's codec (src/lib/vaultsync.ts `Codec`), with this device's passphrase ("" when it has none). */
-export function makeCodec(passphrase: () => string) {
+// ── sketches ──────────────────────────────────────────────────
+
+const SKETCH_MARK = 'data-locked-sketch="knowledge-path"';
+const SKETCH_RE = /<!-- 🔐γ ([A-Za-z0-9+/]+={0,2}) 🔐 -->/u;
+const isSvg = (path: string) => /\.svg$/i.test(path);
+
+export const isSealedSketch = (text: string) => text.includes(SKETCH_MARK) && SKETCH_RE.test(text);
+
+/** The vault's copy of a locked sketch: a "Locked sketch" picture with the drawing encrypted inside. */
+export async function sealSketch(svg: string, pass: string): Promise<string> {
+  if (isSealedSketch(svg)) return svg;
+  const grey = "#8E8E93";
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" width="1000" height="240" ${SKETCH_MARK}>`,
+    `<!-- 🔐γ ${await encryptText(svg, pass)} 🔐 -->`,
+    `<rect x="4" y="4" width="992" height="232" rx="28" fill="none" stroke="${grey}" stroke-width="3" stroke-dasharray="14 12"/>`,
+    `<g fill="none" stroke="${grey}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><rect x="345" y="104" width="64" height="50" rx="10"/><path d="M359 104V88a18 18 0 0 1 36 0v16"/></g>`,
+    `<text x="435" y="142" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="40" font-weight="600" fill="${grey}">Locked sketch</text>`,
+    `</svg>`,
+    "",
+  ].join("\n");
+}
+
+/** A locked sketch's drawing, or null when the passphrase doesn't open it. Anything else as it is. */
+export async function openSketch(text: string, pass: string): Promise<string | null> {
+  if (!isSealedSketch(text)) return text;
+  return decryptText(SKETCH_RE.exec(text)![1], pass);
+}
+
+// ── either ────────────────────────────────────────────────────
+
+/** Still encrypted on this device: a locked note's body, or a locked sketch. */
+export const isSealedFile = (path: string, text: string) => (isSvg(path) ? isSealedSketch(text) : path.endsWith(".md") && isSealed(text));
+export const openAny = (path: string, text: string, pass: string) => (isSvg(path) ? openSketch(text, pass) : openFile(text, pass));
+
+/** The sync's codec (src/lib/vaultsync.ts `Codec`), with this device's passphrase ("" when it has none) and
+    which sketches are in a locked note. */
+export function makeCodec(passphrase: () => string, lockedSketch: (path: string) => boolean = () => false) {
   return {
     async open(path: string, text: string): Promise<string> {
       const pass = passphrase();
-      if (!pass || !path.endsWith(".md") || !isSealed(text)) return text;
-      return (await openFile(text, pass)) ?? text;
+      if (!pass || !isSealedFile(path, text)) return text;
+      return (await openAny(path, text, pass)) ?? text;
     },
     async seal(path: string, text: string): Promise<string | null> {
-      if (!path.endsWith(".md") || !isPrivate(text) || isSealed(text)) return text;
+      const locked = isSvg(path) ? lockedSketch(path) && !isSealedSketch(text) : path.endsWith(".md") && isPrivate(text) && !isSealed(text);
+      if (!locked) return text;
       const pass = passphrase();
-      return pass ? sealFile(text, pass) : null; // never send a private note in the clear
+      if (!pass) return null; // never send a locked note or its sketches in the clear
+      return isSvg(path) ? sealSketch(text, pass) : sealFile(text, pass);
     },
   };
 }

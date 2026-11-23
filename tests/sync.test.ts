@@ -395,4 +395,34 @@ describe("private notes", () => {
     expect(gh.files().get(P)).toBe(a.s.readFile(P));
     expect(gh.files().get(P)).toMatch(/^---\ntopics: .*Philosophy.*\n---\nWhat I really think about \[\[Stoicism\]\] #secret\n$/);
   });
+
+  it("their sketches are encrypted too, and go back to plain when the note is unlocked", async () => {
+    const { makeCodec, isPrivate, isSealedSketch } = await import("../shared/private.ts");
+    const { serializeSketch, INK } = await import("../shared/sketch.ts");
+    const { setFrontmatter } = await import("../shared/vault.ts");
+    const gh = new FakeGitHub();
+    const SK = "Sketches/Sketch 2026-11-23 20.00.00.svg";
+    const svg = serializeSketch({ width: 1000, height: 300, strokes: [{ d: "M1,1 L2,2 L1,3 Z", fill: INK }] });
+    let a: Awaited<ReturnType<typeof device>>;
+    // locked: embedded in a locked note this device can read (what lockedSketches() works out in the app)
+    a = await device(makeCodec(() => "pw-12345", (p) => p === SK && isPrivate(a.s.readFile(P) ?? "")));
+    await a.sync(gh);
+    a.s.writeFile(SK, svg);
+    a.s.writeFile(P, note + "\n![[Sketch 2026-11-23 20.00.00.svg]]\n");
+    await a.sync(gh);
+    expect(isSealedSketch(gh.files().get(SK)!)).toBe(true);
+    expect(gh.files().get(SK)).not.toContain("M1,1");
+    expect(a.s.readFile(SK)).toBe(svg);
+
+    const b = await device(makeCodec(() => "pw-12345")); await b.sync(gh);
+    expect(b.s.readFile(SK)).toBe(svg);
+    const c = await device(makeCodec(() => "")); await c.sync(gh);
+    expect(isSealedSketch(c.s.readFile(SK)!)).toBe(true);
+
+    // unlocking the note sends its sketch again (setPrivate marks it dirty), now plain
+    a.s.writeFile(P, setFrontmatter(a.s.readFile(P)!, { private: undefined }));
+    a.s.markDirty([SK]);
+    await a.sync(gh);
+    expect(gh.files().get(SK)).toBe(svg);
+  });
 });

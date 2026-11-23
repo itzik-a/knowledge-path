@@ -254,6 +254,7 @@ export function replaceTexts(changes: { path: string; content: string; base?: st
 
 /** Mark files dirty without changing them (a backup import, or a fresh empty vault to fill). */
 export function markDirty(paths: string[]) {
+  if (!paths.length) return;
   for (const p of paths) { const r = files.get(p); if (r) files.set(p, { ...r, dirty: true, rev: r.rev + 1 }); }
   persist(paths);
   local();
