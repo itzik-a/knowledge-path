@@ -425,4 +425,18 @@ describe("private notes", () => {
     await a.sync(gh);
     expect(gh.files().get(SK)).toBe(svg);
   });
+
+  it("a locked note's title travels encrypted and comes back exactly", async () => {
+    const { makeCodec, withTitle } = await import("../shared/private.ts");
+    const gh = new FakeGitHub();
+    const LP = "Notes/Locked 0a1b2c3d.md";
+    const text = withTitle(note, "My secret title");
+    const a = await device(makeCodec(() => "pw-12345")); await a.sync(gh);
+    a.s.writeFile(LP, text); await a.sync(gh);
+    expect(gh.files().get(LP)).not.toContain("secret title");
+    const b = await device(makeCodec(() => "pw-12345")); await b.sync(gh);
+    expect(b.s.readFile(LP)).toBe(text);
+    expect(b.s.getIndex().docs.get(LP)!.title).toBe("My secret title");
+    expect(dirtyCount(b.s)).toBe(0);
+  });
 });

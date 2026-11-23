@@ -1,9 +1,9 @@
 /* Every change the app makes to the vault, in vault terms. Each one writes Markdown files through the
    store, so the same change made in Obsidian looks the same. */
 import { topicIdOf } from "../../shared/index.ts";
-import { isSealed } from "../../shared/private.ts";
+import { isPrivate, isSealed, newLockedName, withTitle } from "../../shared/private.ts";
 import {
-  addHighlight as addHl, FOLDER, journalPath, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
+  addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
 import { endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
@@ -77,6 +77,11 @@ export function setStatus(path: string, status: Status) {
 export function retitle(path: string, title: string): string {
   const t = title.trim();
   if (!t) return path;
+  const c = readFile(path);
+  if (c != null && isPrivate(c) && kindOf(path) === "note") {
+    if (!isSealed(c)) writeFile(path, withTitle(c, t)); // locked: the file name stays neutral
+    return path;
+  }
   const folder = path.slice(0, path.lastIndexOf("/"));
   const name = safeName(t);
   const target = `${folder}/${name}.md`;
@@ -114,8 +119,11 @@ export const suggestionCount = () => [...getIndex().docs.values()].filter((d) =>
 // ── notes and journal ─────────────────────────────────────────
 /** A new note. `private`: encrypted in the vault from its very first sync (shared/private.ts). */
 export function createNote(o: { title: string; body?: string; topics?: string[]; folder?: string; private?: boolean }): string {
-  const path = uniquePath(o.folder ?? FOLDER.notes, o.title || "Untitled", taken);
-  writeFile(path, setFrontmatter("", { topics: (o.topics ?? []).map(topicLink), created: todayISO(), private: o.private || undefined }) + (o.body ?? ""));
+  const title = o.title.trim() || "Untitled";
+  // a locked note gets a neutral file name, its title goes in the frontmatter (encrypted in the vault)
+  const path = uniquePath(o.folder ?? FOLDER.notes, o.private ? newLockedName() : title, taken);
+  const text = setFrontmatter("", { topics: (o.topics ?? []).map(topicLink), created: todayISO(), private: o.private || undefined }) + (o.body ?? "");
+  writeFile(path, o.private && title !== "Untitled" ? withTitle(text, title) : text);
   return path;
 }
 

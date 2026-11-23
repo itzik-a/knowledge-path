@@ -14,6 +14,11 @@
    salt; the additional authenticated data is JSON.stringify({ version, kdf, cipher }) in that key order.
    Spec: github.com/meld-cp/obsidian-encrypt, docs/dev-notes.md, "Encryption format v3".
 
+   A locked note's title is hidden too. Its file name is neutral ("Locked 3f9a1c2b.md"), and on this device its
+   title is the first frontmatter line, `title: "…"`. On the way into the vault that line moves inside the
+   encrypted block (as its first line, <!-- knowledge-path title line: "title: …" -->), and comes back out on
+   the way in. Journal entries keep their dated names (the date is not hidden).
+
    A sketch (an SVG in Sketches/) embedded in a locked note is encrypted whole. In the vault it is a small
    valid SVG that shows "Locked sketch" (so Obsidian shows that, not junk), with the drawing encrypted
    the same way in a comment: <!-- 🔐γ <base64> 🔐 --> (base64 never contains "--"). Always the same size,
@@ -43,6 +48,41 @@ function parts(text: string): [string, string] {
   const { body } = splitFrontmatter(text);
   return [text.slice(0, text.length - body.length), body];
 }
+
+// ── hidden titles ─────────────────────────────────────────────
+
+const LOCKED_NAME = /^Locked [0-9a-f]{8}$/;
+/** A locked note's neutral file name (without .md). */
+export const isLockedName = (name: string) => LOCKED_NAME.test(name);
+const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+/** A neutral name for a new note. */
+export const newLockedName = () => `Locked ${hex(crypto.getRandomValues(new Uint8Array(4)))}`;
+/** The neutral name for an existing note: the same on every device with this passphrase (so two devices locking
+    one note don't make two), and not guessable from the title without it. */
+export async function lockedNameFor(path: string, pass: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return `Locked ${hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`knowledge-path name:${path}`))).slice(0, 8)}`;
+}
+
+/** The frontmatter as lines without the --- fences (null when there is none). */
+function fmLines(head: string): string[] | null {
+  if (!head) return null;
+  const lines = head.split(/\r?\n/);
+  const end = lines.findIndex((l, i) => i > 0 && /^(---|\.\.\.)[ \t]*$/.test(l));
+  return lines.slice(1, end < 0 ? lines.length : end);
+}
+const fence = (lines: string[]) => `---\n${lines.map((l) => l + "\n").join("")}---\n`;
+const isTitleLine = (l: string) => /^title:/.test(l);
+
+/** Set (or with no title, remove) the title, as the first frontmatter line. */
+export function withTitle(text: string, title?: string): string {
+  const [head, body] = parts(text);
+  const lines = (fmLines(head) ?? []).filter((l) => !isTitleLine(l));
+  if (title) lines.unshift(`title: ${JSON.stringify(title)}`);
+  return (lines.length ? fence(lines) : "") + body;
+}
+
+const TITLE_TAG = /^<!-- knowledge-path title line: ("(?:[^"\\\n]|\\.)*") -->\n/;
 
 // ── the crypto ────────────────────────────────────────────────
 
@@ -115,8 +155,14 @@ export async function decryptText(payload: string, pass: string): Promise<string
 /** A file as it goes into the vault: a private note's body encrypted; anything else as it is. */
 export async function sealFile(text: string, pass: string): Promise<string> {
   if (!isPrivate(text)) return text;
-  const [head, body] = parts(text);
+  let [head, body] = parts(text);
   if (sealedPayload(body) != null) return text; // already encrypted (this device couldn't read it)
+  const lines = fmLines(head)!;
+  const t = lines.findIndex(isTitleLine);
+  if (t >= 0) {
+    body = `<!-- knowledge-path title line: ${JSON.stringify(lines[t])} -->\n${body}`;
+    head = fence(lines.filter((_, i) => i !== t));
+  }
   return `${head}%%🔐γ ${await encryptText(body, pass)} 🔐%%\n`;
 }
 
@@ -125,9 +171,17 @@ export async function openFile(text: string, pass: string): Promise<string | nul
   const [head, body] = parts(text);
   const payload = sealedPayload(body);
   if (payload == null) return text;
-  const plain = await decryptText(payload, pass);
-  return plain == null ? null : head + plain;
+  let plain = await decryptText(payload, pass);
+  if (plain == null) return null;
+  const m = TITLE_TAG.exec(plain);
+  if (!m) return head + plain;
+  plain = plain.slice(m[0].length);
+  const lines = fmLines(head) ?? [];
+  return fence([JSON.parse(m[1]) as string, ...lines]) + plain;
 }
+
+/** A locked note this device can't read, with a title line in the clear (it can't be encrypted here). */
+const titleInClear = (text: string) => isSealed(text) && (fmLines(parts(text)[0]) ?? []).some(isTitleLine);
 
 // ── sketches ──────────────────────────────────────────────────
 
@@ -174,6 +228,7 @@ export function makeCodec(passphrase: () => string, lockedSketch: (path: string)
       return (await openAny(path, text, pass)) ?? text;
     },
     async seal(path: string, text: string): Promise<string | null> {
+      if (path.endsWith(".md") && isPrivate(text) && titleInClear(text)) return null;
       const locked = isSvg(path) ? lockedSketch(path) && !isSealedSketch(text) : path.endsWith(".md") && isPrivate(text) && !isSealed(text);
       if (!locked) return text;
       const pass = passphrase();

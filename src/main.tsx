@@ -4,11 +4,11 @@ import { App } from "./App";
 import { trackHistory } from "./lib/route";
 import { init } from "./state/store";
 import { startSync } from "./state/sync";
-import { lockSketchesOnce } from "./state/privacy";
+import { migrateLocked } from "./state/privacy";
 import "./styles.css";
 
 trackHistory();
-void init().then(() => { lockSketchesOnce(); startSync(); });
+void init().then(async () => { try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); });
 // Fetch the editor's code once the app is idle, so editing works offline from the first launch.
 setTimeout(() => { void import("./components/Editor"); }, 4000);
 

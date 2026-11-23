@@ -2,6 +2,7 @@
    creates it; ticking a checkbox changes the line in the file. */
 import { useMemo, type MouseEvent } from "react";
 import { resolve } from "../../shared/index.ts";
+import { isLockedName } from "../../shared/private.ts";
 import { renderMarkdown } from "../lib/markdown";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
@@ -13,6 +14,7 @@ export function Markdown({ body, from, onToggle, className, empty }: { body: str
   const ix = useIndex();
   const html = useMemo(() => renderMarkdown(body, {
     resolve: (t) => resolve(ix, t, from),
+    title: (p) => { const d = ix.docs.get(p); return d && isLockedName(d.name) ? d.title : undefined; },
     sketch: (t) => { const p = findSketch(t); const svg = p ? readFile(p) : undefined; return p && svg != null ? { path: p, svg } : undefined; },
   }), [body, ix, from]);
   if (!body.trim()) return empty ? <p className="muted small">{empty}</p> : null;

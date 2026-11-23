@@ -25,7 +25,7 @@ export function PrivateForm({ then }: { then?: string }) {
   const sealed = sealedHere().length;
   const count = [...ix.docs.values()].filter((d) => d.private).length;
   const notes = (n: number) => (n === 1 ? "1 locked note" : `${n} locked notes`);
-  const done = (dlg: HTMLDialogElement | null) => { if (then) { setPrivate(then, true); dlg?.close(); } };
+  const done = (dlg: HTMLDialogElement | null) => { if (then) { void setPrivate(then, true); dlg?.close(); } };
 
   if (has && !changing) {
     return (

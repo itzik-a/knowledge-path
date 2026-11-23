@@ -1,6 +1,6 @@
 /* Private notes: the encrypted block (Meld Encrypt's inline v3 format) and whole files in and out. */
 import { describe, expect, it } from "vitest";
-import { decryptText, encryptText, isPrivate, isSealed, isSealedSketch, makeCodec, openFile, openSketch, sealedPayload, sealFile, sealSketch } from "../shared/private.ts";
+import { decryptText, encryptText, isLockedName, isPrivate, lockedNameFor, newLockedName, withTitle, isSealed, isSealedSketch, makeCodec, openFile, openSketch, sealedPayload, sealFile, sealSketch } from "../shared/private.ts";
 import { INK, parseSketch, serializeSketch } from "../shared/sketch.ts";
 
 const note = "---\nprivate: true\ncreated: 2026-11-23\n---\n# שלום and hello\n\n[[Stoicism]] #secret\n";
@@ -76,5 +76,39 @@ describe("sketches in locked notes", () => {
     expect(await c.seal("Sketches/Other.svg", svg)).toBe(svg);
     expect(await makeCodec(() => "", () => true).seal(p, svg)).toBeNull();
     expect(await makeCodec(() => "", () => true).open(p, out)).toBe(out); // can't open: stays as it is
+  });
+});
+
+describe("hidden titles", () => {
+  const locked = withTitle('---\ntopics: ["[[Piano]]"]\nprivate: true\n---\nThe text\n', 'Japanese "piano" pieces, שיר');
+  it("the title is the first frontmatter line here, and inside the encrypted block in the vault", async () => {
+    expect(locked.startsWith('---\ntitle: "Japanese \\"piano\\" pieces, שיר"\ntopics:')).toBe(true);
+    const { parseDoc } = await import("../shared/index.ts");
+    expect(parseDoc("Notes/Locked 0a1b2c3d.md", locked).title).toBe('Japanese "piano" pieces, שיר');
+    const sealed = await sealFile(locked, "pw-12345");
+    expect(sealed).not.toMatch(/title|Japanese|piano|שיר/);
+    expect(sealed.startsWith('---\ntopics: ["[[Piano]]"]\nprivate: true\n---\n%%🔐γ ')).toBe(true);
+    expect(await openFile(sealed, "pw-12345")).toBe(locked); // exactly as it was
+    // without the passphrase: a neutral name and "Locked note"
+    expect(parseDoc("Notes/Locked 0a1b2c3d.md", sealed)).toMatchObject({ title: "Locked note", sealed: true });
+  });
+  it("removes a title, and leaves a note with no frontmatter alone", () => {
+    expect(withTitle(locked, undefined)).toBe('---\ntopics: ["[[Piano]]"]\nprivate: true\n---\nThe text\n');
+    expect(withTitle("Just text\n", undefined)).toBe("Just text\n");
+    expect(withTitle("Just text\n", "T")).toBe('---\ntitle: "T"\n---\nJust text\n');
+  });
+  it("neutral names: random for a new note; for an existing one the same on every device, but only with the passphrase", async () => {
+    expect(isLockedName(newLockedName())).toBe(true);
+    expect(isLockedName("Locked notes about piano")).toBe(false);
+    const a = await lockedNameFor("Notes/Japanese piano pieces.md", "pw-12345");
+    expect(isLockedName(a)).toBe(true);
+    expect(await lockedNameFor("Notes/Japanese piano pieces.md", "pw-12345")).toBe(a);
+    expect(await lockedNameFor("Notes/Japanese piano pieces.md", "other")).not.toBe(a);
+  });
+  it("a title typed on a device that can't encrypt it is held back", async () => {
+    const sealed = await sealFile(locked, "pw-12345");
+    const c = makeCodec(() => "");
+    expect(await c.seal("Notes/Locked 0a1b2c3d.md", sealed)).toBe(sealed);
+    expect(await c.seal("Notes/Locked 0a1b2c3d.md", withTitle(sealed, "Oops"))).toBeNull();
   });
 });

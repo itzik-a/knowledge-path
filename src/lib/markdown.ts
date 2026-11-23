@@ -9,6 +9,8 @@ import { docHref, tagHref } from "./route";
 
 export interface MdEnv {
   resolve: (target: string) => string | undefined;
+  /** What a link to this file says when it has no alias: a locked note's title (its file name is neutral). */
+  title?: (path: string) => string | undefined;
   /** An embedded drawing: its path and SVG text, if the vault has it. */
   sketch?: (target: string) => { path: string; svg: string } | undefined;
 }
@@ -77,7 +79,7 @@ const esc = (s: string) => md.utils.escapeHtml(s);
 md.renderer.rules.wikilink = (tokens: Token[], idx: number, _o, envAny) => {
   const env = envAny as MdEnv | undefined;
   const { target, heading, alias, embed } = tokens[idx].meta as { target: string; heading?: string; alias?: string; embed: boolean };
-  const label = alias ?? (heading ? `${target} › ${heading}` : target);
+  let label = alias ?? (heading ? `${target} › ${heading}` : target);
   if (embed && /\.svg$/i.test(target)) {
     const f = env?.sketch?.(target);
     const s = f && parseSketch(f.svg);
@@ -87,6 +89,8 @@ md.renderer.rules.wikilink = (tokens: Token[], idx: number, _o, envAny) => {
   }
   if (embed && !/\.md$/i.test(target) && /\.[a-z0-9]{2,4}$/i.test(target)) return `<span class="embed-chip">📎 ${esc(target)}</span>`;
   const path = env?.resolve?.(target);
+  const shown = path && !alias ? env?.title?.(path) : undefined;
+  if (shown) label = heading ? `${shown} › ${heading}` : shown;
   if (path) return `<a class="wikilink" href="${esc(docHref(path))}">${esc(label)}</a>`;
   return `<a class="wikilink missing" href="#" data-create="${esc(target)}" title="Not written yet: tap to create">${esc(label)}</a>`;
 };

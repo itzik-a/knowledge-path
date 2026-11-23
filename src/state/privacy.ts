@@ -1,11 +1,13 @@
 /* Private notes on this device: the passphrase, unlocking what came from the vault encrypted, making a note
    private, changing the passphrase, and locking this device again. The format and the crypto are
    shared/private.ts; the sync encrypts and decrypts on the way (src/state/sync.ts). */
-import { forgetKeys, isPrivate, isSealed, isSealedFile, openAny, sealFile, sealSketch } from "../../shared/private.ts";
-import { setFrontmatter } from "../../shared/vault.ts";
+import { forgetKeys, isLockedName, isPrivate, isSealed, isSealedFile, lockedNameFor, newLockedName, openAny, sealFile, sealSketch, withTitle } from "../../shared/private.ts";
+import { basename, dirname, kindOf, setFrontmatter, splitFrontmatter, uniquePath } from "../../shared/vault.ts";
+import { docHref } from "../lib/route";
+import { retitle } from "./actions";
 import { getPassphrase, savePassphrase } from "../lib/passphrase";
 import { showToast } from "../lib/toast";
-import { allRecords, markDirty, readFile, replaceTexts, writeFile } from "./store";
+import { allRecords, markDirty, readFile, renameFile, replaceTexts, taken, writeFile } from "./store";
 import { lockedSketches, sketchesOf } from "./sketches";
 import { syncNow, whenIdle } from "./sync";
 
@@ -72,19 +74,56 @@ export async function lockDevice() {
   forgetKeys();
 }
 
-/** Mark a note private (or not). A file that doesn't exist yet (today's journal entry) is created private, empty. */
-export function setPrivate(path: string, on: boolean) {
+/** Lock a note (or unlock it). A note's file gets a neutral name while it's locked, its title kept in its
+    frontmatter (encrypted in the vault); unlocking names it after its title again. A journal entry keeps its
+    dated name; one that doesn't exist yet (today's) is created locked, empty. Its sketches go out again.
+    Returns the note's path now (and moves the page there if it's open). */
+export async function setPrivate(path: string, on: boolean, opts: { quiet?: boolean } = {}): Promise<string> {
   const text = readFile(path);
-  if (text == null && !on) return;
-  writeFile(path, setFrontmatter(text ?? "", { private: on ? true : undefined }));
-  markDirty(sketchesOf(text ?? "")); // its sketches go to the vault again: encrypted now, or not (unless another locked note has them)
-  showToast(on ? "Locked: encrypted in the vault" : "Unlocked: stored as plain text in the vault");
+  if (text == null && !on) return path;
+  const sketches = sketchesOf(text ?? "");
+  let next = path;
+  if (kindOf(path) !== "note") {
+    writeFile(path, setFrontmatter(text ?? "", { private: on ? true : undefined }));
+  } else if (on) {
+    const fmTitle = splitFrontmatter(text!).fm.title;
+    const name = basename(path);
+    const title = typeof fmTitle === "string" && fmTitle.trim() ? fmTitle.trim() : name !== "Untitled" && !isLockedName(name) ? name : undefined;
+    writeFile(path, withTitle(setFrontmatter(text!, { private: true, title: undefined }), title));
+    if (!isLockedName(name)) {
+      const folder = dirname(path);
+      const pass = getPassphrase();
+      next = `${folder ? folder + "/" : ""}${pass ? await lockedNameFor(path, pass) : newLockedName()}.md`;
+      if (taken(next)) next = uniquePath(folder, newLockedName(), taken);
+      renameFile(path, next);
+    }
+  } else {
+    const fmTitle = splitFrontmatter(text!).fm.title;
+    const title = typeof fmTitle === "string" && fmTitle.trim() ? fmTitle.trim() : "Untitled";
+    writeFile(path, setFrontmatter(withTitle(text!, undefined), { private: undefined }));
+    next = retitle(path, title);
+  }
+  markDirty(sketches); // encrypted now, or not (unless another locked note has them)
+  if (next !== path && location.hash === docHref(path)) {
+    history.replaceState(history.state, "", docHref(next));
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+  if (!opts.quiet) showToast(on ? "Locked: encrypted in the vault, title included" : "Unlocked: stored as plain text in the vault");
+  return next;
 }
 
-/** Once per device: sketches already in locked notes before sketches were encrypted go out again, encrypted. */
-export function lockSketchesOnce() {
-  const flag = "knowledgePath.lockedSketches";
-  if (!getPassphrase() || localStorage.getItem(flag)) return;
-  markDirty([...lockedSketches()]);
-  localStorage.setItem(flag, "1");
+/** Once per device, for what was locked before these existed: sketches in locked notes go out again
+    (encrypted), and locked notes named after their title get a neutral name (the same one on every device). */
+export async function migrateLocked() {
+  if (!getPassphrase()) return;
+  if (!localStorage.getItem("knowledgePath.lockedSketches")) {
+    markDirty([...lockedSketches()]);
+    localStorage.setItem("knowledgePath.lockedSketches", "1");
+  }
+  if (!localStorage.getItem("knowledgePath.lockedTitles")) {
+    for (const r of md()) {
+      if (kindOf(r.path) === "note" && isPrivate(r.content) && !isSealed(r.content) && !isLockedName(basename(r.path))) await setPrivate(r.path, true, { quiet: true });
+    }
+    localStorage.setItem("knowledgePath.lockedTitles", "1");
+  }
 }

@@ -6,7 +6,7 @@ import {
   slug, splitFrontmatter, strList, type Kind, type Link, type Resource,
 } from "./vault.ts";
 import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
-import { sealedPayload } from "./private.ts";
+import { isLockedName, sealedPayload } from "./private.ts";
 
 export interface Doc {
   path: string;
@@ -69,7 +69,8 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
   return {
     path, kind, name, fm, body, mtime, date,
     private: fm.private === true || undefined, sealed: sealed || undefined,
-    title: fmTitle ?? (name === "Untitled" ? firstLine(body) || name : name),
+    // a locked note's file name is neutral: its title is in its frontmatter (or its first line, or just "Locked note")
+    title: fmTitle ?? (isLockedName(name) ? firstLine(body) || "Locked note" : name === "Untitled" ? firstLine(body) || name : name),
     links: kind === "hub" ? [] : extractLinks(body),
     tags: kind === "hub" ? [] : extractTags(body, fm),
     topicRefs: strList(fm.topics).map(refTarget).filter(Boolean),

@@ -100,9 +100,9 @@ function SketchButton({ note }: { note: string }) {
 function PrivateButton({ path, on }: { path: string; on: boolean }) {
   const toggle = async () => {
     if (on) {
-      if (await confirmAsk({ title: "Unlock this note?", body: "Its text goes to the vault unencrypted, readable by anyone who can open the repo.", ok: "Unlock" })) setPrivate(path, false);
+      if (await confirmAsk({ title: "Unlock this note?", body: "Its text goes to the vault unencrypted, readable by anyone who can open the repo.", ok: "Unlock" })) void setPrivate(path, false);
     } else if (!getPassphrase()) openSheet({ kind: "private", then: path });
-    else setPrivate(path, true);
+    else void setPrivate(path, true);
   };
   const label = on ? "Locked: encrypted in the vault. Unlock" : "Lock: encrypt it in the vault";
   return (
@@ -276,7 +276,7 @@ function TitleInput({ d }: { d: Doc }) {
     else setV(d.title);
   };
   return (
-    <input className="title-input display" dir="auto" value={v} aria-label="Title" onChange={(e) => setV(e.target.value)} onBlur={commit}
+    <input className="title-input display" dir="auto" value={v} aria-label="Title" readOnly={d.sealed} onChange={(e) => setV(e.target.value)} onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } if (e.key === "Escape") { setV(d.title); (e.target as HTMLInputElement).blur(); } }} />
   );
 }
