@@ -439,6 +439,9 @@ code { font: .85em ui-monospace, "SF Mono", Menlo, monospace; background: var(--
 .locked-body > svg { width: 28px; height: 28px; color: var(--accent); }
 .locked-body p { max-width: 34ch; }
 .locked-body .btn { justify-self: center; }
+.icon-btn.subtle.on { color: var(--accent); }
+.private-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.private-pick .chip[aria-pressed="true"] .inline-icon { color: inherit; }
 
 /* forms */
 .form-grid { display: grid; gap: 16px; }
@@ -635,9 +638,10 @@ a.chip { color: var(--ink); }
 .body-wrap { position: relative; display: grid; gap: 8px; }
 
 /* note / journal / path heads */
-.note-head { display: flex; align-items: flex-start; gap: 12px; }
-.note-head .grow { display: grid; gap: 2px; }
-.head-tools { display: flex; align-items: center; gap: 4px; flex: none; }
+.note-head { display: flex; align-items: flex-end; gap: 4px 12px; flex-wrap: wrap-reverse; } /* flex-end is the top when wrapping in reverse */
+/* a narrow card: the tools get a row of their own above the title rather than squeezing it */
+.note-head .grow { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; }
+.head-tools { display: flex; align-items: center; gap: 4px; flex: none; margin-inline-start: auto; }
 .head-tools .btn { justify-self: auto; }
 .title-input {
   width: 100%; padding: 2px 0; margin: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink);

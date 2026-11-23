@@ -64,10 +64,10 @@ export async function lockDevice() {
   forgetKeys();
 }
 
-/** Mark a note private (or not). Making one private needs the passphrase on this device first. */
+/** Mark a note private (or not). A file that doesn't exist yet (today's journal entry) is created private, empty. */
 export function setPrivate(path: string, on: boolean) {
   const text = readFile(path);
-  if (text == null) return;
-  writeFile(path, setFrontmatter(text, { private: on ? true : undefined }));
+  if (text == null && !on) return;
+  writeFile(path, setFrontmatter(text ?? "", { private: on ? true : undefined }));
   showToast(on ? "Private: encrypted in the vault" : "No longer private: stored as plain text in the vault");
 }

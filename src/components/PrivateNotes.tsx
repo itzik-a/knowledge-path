@@ -7,7 +7,7 @@ import { openSheet } from "../lib/sheets";
 import { changePassphrase, enterPassphrase, lockDevice, MIN_PASSPHRASE, sealedHere, setPrivate } from "../state/privacy";
 import { useIndex } from "../state/store";
 import { IconLock } from "./Icons";
-import { closeSheet, Sheet } from "./ui";
+import { Sheet } from "./ui";
 
 /** `then`: a note to make private once the passphrase is set. */
 export function PrivateSheet({ then, onClose }: { then?: string; onClose: () => void }) {
@@ -25,7 +25,7 @@ export function PrivateForm({ then }: { then?: string }) {
   const sealed = sealedHere().length;
   const count = [...ix.docs.values()].filter((d) => d.private).length;
   const notes = (n: number) => (n === 1 ? "1 private note" : `${n} private notes`);
-  const done = (el: HTMLElement | null) => { if (then) { setPrivate(then, true); closeSheet(el); } };
+  const done = (dlg: HTMLDialogElement | null) => { if (then) { setPrivate(then, true); dlg?.close(); } };
 
   if (has && !changing) {
     return (
@@ -45,9 +45,9 @@ export function PrivateForm({ then }: { then?: string }) {
     return (
       <>
         <p className="small">{notes(sealed)} came from your vault encrypted. Type your passphrase to read and edit {sealed === 1 ? "it" : "them"} on this device.</p>
-        <PassForm confirm={false} ok="Unlock" onSubmit={async (pass, el) => {
+        <PassForm confirm={false} ok="Unlock" onSubmit={async (pass, dlg) => {
           if (!(await enterPassphrase(pass))) return "That passphrase doesn't open them.";
-          done(el);
+          done(dlg);
           return null;
         }} />
       </>
@@ -71,10 +71,10 @@ export function PrivateForm({ then }: { then?: string }) {
         </>
       )}
       <PassForm confirm ok={changing ? "Change passphrase" : then ? "Make the note private" : "Save passphrase"} onCancel={changing ? () => setChanging(false) : undefined}
-        onSubmit={async (pass, el) => {
+        onSubmit={async (pass, dlg) => {
           if (changing) { changePassphrase(pass); setChanging(false); return null; }
           if (!(await enterPassphrase(pass))) return "That passphrase doesn't open the private notes here.";
-          done(el);
+          done(dlg);
           return null;
         }} />
     </>
@@ -84,7 +84,7 @@ export function PrivateForm({ then }: { then?: string }) {
 function PassForm({ confirm, ok, onSubmit, onCancel }: {
   confirm: boolean; ok: string; onCancel?: () => void;
   /** An error to show, or null when it worked. */
-  onSubmit: (pass: string, el: HTMLElement | null) => Promise<string | null>;
+  onSubmit: (pass: string, dialog: HTMLDialogElement | null) => Promise<string | null>;
 }) {
   const [pass, setPass] = useState("");
   const [again, setAgain] = useState("");
@@ -97,9 +97,9 @@ function PassForm({ confirm, ok, onSubmit, onCancel }: {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!ready || busy) return;
-    const el = e.currentTarget;
+    const dialog = e.currentTarget.closest("dialog"); // now: the form may be gone once the passphrase is saved
     setBusy(true); setErr("");
-    const msg = await onSubmit(pass, el);
+    const msg = await onSubmit(pass, dialog);
     setBusy(false);
     if (msg) setErr(msg); else { setPass(""); setAgain(""); }
   }

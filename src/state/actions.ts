@@ -112,9 +112,10 @@ export async function removeSuggestions() {
 export const suggestionCount = () => [...getIndex().docs.values()].filter((d) => d.resource?.suggested && d.resource.status === "saved" && !d.body.trim()).length;
 
 // ── notes and journal ─────────────────────────────────────────
-export function createNote(o: { title: string; body?: string; topics?: string[]; folder?: string }): string {
+/** A new note. `private`: encrypted in the vault from its very first sync (shared/private.ts). */
+export function createNote(o: { title: string; body?: string; topics?: string[]; folder?: string; private?: boolean }): string {
   const path = uniquePath(o.folder ?? FOLDER.notes, o.title || "Untitled", taken);
-  writeFile(path, setFrontmatter("", { topics: (o.topics ?? []).map(topicLink), created: todayISO() }) + (o.body ?? ""));
+  writeFile(path, setFrontmatter("", { topics: (o.topics ?? []).map(topicLink), created: todayISO(), private: o.private || undefined }) + (o.body ?? ""));
   return path;
 }
 

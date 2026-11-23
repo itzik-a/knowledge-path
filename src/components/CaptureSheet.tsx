@@ -4,11 +4,13 @@
    (the iOS Shortcut and the bookmarklet). */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guessType, isHttpUrl, RESOURCE_TYPES, titleFromUrl, type ResourceType, type Status } from "../../shared/vault.ts";
+import { getPassphrase } from "../lib/passphrase";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
 import { createNote, createResource } from "../state/actions";
 import { TopicPicker, TYPE_LABEL } from "./bits";
+import { IconLock } from "./Icons";
 import { Field, Seg, Select, Sheet, closeSheet } from "./ui";
 
 export interface CaptureInit { url?: string; title?: string; text?: string; topics?: string[]; mode?: "link" | "note" }
@@ -39,6 +41,7 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   const [status, setStatus] = useState<Status>("saved");
   const [note, setNote] = useState(init.text && init.text.trim() !== startUrl ? init.text.replace(startUrl ?? "", "").trim() : "");
   const [topics, setTopics] = useState<string[]>(init.topics ?? []);
+  const [priv, setPriv] = useState(false);
   const [err, setErr] = useState("");
   const form = useRef<HTMLFormElement>(null);
 
@@ -74,8 +77,10 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
       if (!body && !title.trim()) { setErr("Write something first."); return; }
       const t = title.trim() || body.split("\n")[0].replace(/^#+\s*/, "").slice(0, 60) || "Untitled";
       const rest = title.trim() ? body : body.split("\n").slice(1).join("\n").trim();
-      const path = createNote({ title: t, body: rest ? rest + "\n" : "", topics });
-      showToast(topics.length ? "Note saved" : "Note saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
+      const path = createNote({ title: t, body: rest ? rest + "\n" : "", topics, private: priv });
+      // without a passphrase the sync holds a private note back (never sent unencrypted) until one is chosen
+      if (priv && !getPassphrase()) showToast("Private note saved here. Choose a passphrase so it can go to the vault", { label: "Choose", run: () => openSheet({ kind: "private" }) });
+      else showToast(priv ? "Private note saved" : topics.length ? "Note saved" : "Note saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
     }
     closeSheet(form.current);
   }
@@ -122,8 +127,14 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
           <textarea className="text-input" dir="auto" rows={mode === "note" ? 6 : 3} placeholder={mode === "link" ? "Optional" : "Write it down…"} data-autofocus={(mode === "note" && !init.text) || undefined}
             value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
+        {mode === "note" && (
+          <div className="private-pick">
+            <button type="button" className="chip" aria-pressed={priv} onClick={() => setPriv((p) => !p)}><IconLock className="inline-icon" /> Private</button>
+            {priv && <span className="muted small">Its text is encrypted in the vault from the first save.</span>}
+          </div>
+        )}
         {err && <p className="form-error" role="alert">{err}</p>}
-        <button className="btn primary" type="submit">{mode === "link" ? "Save" : "Save note"}</button>
+        <button className="btn primary" type="submit">{mode === "link" ? "Save" : priv ? "Save private note" : "Save note"}</button>
       </form>
     </Sheet>
   );
