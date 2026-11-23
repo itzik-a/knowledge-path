@@ -111,3 +111,6 @@ export const IconLasso = (p: P) => (
 export const IconLock = (p: P) => (
   <svg {...base(p)}><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></svg>
 );
+export const IconUnlock = (p: P) => (
+  <svg {...base(p)}><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 7.75-1.4" /></svg>
+);

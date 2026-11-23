@@ -10,7 +10,7 @@ import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
 import { createNote, createResource } from "../state/actions";
 import { TopicPicker, TYPE_LABEL } from "./bits";
-import { IconLock } from "./Icons";
+import { IconLock, IconUnlock } from "./Icons";
 import { Field, Seg, Select, Sheet, closeSheet } from "./ui";
 
 export interface CaptureInit { url?: string; title?: string; text?: string; topics?: string[]; mode?: "link" | "note" }
@@ -79,8 +79,8 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
       const rest = title.trim() ? body : body.split("\n").slice(1).join("\n").trim();
       const path = createNote({ title: t, body: rest ? rest + "\n" : "", topics, private: priv });
       // without a passphrase the sync holds a private note back (never sent unencrypted) until one is chosen
-      if (priv && !getPassphrase()) showToast("Private note saved here. Choose a passphrase so it can go to the vault", { label: "Choose", run: () => openSheet({ kind: "private" }) });
-      else showToast(priv ? "Private note saved" : topics.length ? "Note saved" : "Note saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
+      if (priv && !getPassphrase()) showToast("Locked note saved here. Choose a passphrase so it can go to the vault", { label: "Choose", run: () => openSheet({ kind: "private" }) });
+      else showToast(priv ? "Locked note saved" : topics.length ? "Note saved" : "Note saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
     }
     closeSheet(form.current);
   }
@@ -129,12 +129,12 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
         </Field>
         {mode === "note" && (
           <div className="private-pick">
-            <button type="button" className="chip" aria-pressed={priv} onClick={() => setPriv((p) => !p)}><IconLock className="inline-icon" /> Private</button>
+            <button type="button" className="chip" aria-pressed={priv} onClick={() => setPriv((p) => !p)}>{priv ? <IconLock className="inline-icon" /> : <IconUnlock className="inline-icon" />} {priv ? "Locked" : "Lock"}</button>
             {priv && <span className="muted small">Its text is encrypted in the vault from the first save.</span>}
           </div>
         )}
         {err && <p className="form-error" role="alert">{err}</p>}
-        <button className="btn primary" type="submit">{mode === "link" ? "Save" : priv ? "Save private note" : "Save note"}</button>
+        <button className="btn primary" type="submit">{mode === "link" ? "Save" : priv ? "Save locked note" : "Save note"}</button>
       </form>
     </Sheet>
   );

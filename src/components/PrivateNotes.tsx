@@ -12,7 +12,7 @@ import { Sheet } from "./ui";
 /** `then`: a note to make private once the passphrase is set. */
 export function PrivateSheet({ then, onClose }: { then?: string; onClose: () => void }) {
   return (
-    <Sheet title="Private notes" onClose={onClose}>
+    <Sheet title="Locked notes" onClose={onClose}>
       <PrivateForm then={then} />
     </Sheet>
   );
@@ -24,7 +24,7 @@ export function PrivateForm({ then }: { then?: string }) {
   const [changing, setChanging] = useState(false);
   const sealed = sealedHere().length;
   const count = [...ix.docs.values()].filter((d) => d.private).length;
-  const notes = (n: number) => (n === 1 ? "1 private note" : `${n} private notes`);
+  const notes = (n: number) => (n === 1 ? "1 locked note" : `${n} locked notes`);
   const done = (dlg: HTMLDialogElement | null) => { if (then) { setPrivate(then, true); dlg?.close(); } };
 
   if (has && !changing) {
@@ -35,8 +35,8 @@ export function PrivateForm({ then }: { then?: string }) {
         <div className="dlg-actions">
           <button type="button" className="btn" onClick={() => setChanging(true)}>Change passphrase</button>
           <button type="button" className="btn ghost danger" onClick={async () => {
-            if (await confirmAsk({ title: "Lock private notes on this device?", body: "This device forgets the passphrase. Private notes stay encrypted here until you type it again.", ok: "Lock" })) void lockDevice();
-          }}>Lock this device</button>
+            if (await confirmAsk({ title: "Forget the passphrase on this device?", body: "Locked notes stay encrypted here until you type it again.", ok: "Forget it" })) void lockDevice();
+          }}>Forget the passphrase here</button>
         </div>
       </>
     );
@@ -45,7 +45,7 @@ export function PrivateForm({ then }: { then?: string }) {
     return (
       <>
         <p className="small">{notes(sealed)} came from your vault encrypted. Type your passphrase to read and edit {sealed === 1 ? "it" : "them"} on this device.</p>
-        <PassForm confirm={false} ok="Unlock" onSubmit={async (pass, dlg) => {
+        <PassForm confirm={false} ok="Open them" onSubmit={async (pass, dlg) => {
           if (!(await enterPassphrase(pass))) return "That passphrase doesn't open them.";
           done(dlg);
           return null;
@@ -56,24 +56,24 @@ export function PrivateForm({ then }: { then?: string }) {
   return (
     <>
       {changing ? (
-        <p className="small">Every private note goes to the vault again, encrypted with the new passphrase. Your other devices then need the new one.</p>
+        <p className="small">Every locked note goes to the vault again, encrypted with the new passphrase. Your other devices then need the new one.</p>
       ) : (
         <>
           <p className="small">
-            A private note is encrypted on your device before it goes to the vault, so GitHub, the enricher and anyone who can open the repo
+            A locked note is encrypted on your device before it goes to the vault, so GitHub, the enricher and anyone who can open the repo
             see its title and topics but not its text. Choose a passphrase, and type the same one on each of your devices.
           </p>
           <p className="small"><b>Nothing can recover a lost passphrase:</b> keep it in your password manager.</p>
           <p className="muted small">
             A note that was already in the vault keeps its earlier, unencrypted versions in the repo's history. In Obsidian, the Meld Encrypt
-            plugin opens private notes with the same passphrase.
+            plugin opens locked notes with the same passphrase.
           </p>
         </>
       )}
-      <PassForm confirm ok={changing ? "Change passphrase" : then ? "Make the note private" : "Save passphrase"} onCancel={changing ? () => setChanging(false) : undefined}
+      <PassForm confirm ok={changing ? "Change passphrase" : then ? "Lock the note" : "Save passphrase"} onCancel={changing ? () => setChanging(false) : undefined}
         onSubmit={async (pass, dlg) => {
           if (changing) { changePassphrase(pass); setChanging(false); return null; }
-          if (!(await enterPassphrase(pass))) return "That passphrase doesn't open the private notes here.";
+          if (!(await enterPassphrase(pass))) return "That passphrase doesn't open the locked notes here.";
           done(dlg);
           return null;
         }} />
@@ -128,12 +128,12 @@ export function LockedBody() {
   return (
     <div className="locked-body">
       <IconLock />
-      <p className="small">This note is private. Its text is encrypted, and this device doesn't have the passphrase yet.</p>
-      <button type="button" className="btn sm" onClick={() => openSheet({ kind: "private" })}>Unlock</button>
+      <p className="small">This note is locked. Its text is encrypted, and this device doesn't have the passphrase yet.</p>
+      <button type="button" className="btn sm" onClick={() => openSheet({ kind: "private" })}>Enter passphrase</button>
     </div>
   );
 }
 
 export function PrivateBadge() {
-  return <span className="private-badge" title="Encrypted in the vault"><IconLock /> Private</span>;
+  return <span className="private-badge" title="Encrypted in the vault"><IconLock /> Locked</span>;
 }

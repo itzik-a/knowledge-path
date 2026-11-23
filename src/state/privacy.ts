@@ -69,5 +69,5 @@ export function setPrivate(path: string, on: boolean) {
   const text = readFile(path);
   if (text == null && !on) return;
   writeFile(path, setFrontmatter(text ?? "", { private: on ? true : undefined }));
-  showToast(on ? "Private: encrypted in the vault" : "No longer private: stored as plain text in the vault");
+  showToast(on ? "Locked: encrypted in the vault" : "Unlocked: stored as plain text in the vault");
 }

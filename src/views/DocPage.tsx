@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBack, IconEdit, IconExternal, IconLock, IconMore, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
@@ -96,18 +96,18 @@ function SketchButton({ note }: { note: string }) {
   );
 }
 
-/** Private on / off. On a new, empty note (or a journal day not written yet) it's private before a word is typed. */
+/** Lock / unlock (private: true). On a new, empty note (or a journal day not written yet) it's locked before a word is typed. */
 function PrivateButton({ path, on }: { path: string; on: boolean }) {
   const toggle = async () => {
     if (on) {
-      if (await confirmAsk({ title: "Stop keeping it private?", body: "Its text goes to the vault unencrypted, readable by anyone who can open the repo.", ok: "Stop keeping private" })) setPrivate(path, false);
+      if (await confirmAsk({ title: "Unlock this note?", body: "Its text goes to the vault unencrypted, readable by anyone who can open the repo.", ok: "Unlock" })) setPrivate(path, false);
     } else if (!getPassphrase()) openSheet({ kind: "private", then: path });
     else setPrivate(path, true);
   };
-  const label = on ? "Private: encrypted in the vault" : "Make private";
+  const label = on ? "Locked: encrypted in the vault. Unlock" : "Lock: encrypt it in the vault";
   return (
     <button type="button" className={`icon-btn subtle${on ? " on" : ""}`} aria-pressed={on} aria-label={label} title={label} onClick={() => void toggle()}>
-      <IconLock />
+      {on ? <IconLock /> : <IconUnlock />}
     </button>
   );
 }

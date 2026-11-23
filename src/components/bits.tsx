@@ -148,7 +148,7 @@ export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; 
       <RowShell path={d.path} sel={sel}>
         <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : "📝"}</span>
         <span className="item-main">
-          <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Private" aria-hidden={false} />}</span>
+          <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Locked" aria-hidden={false} />}</span>
           {d.excerpt && <span className="item-meta clamp" dir="auto">{d.excerpt}</span>}
           {(showTopics || when) && (
             <span className="item-tags">

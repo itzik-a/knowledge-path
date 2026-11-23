@@ -213,7 +213,7 @@ export function syncNow(force = false): Promise<void> {
       await setMeta("sync", r.state);
       if (Object.keys(r.other).length || force) lastOther = r.other;
       status.last = Date.now();
-      if (r.held.length) setStatus({ kind: "pending", text: "Needs passphrase", detail: `${r.held.length === 1 ? "A private note waits" : `${r.held.length} private notes wait`} for your passphrase on this device before they go to the vault (Private notes, below).` });
+      if (r.held.length) setStatus({ kind: "pending", text: "Needs passphrase", detail: `${r.held.length === 1 ? "A locked note waits" : `${r.held.length} locked notes wait`} for your passphrase on this device before they go to the vault (Locked notes, below).` });
       else setStatus({ kind: allRecords().some((x) => x.dirty) ? "pending" : "ok" });
       if (r.conflicts.length) showToast(r.conflicts.length === 1 ? "Edited in two places: kept both copies" : `${r.conflicts.length} files edited in two places: kept both copies`);
       if (r.pulled) syncListeners.forEach((l) => l());

@@ -30,7 +30,7 @@ export function DataSheet({ onClose }: { onClose: () => void }) {
     <Sheet title="Vault & settings" onClose={onClose}>
       <SyncSection />
       <section className="dlg-section" aria-labelledby="priv-title">
-        <h3 id="priv-title">Private notes</h3>
+        <h3 id="priv-title">Locked notes</h3>
         <PrivateForm />
       </section>
       <EnricherSection />
