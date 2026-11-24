@@ -5,6 +5,7 @@ import { trackHistory } from "./lib/route";
 import { init } from "./state/store";
 import { startSync } from "./state/sync";
 import { migrateLocked } from "./state/privacy";
+import "./lib/theme";
 import "./styles.css";
 
 trackHistory();
