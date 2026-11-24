@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconDownload, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBook, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
@@ -12,7 +12,7 @@ import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, requestEpub, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
@@ -21,8 +21,7 @@ import { LockedBody, PrivateBadge } from "../components/PrivateNotes";
 import { getPassphrase } from "../lib/passphrase";
 import { setPrivate } from "../state/privacy";
 import { bookOf, chaptersIn, isRsarchive, plainLinks, readingText, sectionsOf } from "../../shared/books.ts";
-import { fetchVaultFile } from "../state/sync";
-import { showToast } from "../lib/toast";
+import { EpubButton, EpubStatus } from "../components/Epub";
 
 
 export function DocPage({ path }: { path: string }) {
@@ -153,6 +152,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
             canBook ? { label: book.state === "ready" || book.state === "failed" ? "Fetch the book again" : "Make it a book", run: () => makeBook(d.path) } : null,
+            canBook ? { label: "Download as EPUB", run: () => requestEpub(r.url!, d.title) } : null,
             canBook ? null : { label: "Make it a recipe", run: toRecipe },
             { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#library"); } },
           ]} />
@@ -166,10 +166,12 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
         {r.enrich === "failed" && <p className="muted small">Couldn't read the page{r.enrichError ? ` (${r.enrichError})` : ""}. Add the details by hand.</p>}
         {canBook && !book.state && (
           <div className="recipe-nudge">
-            <span className="grow"><b>This is on the Rudolf Steiner Archive.</b> <span className="muted">Make it a book to read it here chapter by chapter, highlight it, and download an EPUB.</span></span>
+            <span className="grow"><b>This is on the Rudolf Steiner Archive.</b> <span className="muted">Make it a book to read and highlight it here, chapter by chapter (the text goes in the vault), or just get the EPUB (nothing is kept).</span></span>
             <button type="button" className="btn primary sm" onClick={() => makeBook(d.path)}><IconBook /> Make it a book</button>
+            <EpubButton url={r.url!} title={d.title} />
           </div>
         )}
+        {canBook && <EpubStatus url={r.url!} />}
         {book.state === "pending" && <p className="muted small">Fetching the book from rsarchive.org: it arrives after a sync, in a few minutes (a second a page).</p>}
         {book.state === "failed" && <p className="muted small">Couldn't make the book{book.error ? ` (${book.error})` : ""}. A contents page or a chapter of the edition you want works best as the link.</p>}
         {d.fm.recipe === true && !canBook && (
@@ -197,7 +199,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
       )}
 
       {reading && article && <Reader text={article} url={r.url} from={d.path} onHighlight={(q) => addHighlight(d.path, q)} />}
-      {book.state === "ready" && book.folder && <BookChapters ix={ix} folder={book.folder} epub={book.epub} note={book.error} />}
+      {book.state === "ready" && book.folder && <BookChapters ix={ix} folder={book.folder} url={r.url} title={d.title} note={book.error} />}
 
       <section className="card">
         <div className="card-head">
@@ -255,33 +257,14 @@ function Reader({ text, url, from, onHighlight }: { text: string; url?: string; 
 }
 
 // ── books ─────────────────────────────────────────────────────
-/** A book's chapters on its saved link's page, by part, and its EPUB. */
-function BookChapters({ ix, folder, epub, note }: { ix: Index; folder: string; epub?: string; note?: string }) {
+/** A book's chapters on its saved link's page, by part; its EPUB on request. */
+function BookChapters({ ix, folder, url, title, note }: { ix: Index; folder: string; url?: string; title: string; note?: string }) {
   const chapters = chaptersIn(ix, folder);
-  const [busy, setBusy] = useState(false);
-  const download = async () => {
-    if (!epub) return;
-    setBusy(true);
-    try {
-      const blob = await fetchVaultFile(epub);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([blob], { type: "application/epub+zip" }));
-      a.download = epub.slice(epub.lastIndexOf("/") + 1);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
-    } catch (e) {
-      showToast(`Couldn't download it: ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <section className="card">
       <div className="card-head">
         <h2>Chapters{chapters.length ? <span className="muted"> · {chapters.length}</span> : null}</h2>
-        {epub && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void download()}><IconDownload /> {busy ? "Downloading…" : "EPUB"}</button>}
+        {url && <EpubButton url={url} title={title} />}
       </div>
       {!chapters.length && <p className="muted small">The chapters are on their way: they come with the next sync.</p>}
       {note && <p className="muted small">{note}.</p>}

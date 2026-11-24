@@ -8,15 +8,18 @@
       page when it has none) fills in an empty recipe, its servings, times, photo and tags; a recipe saved from a
       link alone (`provisional: true`) is renamed to the dish's name.
    1c. Resources with `book: pending` (rsarchive.org links, "Make it a book" in the app): the book or lecture
-      cycle is fetched (enricher/book.ts) into chapter notes in Books/<Title (GA n)>/ and an EPUB in .hub/books/,
-      and the resource gets book, chapters, epub (and type, author, translator, ga, image, summary if missing).
+      cycle is fetched (enricher/book.ts) into chapter notes in Books/<Title (GA n)>/, and the resource gets
+      book and chapters (and type, author, translator, ga, image, summary if missing).
       Nothing from rsarchive.org goes to Claude (its robots.txt asks for reference use only).
-   2. .hub/requests/*.json (Explore): Claude Opus maps the topic into .hub/explore/<topic>.json.
+   2. .hub/requests/*.json: Explore (Claude Opus maps the topic into .hub/explore/<topic>.json), and EPUBs of
+      rsarchive.org books (enricher/epubs.ts: built and pushed to a branch epub/<id>, never to main; the
+      request says where; branches and requests nobody came for go after a week).
    3. .hub/status.json: when it ran, what it did, what it cost (this month too).
    It only writes files; the workflow commits them. */
 import { existsSync } from "node:fs";
 import { isRsarchive } from "../shared/books.ts";
 import { GENERIC_SUMMARY, importBook } from "./book.ts";
+import { BRANCH_PREFIX, MAX_AGE_DAYS, branchFor, buildEpub, deleteBranches, epubBranches, pushToBranch, type EpubRequest } from "./epubs.ts";
 import { httpFetcher } from "./rsarchive/net.ts";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -36,6 +39,7 @@ const DRY = args.includes("--dry");
 const CLAUDE = !args.includes("--no-claude") && !!process.env.ANTHROPIC_API_KEY;
 const MAX_PER_RUN = 40;
 const MAX_BOOKS_PER_RUN = 3;
+const MAX_EPUBS_PER_RUN = 3;
 
 async function walk(dir: string, base = ""): Promise<string[]> {
   const out: string[] = [];
@@ -207,10 +211,6 @@ async function main() {
         }
       }
       for (const [p, note] of r.notes) await save(p, note);
-      if (!DRY) {
-        await mkdir(join(VAULT, r.epubPath, ".."), { recursive: true });
-        await writeFile(join(VAULT, r.epubPath), r.epub);
-      }
       const fm = d.fm;
       const missing = Object.fromEntries(Object.entries(r.home.missing).filter(([k]) => fm[k] == null || fm[k] === "" || (k === "summary" && GENERIC_SUMMARY.test(String(fm[k]))) || (k === "type" && fm.type !== "book")));
       const n = r.notes.size;
@@ -231,13 +231,40 @@ async function main() {
     }
   }
 
-  // ── 2. explore requests ─────────────────────────────────────
-  let explored = 0;
+  // ── 2. requests: explore, EPUBs ─────────────────────────────
+  let explored = 0, epubs = 0;
   const requests = [...files.keys()].filter((p) => p.startsWith(`${HUB}/requests/`) && p.endsWith(".json"));
+  const liveBranches = new Set<string>();
   for (const r of requests) {
     let req: { kind?: string; topic?: string; ask?: string; at?: string; waiting?: string; error?: string };
     try { req = JSON.parse(files.get(r)!); } catch { req = {}; }
     const done = async () => { files.delete(r); if (!DRY) await rm(join(VAULT, r), { force: true }); };
+    if (req.kind === "epub") {
+      const e = req as unknown as EpubRequest;
+      const old = e.at && Date.now() - Date.parse(e.at) > MAX_AGE_DAYS * 86_400_000;
+      if (old || !e.url) { await done(); continue; } // its branch goes in the clean-up below
+      if (e.ready) { liveBranches.add(e.ready.branch); continue; }
+      if (e.error || epubs >= MAX_EPUBS_PER_RUN) continue;
+      if (!isRsarchive(e.url)) { await save(r, JSON.stringify({ ...e, error: "Only links to rsarchive.org can be made into an EPUB." }, null, 2) + "\n"); continue; }
+      try {
+        console.log(`  epub ${e.url}`);
+        const b = await buildEpub(e.url, { fetcher: httpFetcher({ cacheDir: process.env.RSARCHIVE_CACHE ?? null, log: console.log }), log: console.log });
+        const branch = branchFor(r);
+        if (!DRY) pushToBranch(VAULT, branch, b.file, b.data, `EPUB: ${b.title}`);
+        liveBranches.add(branch);
+        const ready = { branch, file: b.file, size: b.data.length, title: b.title, chapters: b.chapters, at: new Date().toISOString() };
+        await save(r, JSON.stringify({ ...e, ready, ...(b.failed.length ? { note: `${b.failed.length} pages couldn't be read` } : {}) }, null, 2) + "\n");
+        epubs++;
+        console.log(`  ✓ epub ${b.file} on ${branch}: ${b.chapters} chapters, ${Math.round(b.data.length / 1024)} KB`);
+      } catch (err) {
+        failed++;
+        const msg = (err as Error).message.split("\n")[0].slice(0, 160);
+        errors.push(`EPUB ${e.url}: ${msg}`);
+        console.warn(`  ✗ epub ${e.url}: ${msg}`);
+        await save(r, JSON.stringify({ ...e, error: msg }, null, 2) + "\n");
+      }
+      continue;
+    }
     // the request stays, saying why it wasn't answered; the app shows that, with Try again (a fresh request) and Cancel
     const hold = async (why: { waiting?: string; error?: string }) => {
       const next = JSON.stringify({ kind: req.kind, topic: req.topic, ask: req.ask, at: req.at, ...why }, null, 2) + "\n";
@@ -261,19 +288,27 @@ async function main() {
     }
   }
 
+  // EPUB branches whose request is gone (downloaded, cancelled, or a week old)
+  if (!DRY) {
+    try {
+      const stale = epubBranches(VAULT).filter((b) => b.startsWith(BRANCH_PREFIX) && !liveBranches.has(b));
+      if (stale.length) { deleteBranches(VAULT, stale); console.log(`  removed ${stale.length} old EPUB branch${stale.length > 1 ? "es" : ""}`); }
+    } catch (e) { console.warn(`  EPUB branches: ${(e as Error).message.split("\n")[0]}`); }
+  }
+
   // ── 3. status ───────────────────────────────────────────────
   if (!pending.length && !recipes.length && !books.length && !requests.length) { console.log("Nothing to do."); return; }
   const month = new Date().toISOString().slice(0, 7);
   let prev: { month?: string; monthUsd?: number } = {};
   try { prev = JSON.parse(files.get(`${HUB}/status.json`) ?? "{}"); } catch { /* fresh */ }
   const status = {
-    at: new Date().toISOString(), enriched, recipes: recipesDone, books: booksDone, failed, explored, claude: CLAUDE,
+    at: new Date().toISOString(), enriched, recipes: recipesDone, books: booksDone, epubs, failed, explored, claude: CLAUDE,
     costUsd: Math.round(spend.usd * 10000) / 10000,
     month, monthUsd: Math.round(((prev.month === month ? prev.monthUsd ?? 0 : 0) + spend.usd) * 10000) / 10000,
     error: errors.length ? errors.slice(0, 3).join(" · ") : undefined,
   };
   await save(`${HUB}/status.json`, JSON.stringify(status, null, 2) + "\n");
-  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${booksDone} books, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
+  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${booksDone} books, ${epubs} EPUBs, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
 
   /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles (not private ones). */
   function exploreContext(id: string): string {

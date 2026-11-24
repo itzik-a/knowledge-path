@@ -7,6 +7,11 @@ import { markdown } from "../enricher/rsarchive/markdown.ts";
 import { contents, scrape } from "../enricher/rsarchive/scrape.ts";
 import { fixtureFetcher, urlOf } from "./rsarchive/helpers.ts";
 import { GENERIC_SUMMARY, importBook, summaryOf } from "../enricher/book.ts";
+import { branchFor, buildEpub, deleteBranches, epubBranches, pushToBranch } from "../enricher/epubs.ts";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const ix = (files: Record<string, string>) => buildIndex(new Map(Object.entries(files).map(([p, c]) => [p, parseDoc(p, c)] as [string, Doc])));
 
@@ -30,7 +35,7 @@ describe("books", () => {
   it("reads a book's state from its home's frontmatter", () => {
     expect(bookOf({ book: "pending" }).state).toBe("pending");
     expect(bookOf({ book: "failed", bookError: "404" })).toMatchObject({ state: "failed", error: "404" });
-    expect(bookOf({ book: "Books/Riddles (GA 18)", chapters: 22, epub: ".hub/books/Riddles (GA 18).epub" })).toMatchObject({ state: "ready", folder: "Books/Riddles (GA 18)", chapters: 22 });
+    expect(bookOf({ book: "Books/Riddles (GA 18)", chapters: 22 })).toMatchObject({ state: "ready", folder: "Books/Riddles (GA 18)", chapters: 22 });
     expect(bookOf({}).state).toBeUndefined();
     expect(isRsarchive("https://rsarchive.org/Books/GA018/")).toBe(true);
     expect(isRsarchive("https://example.org/rsarchive.org/")).toBe(false);
@@ -80,14 +85,12 @@ describe("books", () => {
 });
 
 describe("enricher: importing a book", () => {
-  it("writes chapter notes under Books/, an EPUB under .hub/books/, and fields for the saved link", async () => {
+  it("writes chapter notes under Books/ (no EPUB in the vault) and fields for the saved link", async () => {
     const r = await importBook(urlOf("lecture-index"), "Inner Nature of Music", { fetcher: fixtureFetcher() });
     expect(r.folder).toBe("Books/The Inner Nature of Music and the Experience of Tone (GA 283)");
     expect([...r.notes.keys()]).toEqual([`${r.folder}/01 Lecture I - The Inner Nature of Music I.md`]);
-    expect(r.epubPath).toBe(".hub/books/The Inner Nature of Music and the Experience of Tone (GA 283).epub");
-    expect(r.epub.subarray(30, 38)).toEqual(new TextEncoder().encode("mimetype"));
     expect(r.failed).toHaveLength(8);
-    expect(r.home.always).toEqual({ book: r.folder, chapters: 1, epub: r.epubPath });
+    expect(r.home.always).toEqual({ book: r.folder, chapters: 1 });
     expect(r.home.missing).toMatchObject({ type: "book", author: "Rudolf Steiner", translator: "Maria St. Goar", ga: "283", site: "rsarchive.org" });
     expect(r.home.missing.summary).toMatch(/^This is only one of many/);
   });
@@ -100,3 +103,37 @@ describe("enricher: importing a book", () => {
     expect(GENERIC_SUMMARY.test("Rudolf Steiner Archive: An electronic Library and Archive site for the over 6000 collected works")).toBe(true);
   });
 });
+
+describe("enricher: EPUBs on request, on a branch of their own", () => {
+  it("builds the EPUB, pushes it as the only file of an epub/<id> branch, lists and deletes such branches; main is untouched", async () => {
+    const root = mkdtempSync(join(tmpdir(), "kp-epub-"));
+    const g = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } }).trim();
+    try {
+      const origin = join(root, "origin.git");
+      const vault = join(root, "vault");
+      g(root, "init", "-q", "--bare", "-b", "main", origin);
+      g(root, "clone", "-q", origin, vault);
+      g(vault, "commit", "-q", "--allow-empty", "-m", "vault");
+      g(vault, "push", "-q", "origin", "main");
+      const mainBefore = g(origin, "rev-parse", "main");
+
+      const b = await buildEpub(urlOf("lecture-index"), { fetcher: fixtureFetcher() });
+      expect(b.file).toBe("The Inner Nature of Music and the Experience of Tone (GA 283).epub");
+      expect(b.chapters).toBe(1);
+      const branch = branchFor(".hub/requests/m3x9k2.json");
+      expect(branch).toBe("epub/m3x9k2");
+      pushToBranch(vault, branch, b.file, b.data, "EPUB: test");
+
+      expect(g(origin, "ls-tree", "--name-only", branch)).toBe(b.file);
+      expect(g(origin, "rev-list", "--count", branch)).toBe("1"); // no parent: nothing from main comes along
+      expect(g(origin, "rev-parse", "main")).toBe(mainBefore);
+      expect(Buffer.from(execFileSync("git", ["cat-file", "blob", `${branch}:${b.file}`], { cwd: origin })).equals(Buffer.from(b.data))).toBe(true);
+      expect(epubBranches(vault)).toEqual([branch]);
+      deleteBranches(vault, [branch]);
+      expect(epubBranches(vault)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+

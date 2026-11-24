@@ -10,6 +10,7 @@ import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitB
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
 import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
 import { showToast } from "../lib/toast";
+import { deleteVaultBranch } from "./sync";
 import { citation } from "../../shared/books.ts";
 import { confirmAsk } from "../lib/confirm";
 import { sketchesOnlyIn } from "./sketches";
@@ -354,6 +355,43 @@ export function makeBook(path: string) {
   if (c == null) return;
   patch(path, { book: "pending", bookError: undefined });
   showToast("Fetching the book: it arrives in a few minutes", { label: "Undo", run: () => writeFile(path, c) });
+}
+
+/** An EPUB asked of the enricher (enricher/epubs.ts): a request file in .hub/requests/, answered with the
+    branch it waits on. Nothing of it is ever committed to the vault's history. */
+export interface EpubReq {
+  path: string;
+  url: string;
+  title?: string;
+  at?: string;
+  ready?: { branch: string; file: string; size: number; title: string; chapters: number; at: string };
+  error?: string;
+  note?: string;
+}
+
+export function epubRequestFor(url: string): EpubReq | undefined {
+  for (const r of allRecords()) {
+    if (r.deleted || !r.path.startsWith(".hub/requests/") || !r.path.endsWith(".json")) continue;
+    try {
+      const j = JSON.parse(r.content) as Omit<EpubReq, "path"> & { kind?: string };
+      if (j.kind === "epub" && j.url === url) return { ...j, path: r.path };
+    } catch { /* not ours */ }
+  }
+  return undefined;
+}
+
+/** Ask for an EPUB of an rsarchive.org page (it's made on GitHub in a few minutes). */
+export function requestEpub(url: string, title?: string) {
+  const old = epubRequestFor(url);
+  if (old) forgetEpub(old);
+  const id = `epub-${Date.now().toString(36)}`;
+  writeFiles([{ path: `.hub/requests/${id}.json`, content: JSON.stringify({ kind: "epub", url, title, at: new Date().toISOString() }, null, 2) + "\n" }]);
+}
+
+/** Done with an EPUB (saved, or not wanted): its request goes, and its branch on GitHub. */
+export function forgetEpub(req: EpubReq) {
+  removeFiles([req.path]);
+  if (req.ready) void deleteVaultBranch(req.ready.branch).catch(() => { /* the enricher clears old branches too */ });
 }
 
 /** A passage from a chapter, kept with the book's other highlights, with a link back to its paragraph. */

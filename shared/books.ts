@@ -8,9 +8,11 @@
        book: "[[<home>]]", order, section, date, place, translator, source, german, summary; the text
        with [^1] footnotes and Obsidian block ids on numbered paragraphs (… ^p12), images linked on
        rsarchive.org (the app syncs text only); a ← previous · Contents · next → line at the end;
-     - the EPUB in .hub/books/<Title (GA n)>.epub (not synced: the app downloads it when asked);
-     - on the home: book: "Books/<Title (GA n)>", chapters: N, epub: ".hub/books/….epub", and
-       type, author, translator, ga, image, summary where they were missing.
+     - on the home: book: "Books/<Title (GA n)>", chapters: N, and type, author, translator, ga, image,
+       summary where they were missing.
+   An EPUB is never kept in the vault: the app asks for one (.hub/requests/, see enricher/epubs.ts), it's
+   pushed to a branch of its own, epub/<id>, and the app deletes that branch once the EPUB is saved. That
+   works with or without making it a book first.
    `book: failed` with `bookError` says why it didn't work. */
 import type { Doc, Index } from "./index.ts";
 import { FOLDER, refTarget } from "./vault.ts";
@@ -21,7 +23,6 @@ export interface BookState {
   state?: "pending" | "failed" | "ready";
   /** Books/<Title (GA n)> when ready. */
   folder?: string;
-  epub?: string;
   chapters?: number;
   error?: string;
 }
@@ -31,7 +32,7 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : unde
 /** The book state of a resource's frontmatter. */
 export function bookOf(fm: Record<string, unknown>): BookState {
   const b = str(fm.book);
-  const out: BookState = { epub: str(fm.epub), error: str(fm.bookError), chapters: typeof fm.chapters === "number" ? fm.chapters : undefined };
+  const out: BookState = { error: str(fm.bookError), chapters: typeof fm.chapters === "number" ? fm.chapters : undefined };
   if (b === "pending" || b === "failed") return { ...out, state: b };
   if (b && b.startsWith(FOLDER.books + "/")) return { ...out, state: "ready", folder: b.replace(/\/+$/, "") };
   return out;

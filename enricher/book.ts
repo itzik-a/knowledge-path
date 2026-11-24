@@ -1,11 +1,11 @@
 /* Import a book or lecture cycle from rsarchive.org for a saved link (`book: pending`): the chapters as
-   notes in Books/<Title (GA n)>/, an EPUB for .hub/books/, and what the saved link should say about it.
+   notes in Books/<Title (GA n)>/ and what the saved link should say about it. (An EPUB is made only on
+   request and never committed: see epubs.ts.)
    The scraping and writing are enricher/rsarchive/ (a copy of github.com/itzik-a/rsarchive-to-epub's
    src/). No text from the site goes to Claude: its robots.txt asks that its content not be used as AI
    input beyond reference (Content-Signal: ai-train=no, use=reference), so the summary is the site's own
    introduction. */
-import { FOLDER, HUB } from "../shared/vault.ts";
-import { epub } from "./rsarchive/epub.ts";
+import { FOLDER } from "../shared/vault.ts";
 import { bookFolder, markdown } from "./rsarchive/markdown.ts";
 import { allChapters, type Book } from "./rsarchive/model.ts";
 import type { Fetcher } from "./rsarchive/net.ts";
@@ -17,11 +17,9 @@ export interface BookImport {
   folder: string;
   /** Chapter notes by vault path. */
   notes: Map<string, string>;
-  epubPath: string;
-  epub: Uint8Array;
   /** Pages that couldn't be read (the book is made without them). */
   failed: { url: string; error: string }[];
-  /** Frontmatter for the saved link: set where it's missing (`book`, `chapters`, `epub` always). */
+  /** Frontmatter for the saved link: set where it's missing (`book` and `chapters` always). */
   home: { always: Record<string, unknown>; missing: Record<string, unknown> };
 }
 
@@ -52,16 +50,13 @@ export async function importBook(url: string, home: string, opts: { fetcher: Fet
   const folder = `${FOLDER.books}/${name}`;
   const notes = new Map<string, string>();
   for (const [p, data] of markdown(book, { home, images: "remote" })) if (typeof data === "string") notes.set(`${FOLDER.books}/${p}`, data);
-  const epubPath = `${HUB}/books/${name}.epub`;
   return {
     book,
     folder,
     notes,
-    epubPath,
-    epub: epub(book),
     failed,
     home: {
-      always: { book: folder, chapters: allChapters(book).length, epub: epubPath },
+      always: { book: folder, chapters: allChapters(book).length },
       missing: {
         type: "book",
         author: book.author,

@@ -94,21 +94,33 @@ function textToB64(s: string): string {
 
 let headEtag: { etag: string; sha: string } | null = null;
 
-/** A file the app doesn't sync (an imported book's EPUB in .hub/books/), downloaded from the vault repo
-    as it is now, raw, so files over 1 MB come whole. */
-export async function fetchVaultFile(path: string): Promise<Blob> {
+/** A file the app doesn't sync, downloaded from the vault repo through the API (the only way a browser
+    can: GitHub's download redirects carry no CORS headers), raw, so files over 1 MB come whole.
+    `ref`: a branch other than the vault's own (an EPUB waits on epub/<id>). */
+export async function fetchVaultFile(path: string, ref?: string): Promise<Blob> {
   const cfg = getConfig();
   if (!cfg) throw new GitHubError("Connect the vault first (Vault & settings)", 0);
-  const url = `${API}${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(cfg.branch)}`;
+  const url = `${API}${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref ?? cfg.branch)}`;
   let res: Response;
   try {
     res = await fetch(url, { headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github.raw+json", "X-GitHub-Api-Version": "2022-11-28" }, cache: "no-store" });
   } catch {
     throw new GitHubError("Can't reach GitHub", 0);
   }
-  if (res.status === 404) throw new GitHubError("Not in the vault yet: the book may still be on its way", 404);
+  if (res.status === 404) throw new GitHubError("It isn't on GitHub (any more): ask for it again", 404);
   if (!res.ok) throw new GitHubError(`GitHub error ${res.status}`, res.status);
   return res.blob();
+}
+
+/** Delete a branch of the vault repo (an epub/<id> branch once its EPUB is saved). Gone already is fine. */
+export async function deleteVaultBranch(branch: string): Promise<void> {
+  const cfg = getConfig();
+  if (!cfg || branch === cfg.branch || !branch.startsWith("epub/")) return;
+  try {
+    await gh(cfg, `${repoPath(cfg)}/git/refs/heads/${branch.split("/").map(encodeURIComponent).join("/")}`, { method: "DELETE" });
+  } catch (e) {
+    if (!(e instanceof GitHubError) || (e.status !== 404 && e.status !== 422)) throw e;
+  }
 }
 
 export function githubRemote(cfg: Config): Remote {
