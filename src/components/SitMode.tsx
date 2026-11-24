@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtAmount } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
-import { ringBell, type BellVolume } from "../lib/bell";
+import { primeBell, ringBell, type BellVolume } from "../lib/bell";
 import { fmtLeft, unlockAudio } from "../lib/timers";
 import { useWakeLock } from "../lib/wakelock";
 import { dismissSit, endSit, pauseSit, resumeSit, settleLeft, setSitPrefs, sitElapsed, sitLeft, startSit, useSit, useSitPrefs, type Sit } from "../state/sit";
@@ -170,7 +170,7 @@ export function SitDock({ onOpen }: { onOpen: (path: string) => void }) {
   const settling = settleLeft(sit, now);
   const t = sit.doneAt != null ? "Done" : sit.paused != null ? "Paused" : settling > 0 ? fmtLeft(settling) : fmtLeft(sit.total ? sitLeft(sit, now) : sitElapsed(sit, now));
   return (
-    <button type="button" className="timer-dock" onClick={() => { unlockAudio(); onOpen(sit.path); }} aria-label={`${sit.title}: ${t}. Open the timer`}>
+    <button type="button" className="timer-dock" onClick={() => { unlockAudio(); primeBell(); onOpen(sit.path); }} aria-label={`${sit.title}: ${t}. Open the timer`}>
       <span className="timer-time">{t}</span>
       <span className="small" dir="auto">{sit.title}</span>
     </button>

@@ -5,7 +5,7 @@
    timer screen is open or not; a Home Screen app can't ring while closed, so the screen is kept on there. */
 import { useSyncExternalStore } from "react";
 import { todayISO } from "../../shared/vault.ts";
-import { playThroughSilentSwitch, ringBell, type BellVolume } from "../lib/bell";
+import { playThroughSilentSwitch, primeBell, ringBell, type BellVolume } from "../lib/bell";
 import { unlockAudio } from "../lib/timers";
 import { logSession } from "./actions";
 
@@ -63,6 +63,7 @@ export const sitMinutes = (s: Sit, now = Date.now()) => Math.round(sitElapsed(s,
 
 export function startSit(o: { path: string; title: string; minutes: number; settleSec: number; intervalMin: number; volume: BellVolume }) {
   unlockAudio();
+  primeBell();
   playThroughSilentSwitch(true);
   set({
     path: o.path, title: o.title, total: o.minutes * 60_000, settle: o.settleSec * 1000, interval: o.intervalMin * 60_000,
@@ -76,6 +77,7 @@ export function pauseSit() {
 }
 export function resumeSit() {
   unlockAudio();
+  primeBell();
   if (sit?.paused != null) set({ ...sit, pausedMs: sit.pausedMs + Date.now() - sit.paused, paused: undefined });
 }
 
