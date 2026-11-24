@@ -522,12 +522,12 @@ input[type="date"].text-input, input[type="month"].text-input { -webkit-appearan
 /* shell extras */
 .top-actions { display: flex; align-items: center; gap: 2px; margin-right: -8px; }
 .top-actions .sync { margin-right: 0; }
-.tabbar { grid-template-columns: repeat(4, 1fr); padding-right: calc(86px + env(safe-area-inset-right)); }
+.tabbar { grid-template-columns: repeat(4, 1fr); padding-right: calc(78px + env(safe-area-inset-right)); }
 .fab {
   position: fixed; z-index: 11; right: calc(22px + env(safe-area-inset-right));
-  bottom: calc(env(safe-area-inset-bottom) + (var(--tabbar-h) - 52px) / 2);
-  width: 52px; height: 52px; display: grid; place-items: center; padding: 0;
-  border: 0; border-radius: 18px;
+  bottom: calc(env(safe-area-inset-bottom) + (var(--tabbar-h) - 44px) / 2);
+  width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 15px;
   background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent);
   box-shadow: 0 8px 22px -8px var(--accent), var(--shadow-chip);
   transition: transform .12s;

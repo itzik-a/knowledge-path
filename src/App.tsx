@@ -165,7 +165,7 @@ export function App() {
           : <Home />}
       </main>
 
-      <button type="button" className="fab" onClick={() => openSheet({ kind: "capture", init: {} })} aria-label="Add a link or note"><IconPlus width={26} height={26} /></button>
+      <button type="button" className="fab" onClick={() => openSheet({ kind: "capture", init: {} })} aria-label="Add a link or note"><IconPlus width={22} height={22} /></button>
 
       <Toast />
       <ConfirmDialog />
