@@ -522,9 +522,9 @@ input[type="date"].text-input, input[type="month"].text-input { -webkit-appearan
 /* shell extras */
 .top-actions { display: flex; align-items: center; gap: 2px; margin-right: -8px; }
 .top-actions .sync { margin-right: 0; }
-.tabbar { grid-template-columns: repeat(4, 1fr); padding-right: calc(76px + env(safe-area-inset-right)); }
+.tabbar { grid-template-columns: repeat(4, 1fr); padding-right: calc(86px + env(safe-area-inset-right)); }
 .fab {
-  position: fixed; z-index: 11; right: max(14px, env(safe-area-inset-right));
+  position: fixed; z-index: 11; right: calc(22px + env(safe-area-inset-right));
   bottom: calc(env(safe-area-inset-bottom) + (var(--tabbar-h) - 52px) / 2);
   width: 52px; height: 52px; display: grid; place-items: center; padding: 0;
   border: 0; border-radius: 18px;
