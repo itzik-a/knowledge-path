@@ -1,10 +1,10 @@
-/* One file's page: a resource, a note, a journal entry, a study path, a habit or a recipe (#doc/<path>). */
+/* One file's page: a resource, a note, a journal entry, a study path, a habit, a recipe or a book's chapter (#doc/<path>). */
 import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBook, IconDownload, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
@@ -12,7 +12,7 @@ import { Menu, Seg, useMedia } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addHighlight, deleteDocs, editHighlight, makeRecipe, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
@@ -20,6 +20,9 @@ import { RecipePage } from "./Recipes";
 import { LockedBody, PrivateBadge } from "../components/PrivateNotes";
 import { getPassphrase } from "../lib/passphrase";
 import { setPrivate } from "../state/privacy";
+import { bookOf, chaptersIn, isRsarchive, plainLinks, readingText, sectionsOf } from "../../shared/books.ts";
+import { fetchVaultFile } from "../state/sync";
+import { showToast } from "../lib/toast";
 
 
 export function DocPage({ path }: { path: string }) {
@@ -33,6 +36,7 @@ export function DocPage({ path }: { path: string }) {
   if (d.kind === "path") return <PathPage d={d} ix={ix} />;
   if (d.kind === "habit") return <HabitPage d={d} ix={ix} />;
   if (d.kind === "recipe") return <RecipePage d={d} ix={ix} />;
+  if (d.kind === "chapter") return <ChapterPage d={d} ix={ix} />;
   return <NotePage d={d} ix={ix} />;
 }
 
@@ -62,8 +66,8 @@ function Missing({ path }: { path: string }) {
   );
 }
 
-export function LinkedFrom({ ix, path }: { ix: Index; path: string }) {
-  const from = (ix.backlinks.get(path) ?? []).map((p) => ix.docs.get(p)).filter((x): x is Doc => !!x);
+export function LinkedFrom({ ix, path, skip }: { ix: Index; path: string; skip?: (d: Doc) => boolean }) {
+  const from = (ix.backlinks.get(path) ?? []).map((p) => ix.docs.get(p)).filter((x): x is Doc => !!x && !skip?.(x));
   if (!from.length) return null;
   return (
     <section className="card">
@@ -130,6 +134,8 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
   const [reading, setReading] = useState(false);
   const hls = parseHighlights(d.body);
   const toRecipe = () => { const to = makeRecipe(d.path); if (to) { history.replaceState(history.state, "", docHref(to)); window.dispatchEvent(new HashChangeEvent("hashchange")); } };
+  const book = bookOf(d.fm);
+  const canBook = isRsarchive(r.url);
 
   return (
     <>
@@ -146,7 +152,8 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
-            { label: "Make it a recipe", run: toRecipe },
+            canBook ? { label: book.state === "ready" || book.state === "failed" ? "Fetch the book again" : "Make it a book", run: () => makeBook(d.path) } : null,
+            canBook ? null : { label: "Make it a recipe", run: toRecipe },
             { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#library"); } },
           ]} />
         </div>
@@ -157,7 +164,15 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
         </div>
         {r.enrich === "pending" && r.url && <p className="muted small">Fetching the details: they arrive after the next sync (a minute or two).</p>}
         {r.enrich === "failed" && <p className="muted small">Couldn't read the page{r.enrichError ? ` (${r.enrichError})` : ""}. Add the details by hand.</p>}
-        {d.fm.recipe === true && (
+        {canBook && !book.state && (
+          <div className="recipe-nudge">
+            <span className="grow"><b>This is on the Rudolf Steiner Archive.</b> <span className="muted">Make it a book to read it here chapter by chapter, highlight it, and download an EPUB.</span></span>
+            <button type="button" className="btn primary sm" onClick={() => makeBook(d.path)}><IconBook /> Make it a book</button>
+          </div>
+        )}
+        {book.state === "pending" && <p className="muted small">Fetching the book from rsarchive.org: it arrives after a sync, in a few minutes (a second a page).</p>}
+        {book.state === "failed" && <p className="muted small">Couldn't make the book{book.error ? ` (${book.error})` : ""}. A contents page or a chapter of the edition you want works best as the link.</p>}
+        {d.fm.recipe === true && !canBook && (
           <div className="recipe-nudge">
             <span className="grow"><b>There's a recipe on this page.</b> <span className="muted">Make it a recipe to scale it and cook from it.</span></span>
             <button type="button" className="btn primary sm" onClick={toRecipe}><IconRecipe /> Make it a recipe</button>
@@ -181,7 +196,8 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
         </section>
       )}
 
-      {reading && article && <Reader path={d.path} text={article} url={r.url} />}
+      {reading && article && <Reader text={article} url={r.url} from={d.path} onHighlight={(q) => addHighlight(d.path, q)} />}
+      {book.state === "ready" && book.folder && <BookChapters ix={ix} folder={book.folder} epub={book.epub} note={book.error} />}
 
       <section className="card">
         <div className="card-head">
@@ -193,26 +209,38 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
       </section>
 
       <Highlights path={d.path} hls={hls} />
-      <LinkedFrom ix={ix} path={d.path} />
+      <LinkedFrom ix={ix} path={d.path} skip={(x) => x.kind === "chapter" && !!book.folder && x.path.startsWith(book.folder + "/")} />
       <Tags d={d} />
       {details && <ResourceSheet path={d.path} onClose={() => setDetails(false)} />}
     </>
   );
 }
 
-/** The saved article text. Select a passage and press Highlight to keep it. */
-function Reader({ path, text, url }: { path: string; text: string; url?: string }) {
-  const [sel, setSel] = useState("");
+/** Select a passage, press Highlight: `onHighlight` gets it, with the block id (^p12) of the paragraph it starts in. */
+function useHighlighter(onHighlight: (quote: string, block?: string) => void) {
+  const [sel, setSel] = useState<{ text: string; block?: string } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const on = () => {
       const s = document.getSelection();
-      if (!s || s.isCollapsed || !box.current?.contains(s.anchorNode)) { setSel(""); return; }
-      setSel(s.toString().trim());
+      if (!s || s.isCollapsed || !box.current?.contains(s.anchorNode)) { setSel(null); return; }
+      const at = s.anchorNode instanceof Element ? s.anchorNode : s.anchorNode?.parentElement;
+      setSel({ text: s.toString().trim(), block: at?.closest("[data-block]")?.getAttribute("data-block") ?? undefined });
     };
     document.addEventListener("selectionchange", on);
     return () => document.removeEventListener("selectionchange", on);
   }, []);
+  const button = sel?.text ? (
+    <button type="button" className="btn primary hl-float" onPointerDown={(e) => e.preventDefault()} onClick={() => { onHighlight(sel.text.replace(/^\[\d[\w.]*\]\s*/, ""), sel.block); document.getSelection()?.removeAllRanges(); setSel(null); }}>
+      <IconQuote /> Highlight
+    </button>
+  ) : null;
+  return { box, button };
+}
+
+/** The saved article text. Select a passage and press Highlight to keep it. */
+function Reader({ text, url, from, onHighlight }: { text: string; url?: string; from: string; onHighlight: (quote: string) => void }) {
+  const { box, button } = useHighlighter(onHighlight);
   return (
     <section className="card reader">
       <div className="card-head">
@@ -220,13 +248,100 @@ function Reader({ path, text, url }: { path: string; text: string; url?: string 
         {url && <a className="link small" href={url} target="_blank" rel="noopener">Original <IconExternal /></a>}
       </div>
       <p className="muted small">Select a passage to save it as a highlight.</p>
-      <div ref={box}><Markdown body={text} from={path} className="reader-text" /></div>
-      {sel && (
-        <button type="button" className="btn primary hl-float" onPointerDown={(e) => e.preventDefault()} onClick={() => { addHighlight(path, sel); document.getSelection()?.removeAllRanges(); setSel(""); }}>
-          <IconQuote /> Highlight
-        </button>
-      )}
+      <div ref={box}><Markdown body={text} from={from} className="reader-text" /></div>
+      {button}
     </section>
+  );
+}
+
+// ── books ─────────────────────────────────────────────────────
+/** A book's chapters on its saved link's page, by part, and its EPUB. */
+function BookChapters({ ix, folder, epub, note }: { ix: Index; folder: string; epub?: string; note?: string }) {
+  const chapters = chaptersIn(ix, folder);
+  const [busy, setBusy] = useState(false);
+  const download = async () => {
+    if (!epub) return;
+    setBusy(true);
+    try {
+      const blob = await fetchVaultFile(epub);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([blob], { type: "application/epub+zip" }));
+      a.download = epub.slice(epub.lastIndexOf("/") + 1);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    } catch (e) {
+      showToast(`Couldn't download it: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Chapters{chapters.length ? <span className="muted"> · {chapters.length}</span> : null}</h2>
+        {epub && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => void download()}><IconDownload /> {busy ? "Downloading…" : "EPUB"}</button>}
+      </div>
+      {!chapters.length && <p className="muted small">The chapters are on their way: they come with the next sync.</p>}
+      {note && <p className="muted small">{note}.</p>}
+      {sectionsOf(chapters).map((s, i) => (
+        <div key={s.heading ?? i} className="book-part">
+          {s.heading && <h3 className="book-part-head" dir="auto">{s.heading}</h3>}
+          <ol className="chapter-list">
+            {s.chapters.map((c) => (
+              <li key={c.path}>
+                <a className="chapter-row" href={docHref(c.path)}>
+                  <span className="grow" dir="auto">{c.title}</span>
+                  {(c.chapter?.date || c.chapter?.place) && <span className="muted small">{[c.chapter.date ? medDate(c.chapter.date) : "", c.chapter.place].filter(Boolean).join(", ")}</span>}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** A chapter of a book: its text to read and highlight (into the book's highlights), and the chapters either side. */
+function ChapterPage({ d, ix }: { d: Doc; ix: Index }) {
+  const info = d.chapter!;
+  const home = info.book ? resolve(ix, info.book, d.path) : undefined;
+  const homeDoc = home ? ix.docs.get(home) : undefined;
+  const folder = d.path.slice(0, d.path.lastIndexOf("/"));
+  const all = chaptersIn(ix, folder);
+  const at = all.findIndex((c) => c.path === d.path);
+  const prev = at > 0 ? all[at - 1] : undefined;
+  const next = at >= 0 ? all[at + 1] : undefined;
+  const { box, button } = useHighlighter((q, block) => addChapterHighlight(d.path, q, block));
+  useEffect(() => { window.scrollTo(0, 0); }, [d.path]);
+  const meta = [info.date ? longDate(info.date) : "", info.place].filter(Boolean).join(", ");
+  return (
+    <>
+      <Back fallback={home ? docHref(home) : "#library"} />
+      <section className="card chapter-head">
+        <span className="eyebrow">
+          {homeDoc ? <a href={docHref(homeDoc.path)} dir="auto">{homeDoc.title}</a> : "Book"}
+          {info.ga ? ` · GA ${info.ga}` : ""}{info.section ? ` · ${info.section}` : ""}
+        </span>
+        <h1 className="display" dir="auto">{d.title}</h1>
+        {(meta || info.translator) && <p className="muted" dir="auto">{[meta, info.translator ? `Translated by ${info.translator}` : ""].filter(Boolean).join(" · ")}</p>}
+        <div className="btn-row">
+          {info.source && <a className="btn ghost sm" href={info.source} target="_blank" rel="noopener">rsarchive.org <IconExternal /></a>}
+          {info.german && <a className="btn ghost sm" href={info.german} target="_blank" rel="noopener">German original <IconExternal /></a>}
+        </div>
+      </section>
+      <section className="card reader">
+        <p className="muted small">Select a passage to keep it with the book's highlights.</p>
+        <div ref={box}><Markdown body={readingText(d.body)} from={d.path} className="reader-text" /></div>
+        {button}
+      </section>
+      <nav className="chapter-nav" aria-label="Chapters">
+        {prev ? <a className="chapter-nav-card" href={docHref(prev.path)}><span className="eyebrow"><IconBack /> Previous</span><span className="chapter-nav-label" dir="auto">{prev.title}</span></a> : <span />}
+        {next ? <a className="chapter-nav-card next" href={docHref(next.path)}><span className="eyebrow">Next <IconNext /></span><span className="chapter-nav-label" dir="auto">{next.title}</span></a> : homeDoc ? <a className="chapter-nav-card next" href={docHref(homeDoc.path)}><span className="eyebrow">The end</span><span className="chapter-nav-label" dir="auto">Back to {homeDoc.title}</span></a> : <span />}
+      </nav>
+    </>
   );
 }
 
@@ -250,7 +365,7 @@ function Highlights({ path, hls }: { path: string; hls: Highlight[] }) {
             ) : (
               <button type="button" className="hl" onClick={() => { setEdit(i); setAdding(false); }}>
                 <blockquote dir="auto">{h.quote}</blockquote>
-                {h.comment && <p className="muted small" dir="auto">{h.comment}</p>}
+                {h.comment && <p className="muted small" dir="auto">{plainLinks(h.comment)}</p>}
               </button>
             )}
           </li>

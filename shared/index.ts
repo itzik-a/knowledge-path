@@ -8,6 +8,7 @@ import {
 import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
 import { parseRecipe, recipeOf, summarize, type Recipe, type RecipeSummary } from "./recipes.ts";
 import { isLockedName, sealedPayload } from "./private.ts";
+import { chapterOf, type ChapterInfo } from "./books.ts";
 
 export interface Doc {
   path: string;
@@ -26,6 +27,8 @@ export interface Doc {
   recipe?: Recipe;
   /** a recipe's ingredient names, the days it was cooked (newest first) and its total time */
   cooking?: RecipeSummary;
+  /** a book chapter's place in its book (Books/…) */
+  chapter?: ChapterInfo;
   date?: string;
   excerpt: string;
   mtime: number;
@@ -83,6 +86,7 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
     log: kind === "habit" ? parseLog(body) : undefined,
     recipe: kind === "recipe" ? recipeOf(fm) : undefined,
     cooking: kind === "recipe" ? summarize(recipeOf(fm), body) : undefined,
+    chapter: kind === "chapter" ? chapterOf(fm) : undefined,
     excerpt: kind === "hub" ? "" : excerpt(kind === "habit" ? body.replace(/^##\s+log\s*$[\s\S]*/im, "") : kind === "recipe" ? parseRecipe(body).intro : body),
   };
 }

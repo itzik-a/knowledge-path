@@ -1,6 +1,6 @@
 /* Every change the app makes to the vault, in vault terms. Each one writes Markdown files through the
    store, so the same change made in Obsidian looks the same. */
-import { topicIdOf } from "../../shared/index.ts";
+import { resolve, topicIdOf } from "../../shared/index.ts";
 import { isPrivate, isSealed, newLockedName, withTitle } from "../../shared/private.ts";
 import {
   addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, resourceOf, safeName, setBody, setFrontmatter, splitFrontmatter,
@@ -10,6 +10,7 @@ import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitB
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
 import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
 import { showToast } from "../lib/toast";
+import { citation } from "../../shared/books.ts";
 import { confirmAsk } from "../lib/confirm";
 import { sketchesOnlyIn } from "./sketches";
 import { allRecords, exists, getIndex, readFile, removeFiles, renameFile, taken, writeFile, writeFiles } from "./store";
@@ -344,6 +345,26 @@ export function makeRecipe(path: string): string | undefined {
     run: () => { if (renameFile(to, path)) writeFile(path, c); undoArticle?.(); },
   });
   return to;
+}
+
+// ── books (rsarchive.org) ─────────────────────────────────────
+/** Ask the enricher to fetch the book behind a saved rsarchive.org link (it arrives after a sync or two). */
+export function makeBook(path: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  patch(path, { book: "pending", bookError: undefined });
+  showToast("Fetching the book: it arrives in a few minutes", { label: "Undo", run: () => writeFile(path, c) });
+}
+
+/** A passage from a chapter, kept with the book's other highlights, with a link back to its paragraph. */
+export function addChapterHighlight(chapterPath: string, quote: string, block?: string) {
+  const ix = getIndex();
+  const ch = ix.docs.get(chapterPath);
+  if (!ch) return;
+  const home = ch.chapter?.book ? resolve(ix, ch.chapter.book, chapterPath) : undefined;
+  const target = home && ix.docs.get(home)?.kind === "resource" ? home : chapterPath;
+  addHighlight(target, quote, target === chapterPath ? undefined : citation(ch, block));
+  showToast(target === chapterPath ? "Highlighted" : "Highlighted: it's with the book's highlights");
 }
 
 // ── the shopping list ─────────────────────────────────────────

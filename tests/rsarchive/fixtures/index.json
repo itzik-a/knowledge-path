@@ -1,0 +1,12 @@
+{
+  "https://rsarchive.org/Books/GA018/": "book-overview.html",
+  "https://rsarchive.org/Books/GA018/English/AP1973/GA018_index.html": "book-index.html",
+  "https://rsarchive.org/Books/GA018/English/AP1973/GA018_p01c02.html": "book-chapter.html",
+  "https://rsarchive.org/Lectures/GA283/English/AP1983/": "lecture-index.html",
+  "https://rsarchive.org/Lectures/GA283/English/AP1983/19061203p02.html": "lecture-chapter-footnotes.html",
+  "https://rsarchive.org/Lectures/GA316/": "lecture-overview.html",
+  "https://rsarchive.org/Lectures/YoungDoctors/YngDoc_index.html": "lecture-index-headings.html",
+  "https://rsarchive.org/Lectures/GA316/English/SOL/19240102.html": "lecture-chapter-sol.html",
+  "https://rsarchive.org/Lectures/GA316/German/19240102.html": "lecture-chapter-german.html",
+  "https://rsarchive.org/Lectures/GA233/English/RSP1977/19231224d01.html": "lecture-chapter-images.html"
+}

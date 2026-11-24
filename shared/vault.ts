@@ -8,15 +8,16 @@
      Paths/<title>.md                                        a study path (a checklist of [[links]])
      Habits/<name>.md                                        a habit and its log (see habits.ts)
      Recipes/<name>.md                                       a recipe: ingredients, steps, the days cooked (see recipes.ts)
+     Books/<book>/<NN chapter>.md                            a chapter of a book imported from rsarchive.org (see books.ts)
      anything else .md                                       a note
      .hub/…                                                  app data (saved article text, explore results); hidden in Obsidian
    An item is in a topic when its `topics:` frontmatter names it, when it links to the topic's note,
    or when it has the topic's tag (#stoicism or #philosophy/stoicism). */
 import { Document, isMap, parse, parseDocument } from "yaml";
 
-export type Kind = "topic" | "resource" | "journal" | "path" | "habit" | "recipe" | "note" | "hub";
+export type Kind = "topic" | "resource" | "journal" | "path" | "habit" | "recipe" | "chapter" | "note" | "hub";
 
-export const FOLDER = { topics: "Topics", resources: "Resources", journal: "Journal", paths: "Paths", habits: "Habits", recipes: "Recipes", notes: "Notes" } as const;
+export const FOLDER = { topics: "Topics", resources: "Resources", journal: "Journal", paths: "Paths", habits: "Habits", recipes: "Recipes", books: "Books", notes: "Notes" } as const;
 export const HUB = ".hub";
 
 /** Paths the app keeps in step with the vault: notes, and SVG drawings (text, so they sync like notes).
@@ -35,6 +36,7 @@ export function kindOf(path: string): Kind {
   if (top === FOLDER.paths) return "path";
   if (top === FOLDER.habits && path.split("/").length === 2) return "habit";
   if (top === FOLDER.recipes && path.split("/").length === 2) return "recipe";
+  if (top === FOLDER.books && path.split("/").length === 3) return "chapter";
   if (top === FOLDER.journal && JOURNAL_RE.test(basename(path))) return "journal";
   return "note";
 }

@@ -123,3 +123,9 @@ export const IconLock = (p: P) => (
 export const IconUnlock = (p: P) => (
   <svg {...base(p)}><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 7.75-1.4" /></svg>
 );
+export const IconBook = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5Z" /><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7h6" /></svg>
+);
+export const IconDownload = (p: P) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" /></svg>
+);

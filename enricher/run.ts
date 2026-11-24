@@ -7,15 +7,22 @@
    1b. Recipes with `enrich: pending` and a `source`: the page's schema.org Recipe data (Claude Haiku reads the
       page when it has none) fills in an empty recipe, its servings, times, photo and tags; a recipe saved from a
       link alone (`provisional: true`) is renamed to the dish's name.
+   1c. Resources with `book: pending` (rsarchive.org links, "Make it a book" in the app): the book or lecture
+      cycle is fetched (enricher/book.ts) into chapter notes in Books/<Title (GA n)>/ and an EPUB in .hub/books/,
+      and the resource gets book, chapters, epub (and type, author, translator, ga, image, summary if missing).
+      Nothing from rsarchive.org goes to Claude (its robots.txt asks for reference use only).
    2. .hub/requests/*.json (Explore): Claude Opus maps the topic into .hub/explore/<topic>.json.
    3. .hub/status.json: when it ran, what it did, what it cost (this month too).
    It only writes files; the workflow commits them. */
 import { existsSync } from "node:fs";
+import { isRsarchive } from "../shared/books.ts";
+import { GENERIC_SUMMARY, importBook } from "./book.ts";
+import { httpFetcher } from "./rsarchive/net.ts";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildIndex, itemsIn, parseDoc, type Doc } from "../shared/index.ts";
 import {
-  basename, explorePath, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
+  basename, explorePath, kindOf, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
 } from "../shared/vault.ts";
 import { fillRecipe } from "../shared/recipes.ts";
 import { Declined, describe, explore, extractRecipe, spend } from "./claude.ts";
@@ -28,6 +35,7 @@ const VAULT = args.includes("--vault") ? args[args.indexOf("--vault") + 1] : "."
 const DRY = args.includes("--dry");
 const CLAUDE = !args.includes("--no-claude") && !!process.env.ANTHROPIC_API_KEY;
 const MAX_PER_RUN = 40;
+const MAX_BOOKS_PER_RUN = 3;
 
 async function walk(dir: string, base = ""): Promise<string[]> {
   const out: string[] = [];
@@ -65,7 +73,9 @@ async function main() {
     try {
       const page = await readPage(url);
       let ai: Awaited<ReturnType<typeof describe>> | null = null;
-      if (CLAUDE && (page.text || page.title)) {
+      // rsarchive.org asks that its text not be used as AI input (robots.txt Content-Signal): no Claude for it
+      const askClaude = CLAUDE && !isRsarchive(url);
+      if (askClaude && (page.text || page.title)) {
         try { ai = await describe(topics, { url, title: page.title, site: page.site, author: page.author, text: page.text || page.title || "" }); }
         catch (e) { if (!(e instanceof Declined)) throw e; console.warn(`  ${d.name}: ${(e as Error).message}`); }
       }
@@ -90,7 +100,7 @@ async function main() {
         site: fm.site ?? page.site,
         year: fm.year ?? page.year,
         image: fm.image ?? page.image,
-        summary: fm.summary ?? ai?.summary ?? shortDescription(page.description),
+        summary: fm.summary ?? ai?.summary ?? (isRsarchive(url) && GENERIC_SUMMARY.test(page.description ?? "") ? undefined : shortDescription(page.description)),
         suggestedTopics: !hasTopics && ai?.topics.length ? ai.topics.map((id) => `[[${id}]]`) : undefined,
         article: articlePath ?? fm.article,
         recipe: page.recipe ? true : fm.recipe,
@@ -173,6 +183,54 @@ async function main() {
     }
   });
 
+  // ── 1c. books from rsarchive.org ────────────────────────────
+  const bookIx = ix(); // after step 1, which may have renamed a captured link
+  const books = [...bookIx.docs.values()].filter((d) => d.kind === "resource" && d.fm.book === "pending").slice(0, MAX_BOOKS_PER_RUN);
+  let booksDone = 0;
+  for (const d of books) {
+    let text = files.get(d.path)!;
+    const url = d.resource?.url;
+    if (!isRsarchive(url)) {
+      failed++;
+      errors.push(`${d.name}: not an rsarchive.org link`);
+      await save(d.path, setFrontmatter(text, { book: "failed", bookError: "Only links to rsarchive.org can be made into a book." }));
+      continue;
+    }
+    try {
+      console.log(`  book ${d.name}: ${url}`);
+      const r = await importBook(url!, d.name, { fetcher: httpFetcher({ cacheDir: process.env.RSARCHIVE_CACHE ?? null, log: console.log }), log: console.log });
+      // chapters from an earlier import of this book that the new one doesn't have
+      for (const p of [...files.keys()]) {
+        if (p.startsWith(r.folder + "/") && kindOf(p) === "chapter" && !r.notes.has(p)) {
+          files.delete(p);
+          if (!DRY) await rm(join(VAULT, p), { force: true });
+        }
+      }
+      for (const [p, note] of r.notes) await save(p, note);
+      if (!DRY) {
+        await mkdir(join(VAULT, r.epubPath, ".."), { recursive: true });
+        await writeFile(join(VAULT, r.epubPath), r.epub);
+      }
+      const fm = d.fm;
+      const missing = Object.fromEntries(Object.entries(r.home.missing).filter(([k]) => fm[k] == null || fm[k] === "" || (k === "summary" && GENERIC_SUMMARY.test(String(fm[k]))) || (k === "type" && fm.type !== "book")));
+      const n = r.notes.size;
+      text = setFrontmatter(text, {
+        ...missing,
+        ...r.home.always,
+        bookError: r.failed.length ? `${r.failed.length} of ${n + r.failed.length} pages couldn't be read` : undefined,
+      });
+      await save(d.path, text);
+      booksDone++;
+      console.log(`  ✓ book ${d.name}: ${n} chapters, ${r.book.images.size} images${r.failed.length ? `, ${r.failed.length} pages failed` : ""}`);
+    } catch (e) {
+      failed++;
+      const msg = (e as Error).message.split("\n")[0].slice(0, 160);
+      errors.push(`${d.name}: ${msg}`);
+      console.warn(`  ✗ book ${d.name}: ${msg}`);
+      await save(d.path, setFrontmatter(text, { book: "failed", bookError: msg }));
+    }
+  }
+
   // ── 2. explore requests ─────────────────────────────────────
   let explored = 0;
   const requests = [...files.keys()].filter((p) => p.startsWith(`${HUB}/requests/`) && p.endsWith(".json"));
@@ -204,18 +262,18 @@ async function main() {
   }
 
   // ── 3. status ───────────────────────────────────────────────
-  if (!pending.length && !recipes.length && !requests.length) { console.log("Nothing to do."); return; }
+  if (!pending.length && !recipes.length && !books.length && !requests.length) { console.log("Nothing to do."); return; }
   const month = new Date().toISOString().slice(0, 7);
   let prev: { month?: string; monthUsd?: number } = {};
   try { prev = JSON.parse(files.get(`${HUB}/status.json`) ?? "{}"); } catch { /* fresh */ }
   const status = {
-    at: new Date().toISOString(), enriched, recipes: recipesDone, failed, explored, claude: CLAUDE,
+    at: new Date().toISOString(), enriched, recipes: recipesDone, books: booksDone, failed, explored, claude: CLAUDE,
     costUsd: Math.round(spend.usd * 10000) / 10000,
     month, monthUsd: Math.round(((prev.month === month ? prev.monthUsd ?? 0 : 0) + spend.usd) * 10000) / 10000,
     error: errors.length ? errors.slice(0, 3).join(" · ") : undefined,
   };
   await save(`${HUB}/status.json`, JSON.stringify(status, null, 2) + "\n");
-  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
+  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${booksDone} books, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
 
   /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles (not private ones). */
   function exploreContext(id: string): string {

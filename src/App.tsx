@@ -48,7 +48,7 @@ const TABS: { id: Tab; label: string; Icon: ComponentType<SVGProps<SVGSVGElement
 function tabOf(r: Route): Tab {
   if (r.view === "doc" && r.sub) {
     const k = kindOf(r.sub);
-    return k === "resource" ? "library" : k === "path" ? "topics" : k === "habit" || k === "recipe" ? "home" : "notes";
+    return k === "resource" || k === "chapter" ? "library" : k === "path" ? "topics" : k === "habit" || k === "recipe" ? "home" : "notes";
   }
   if (r.view === "tag") return "notes";
   if (r.view === "inbox") return "library";

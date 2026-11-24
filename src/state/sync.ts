@@ -94,6 +94,23 @@ function textToB64(s: string): string {
 
 let headEtag: { etag: string; sha: string } | null = null;
 
+/** A file the app doesn't sync (an imported book's EPUB in .hub/books/), downloaded from the vault repo
+    as it is now, raw, so files over 1 MB come whole. */
+export async function fetchVaultFile(path: string): Promise<Blob> {
+  const cfg = getConfig();
+  if (!cfg) throw new GitHubError("Connect the vault first (Vault & settings)", 0);
+  const url = `${API}${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(cfg.branch)}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github.raw+json", "X-GitHub-Api-Version": "2022-11-28" }, cache: "no-store" });
+  } catch {
+    throw new GitHubError("Can't reach GitHub", 0);
+  }
+  if (res.status === 404) throw new GitHubError("Not in the vault yet: the book may still be on its way", 404);
+  if (!res.ok) throw new GitHubError(`GitHub error ${res.status}`, res.status);
+  return res.blob();
+}
+
 export function githubRemote(cfg: Config): Remote {
   const rp = repoPath(cfg);
   return {
