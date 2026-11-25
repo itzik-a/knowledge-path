@@ -617,7 +617,9 @@ a.chip { color: var(--ink); }
 .prose ul { list-style: disc; } .prose ol { list-style: decimal; }
 .prose li > ul, .prose li > ol { margin-top: .25em; }
 .prose li.task { list-style: none; margin-inline-start: -1.4em; display: block; }
-.prose li.task.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--axis); }
+/* a list under a task: indent past the box (20px + 6px gap) so sub-tasks line up under the parent's text */
+.prose li.task > ul, .prose li.task > ol { padding-inline-start: calc(1.4em + 26px); }
+.prose li.task.done > .task-text, .prose li.task.done > p > .task-text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--axis); }
 .prose blockquote { margin: 0; padding: 2px 0 2px 14px; border-inline-start: 3px solid var(--accent-soft); color: var(--muted); }
 .prose pre { overflow-x: auto; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); }
 .prose pre code { background: none; padding: 0; }

@@ -90,7 +90,8 @@ md.core.ruler.push("obsidian", (state: StateCore) => {
         first.content = first.content.slice(m[0].length);
         const box = new state.Token("task_box", "", 0);
         box.meta = { checked: m[1] !== " ", line: toks[i - 2].map?.[0] ?? -1 };
-        t.children.unshift(box);
+        // the item's own text in a span, so a ticked item's strike-through doesn't reach its sub-items
+        t.children = [box, new state.Token("task_text_open", "", 1), ...t.children, new state.Token("task_text_close", "", -1)];
         toks[i - 2].attrJoin("class", "task");
         if (m[1] !== " ") toks[i - 2].attrJoin("class", "done");
       }
@@ -126,6 +127,8 @@ md.renderer.rules.task_box = (tokens: Token[], idx: number) => {
   const { checked, line } = tokens[idx].meta as { checked: boolean; line: number };
   return `<input type="checkbox" class="task-box" data-line="${line}"${checked ? " checked" : ""} aria-label="Done"> `;
 };
+md.renderer.rules.task_text_open = () => `<span class="task-text">`;
+md.renderer.rules.task_text_close = () => `</span>`;
 const defaultLink = md.renderer.rules.link_open ?? ((t, i, o, _e, self) => self.renderToken(t, i, o));
 md.renderer.rules.link_open = (tokens, idx, opts, env, self) => {
   const href = String(tokens[idx].attrGet("href") ?? "");
