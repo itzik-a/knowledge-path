@@ -35,7 +35,7 @@ async function youtube(url: string): Promise<{ title?: string; author?: string; 
 
 export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: () => void }) {
   const startUrl = init.url ?? (init.text ? firstUrl(init.text) : undefined);
-  const [mode, setMode] = useState<Mode>(init.mode ?? (startUrl || !init.text ? "link" : "note"));
+  const [mode, setMode] = useState<Mode>(init.mode ?? (startUrl ? "link" : "note"));
   const [url, setUrl] = useState(startUrl ?? "");
   const [title, setTitle] = useState(init.title ?? "");
   const [titleTouched, setTitleTouched] = useState(!!init.title);
@@ -115,7 +115,7 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
       <form ref={form} className="form-grid" onSubmit={save}>
         <Seg<Mode | "habit"> className="full" label="What to add" value={mode}
           onChange={(m) => { if (m === "habit") { openSheet({ kind: "habit", topics }); return; } setMode(m); setErr(""); }}
-          options={[{ id: "link", label: "Link" }, { id: "note", label: "Note" }, { id: "recipe", label: "Recipe" }, { id: "habit", label: "Habit" }]} />
+          options={[{ id: "note", label: "Note" }, { id: "link", label: "Link" }, { id: "recipe", label: "Recipe" }, { id: "habit", label: "Habit" }]} />
         {mode === "link" ? (
           <>
             <Field label="Link">

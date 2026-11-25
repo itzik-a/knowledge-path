@@ -11,14 +11,14 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { search, searchKeymap } from "@codemirror/search";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, placeholder as ph, tooltips } from "@codemirror/view";
+import { EditorView, keymap, placeholder as ph } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getIndex } from "../state/store";
 import { slashSource } from "./editor/slash";
 import { keys, wrapOnType } from "./editor/commands";
 import { pasteLinks } from "./editor/paste";
-import { Toolbar, touchScreen } from "./editor/Toolbar";
+import { Toolbar, menuOf, sameMenu, touchScreen, type Menu } from "./editor/Toolbar";
 
 const style = HighlightStyle.define([
   { tag: t.heading1, fontWeight: "700", fontSize: "1.3em" },
@@ -98,16 +98,6 @@ function complete(ctx: CompletionContext) {
   return null;
 }
 
-/** Where tooltips (the completion menus) may go: above the keyboard bar, measured off the bar itself so it's in the
-   same coordinates as the cursor CodeMirror measures (the visual viewport's numbers aren't, on iOS, and a cursor
-   that seems outside the space hides the menu). Without the bar: CodeMirror's default, the window. */
-const visibleSpace = (touch: boolean) => (view: EditorView) => {
-  const bar = touch ? document.querySelector<HTMLElement>(".kb-bar") : null;
-  const win = view.dom.ownerDocument.defaultView ?? window;
-  const bottom = bar ? bar.getBoundingClientRect().top : win.innerHeight;
-  return { top: 0, left: 0, right: win.innerWidth, bottom: Math.max(bottom, 120) };
-};
-
 export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, onGotoReady, path, toolbarExtra }: {
   value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
   /** the file being edited, for commands that need it (/sketch, templates' {{title}}) */
@@ -123,6 +113,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
   const view = useRef<EditorView | null>(null);
   const [focused, setFocused] = useState(false);
   const [touch] = useState(touchScreen);
+  const [menu, setMenu] = useState<Menu | null>(null);
   const mine = useRef<string[]>([value]);
   const cb = useRef({ onChange, onBlur });
   cb.current = { onChange, onBlur };
@@ -139,12 +130,13 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
           search({ top: true }),
           wrapOnType,
           pasteLinks,
-          EditorView.scrollMargins.of(() => (touch ? { bottom: 64 } : null)),
+          // keep the cursor clear of the keyboard bar (taller while it shows a menu)
+          EditorView.scrollMargins.of(() => (touch ? { bottom: (document.querySelector<HTMLElement>(".kb-bar")?.offsetHeight ?? 44) + 20 } : null)),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(style),
-          // on a touch screen the menu opens above the line: below it is the keyboard and the keyboard bar
-          autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60, aboveCursor: touch }),
-          tooltips({ tooltipSpace: visibleSpace(touch) }),
+          // on a touch screen CodeMirror's own menu is hidden (it can't place itself above the iPhone keyboard): the
+          // keyboard bar shows the same choices (editor/Toolbar.tsx, from `menuOf`)
+          autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60, tooltipClass: () => (touch ? "cm-menu-in-bar" : "") }),
           EditorView.lineWrapping,
           EditorView.perLineTextDirection.of(true),
           EditorView.contentAttributes.of({ "aria-label": label ?? "Note text", autocapitalize: "sentences", spellcheck: "true" }),
@@ -158,6 +150,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
               cb.current.onChange(text);
             }
             if (u.focusChanged) setFocused(u.view.hasFocus);
+            if (touch) setMenu((m) => { const n = menuOf(u.state); return sameMenu(m, n) ? m : n; });
             if (u.focusChanged && !u.view.hasFocus) cb.current.onBlur?.();
           }),
         ],
@@ -194,7 +187,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
   return (
     <>
       <div className="editor" ref={host} />
-      {touch && focused && view.current && <Toolbar view={view.current} path={path} extra={toolbarExtra} />}
+      {touch && focused && view.current && <Toolbar view={view.current} path={path} extra={toolbarExtra} menu={menu} />}
     </>
   );
 }
