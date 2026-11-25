@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildIndex, parseDoc, type Doc } from "../shared/index.ts";
 import {
-  allIngredients, allSteps, fillRecipe, findTimes, fmtFraction, fmtMetric, minutesOf, parseIngredient, parseRecipe, readNumber,
+  allIngredients, allSteps, ingredientsToBuy, fillRecipe, findTimes, fmtFraction, fmtMetric, minutesOf, parseIngredient, parseRecipe, readNumber,
   convertText, parseRecipeText, recipeBody, recipeOf, setCooked, showIngredient, timeText, totalMinutes,
 } from "../shared/recipes.ts";
 import { merge3 } from "../src/lib/vaultsync.ts";
@@ -294,5 +294,16 @@ describe("metric", () => {
     expect(m("1 (14 oz) can tomatoes")).toBe("1|(395 g) can tomatoes");
     expect(convertText("Bake at 180°C")).toBe("Bake at 180°C");
     expect(convertText("2 eggs, in a bowl")).toBe("2 eggs, in a bowl");
+  });
+});
+
+describe("shopping", () => {
+  it("buys a repeated group (unsoaked / soaked) once, but adds up groups with different ingredients", () => {
+    const beans = parseRecipe("## Ingredients\n\n### Unsoaked\n- 500 g dried beans\n- 1.75 l water\n\n### Soaked 8–12 hours\n- 500 g dried beans\n- 1.25 l water\n");
+    expect(ingredientsToBuy(beans).map((x) => x.text)).toEqual(["500 g dried beans", "1.75 l water"]);
+    const pie = parseRecipe("## Ingredients\n\n### For the crust\n- 200 g flour\n- 100 g butter\n\n### For the filling\n- 3 apples\n- 50 g butter\n");
+    expect(ingredientsToBuy(pie)).toHaveLength(4);
+    const plain = parseRecipe("## Ingredients\n\n- 2 eggs\n- 1 onion\n");
+    expect(ingredientsToBuy(plain)).toHaveLength(2);
   });
 });

@@ -1,7 +1,8 @@
 /* Add a recipe's ingredients to the shopping list, at the servings chosen on its page: everything is ticked
-   except spices and water (usually in the cupboard); untick what's already at home. */
+   except spices and water (usually in the cupboard); untick what's already at home. Groups that repeat
+   the same ingredients (unsoaked / soaked) are ways to make it, so only the first one is listed. */
 import { useMemo, useRef, useState } from "react";
-import { allIngredients, parseRecipe, showIngredient } from "../../shared/recipes.ts";
+import { ingredientsToBuy, parseRecipe, showIngredient } from "../../shared/recipes.ts";
 import { aisleOf } from "../../shared/shopping.ts";
 import { addToShopping } from "../state/actions";
 import { useIndex } from "../state/store";
@@ -16,7 +17,7 @@ export function ShoppingSheet({ path, onClose }: { path: string; onClose: () => 
   const d = ix.docs.get(path);
   const scale = useScale(path, d?.recipe);
   const [metricOn] = useMetric();
-  const items = useMemo(() => { const p = parseRecipe(d?.body ?? ""); const metric = metricOn && hasImperial(p); return allIngredients(p).map((it) => {
+  const items = useMemo(() => { const p = parseRecipe(d?.body ?? ""); const metric = metricOn && hasImperial(p); return ingredientsToBuy(p).map((it) => {
     const s = showIngredient(it, scale.factor, metric);
     return { line: it.line, text: stripMd(`${s.amount ? s.amount + " " : ""}${s.rest}`).trim(), name: it.name || it.text.toLowerCase() };
   }); }, [d?.body, scale.factor, metricOn]);

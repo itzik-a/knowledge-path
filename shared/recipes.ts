@@ -405,6 +405,19 @@ export function parseRecipe(body: string): ParsedRecipe {
 }
 
 export const allIngredients = (p: ParsedRecipe) => p.ingredients.flatMap((g) => g.items);
+
+/** The ingredients to buy: a group with the same ingredients as an earlier one is another way to make it
+    ("### Unsoaked" / "### Soaked", the same beans with different water), so only the first of them counts. */
+export function ingredientsToBuy(p: ParsedRecipe): IngredientLine[] {
+  const seen = new Set<string>();
+  return p.ingredients.flatMap((g) => {
+    const key = [...new Set(g.items.map((x) => x.name || x.text.toLowerCase()).filter(Boolean))].sort().join("\n");
+    if (!key) return g.items;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return g.items;
+  });
+}
 export const allSteps = (p: ParsedRecipe) => p.steps.flatMap((g) => g.items);
 
 // ── Writing a recipe ──────────────────────────────────────────
