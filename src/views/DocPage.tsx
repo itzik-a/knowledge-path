@@ -7,6 +7,7 @@ import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } f
 import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
+import { OutlineButton } from "../components/editor/outline";
 import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
@@ -425,6 +426,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           <div className="head-tools">
             {!d.sealed && <PrivateButton path={d.path} on={!!d.private} />}
             <PinButton d={d} />
+            {!d.sealed && <OutlineButton path={d.path} body={d.body} editing={editing} />}
             {!d.sealed && <SketchButton note={d.path} />}
             {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
             <Menu label="More" icon={<IconMore />} items={[
@@ -469,6 +471,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
           <div className="head-tools">
             {!d?.sealed && <PrivateButton path={path} on={!!d?.private} />}
             {d && <PinButton d={d} />}
+            {!d?.sealed && <OutlineButton path={path} body={body} editing={editing} />}
             {!d?.sealed && <SketchButton note={path} />}
             {!d?.sealed && <EditToggle editing={editing} set={setEditing} write={!body.trim()} />}
             {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}

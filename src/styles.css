@@ -1257,3 +1257,10 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .kb-txt.b { font-weight: 800; }
 .kb-txt.i { font-style: italic; font-family: Georgia, serif; }
 .kb-done { border-left: 1px solid var(--line); border-radius: 0; color: var(--accent); width: 52px; }
+
+/* ![[Note]] embedded in a note (src/lib/markdown.ts) */
+.note-embed { margin: 10px 0; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+.note-embed .embed-title { display: inline-block; font-weight: 650; font-size: .88rem; margin-bottom: 4px; }
+.note-embed .embed-body > :first-child { margin-top: 0; }
+.note-embed .embed-body > :last-child { margin-bottom: 0; }
+.word-count { margin: 6px 0 0; text-align: end; }

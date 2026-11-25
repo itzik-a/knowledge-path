@@ -146,7 +146,7 @@ export const EDITOR_KEYS: { keys: string; what: string }[] = [
   { keys: "Tab / ⇧Tab", what: "Indent or outdent the line" },
   { keys: "↩ in a list", what: "Next item (twice ends the list)" },
   { keys: "⌘Z / ⌘⇧Z", what: "Undo / redo" },
-  { keys: "⌘F", what: "Find in the note; ⌘⌥F find and replace" },
+  { keys: "⌘F", what: "Find and replace in the note (⌘G next, ⌘⇧G previous, Esc closes)" },
   { keys: "* _ = ~ `", what: "Typed over selected text: wraps it (* twice: bold)" },
   { keys: "/", what: "Slash commands" },
   { keys: "[[", what: "Link a note or topic" },

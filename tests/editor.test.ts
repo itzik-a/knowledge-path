@@ -42,3 +42,13 @@ describe("editor commands", () => {
     expect(v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to)).toBe("word");
   });
 });
+
+describe("outline and word count", async () => {
+  const { countWords, headingsOf } = await import("../src/components/editor/outline.tsx");
+  it("lists headings outside code, with their lines", () => {
+    expect(headingsOf("# A\ntext\n```\n# not this\n```\n## **B** ##\n")).toEqual([{ level: 1, text: "A", line: 0 }, { level: 2, text: "B", line: 5 }]);
+  });
+  it("counts words in English and Hebrew, not link targets or URLs", () => {
+    expect(countWords("Hello **world**, שלום עולם! See [[Kant|him]] at https://x.org/a-b")).toBe(7);
+  });
+});

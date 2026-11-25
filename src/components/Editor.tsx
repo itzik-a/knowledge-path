@@ -8,11 +8,12 @@
 import { autocompletion, closeBrackets, type Completion, type CompletionContext } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { search, searchKeymap } from "@codemirror/search";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder as ph } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getIndex } from "../state/store";
 import { slashSource } from "./editor/slash";
 import { keys, wrapOnType } from "./editor/commands";
@@ -50,6 +51,16 @@ const theme = EditorView.theme({
   ".cm-tooltip-autocomplete > ul": { maxHeight: "min(50vh, 320px) !important", fontFamily: "var(--font) !important" },
   ".cm-completionSection": { padding: "8px 12px 4px !important", fontSize: ".75em", fontWeight: "650", color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em", border: "0 !important" },
   ".cm-completionLabel": { fontWeight: "550" },
+  // find and replace (⌘F): a panel above the text
+  ".cm-panels": { background: "var(--surface-2)", color: "var(--ink)", borderRadius: "12px", border: "0 !important", marginBottom: "8px" },
+  ".cm-search": { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px", padding: "8px 36px 8px 10px !important", fontSize: "14px", position: "relative" },
+  ".cm-search input.cm-textfield": { font: "inherit", fontSize: "16px", minHeight: "36px", padding: "4px 10px", border: "1px solid var(--line)", borderRadius: "8px", background: "var(--raised)", color: "var(--ink)", flex: "1 1 140px", margin: "0" },
+  ".cm-search button.cm-button": { font: "inherit", fontSize: "13px", minHeight: "36px", padding: "0 10px", border: "0", borderRadius: "8px", background: "var(--raised)", color: "var(--ink)", backgroundImage: "none", margin: "0" },
+  ".cm-search label": { display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "13px", color: "var(--muted)" },
+  ".cm-search br": { flexBasis: "100%", height: "0" },
+  ".cm-search button[name=close]": { position: "absolute", top: "6px", right: "6px", width: "28px", height: "28px", fontSize: "20px", color: "var(--muted)", background: "none", border: "0" },
+  ".cm-searchMatch": { backgroundColor: "color-mix(in srgb, var(--s4) 30%, transparent)", borderRadius: "2px" },
+  ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, var(--s4) 60%, transparent)" },
 });
 
 /** [[ → note and topic names; # → tags. */
@@ -87,12 +98,16 @@ function complete(ctx: CompletionContext) {
   return null;
 }
 
-export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, path }: {
+export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, onGotoReady, path, toolbarExtra }: {
   value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
   /** the file being edited, for commands that need it (/sketch, templates' {{title}}) */
   path?: string;
+  /** more buttons for the keyboard bar */
+  toolbarExtra?: ReactNode;
   /** Gets a function that puts text on its own line at the cursor (null when the editor goes away). */
   onInsertReady?: (insert: ((text: string) => void) | null) => void;
+  /** Gets a function that moves the cursor to a line (0-based) and scrolls it to the top (the outline). */
+  onGotoReady?: (goto: ((line: number) => void) | null) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -110,7 +125,8 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
         extensions: [
           history(),
           closeBrackets(),
-          keymap.of([...keys, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          keymap.of([...keys, ...searchKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          search({ top: true }),
           wrapOnType,
           pasteLinks,
           EditorView.scrollMargins.of(() => (touch ? { bottom: 64 } : null)),
@@ -145,7 +161,12 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
       const insert = `${before}${text}${after || "\n"}`;
       v.dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length }, scrollIntoView: true });
     });
-    return () => { onInsertReady?.(null); v.destroy(); view.current = null; };
+    onGotoReady?.((n) => {
+      const line = v.state.doc.line(Math.min(v.state.doc.lines, n + 1));
+      v.dispatch({ selection: { anchor: line.to }, effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 80 }) });
+      v.focus();
+    });
+    return () => { onInsertReady?.(null); onGotoReady?.(null); v.destroy(); view.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -161,7 +182,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
   return (
     <>
       <div className="editor" ref={host} />
-      {touch && focused && view.current && <Toolbar view={view.current} path={path} />}
+      {touch && focused && view.current && <Toolbar view={view.current} path={path} extra={toolbarExtra} />}
     </>
   );
 }

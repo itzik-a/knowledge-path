@@ -7,7 +7,8 @@ import type { EditorView } from "@codemirror/view";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { openSheet } from "../../lib/sheets";
-import { IconCheckbox, IconIndent, IconKeyboardDown, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
+import { openSearchPanel } from "@codemirror/search";
+import { IconSearch, IconCheckbox, IconIndent, IconKeyboardDown, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
 import { cycleHeading, done, indentLess, indentMore, linkSel, redo, toggleTask, undo, wrap } from "./commands";
 
 /** Is this a touch screen (no fine pointer)? */
@@ -60,6 +61,7 @@ export function Toolbar({ view, path, extra }: { view: EditorView; path?: string
         {b("Undo", undo, <IconUndo />)}
         {b("Redo", redo, <IconRedo />)}
         {path && b("Sketch", () => openSheet({ kind: "sketch", note: path }), <IconSketch />)}
+        {b("Find and replace", openSearchPanel, <IconSearch />)}
         {extra}
       </div>
       {b("Done: hide the keyboard", done, <IconKeyboardDown />, "kb-done")}

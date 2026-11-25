@@ -3,7 +3,7 @@
 import { useMemo, type MouseEvent } from "react";
 import { resolve } from "../../shared/index.ts";
 import { isLockedName } from "../../shared/private.ts";
-import { renderMarkdown } from "../lib/markdown";
+import { renderMarkdown, sectionOf } from "../lib/markdown";
 import { docHref, go } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { findSketch } from "../state/sketches";
@@ -16,6 +16,14 @@ export function Markdown({ body, from, onToggle, className, empty }: { body: str
     resolve: (t) => resolve(ix, t, from),
     title: (p) => { const d = ix.docs.get(p); return d && isLockedName(d.name) ? d.title : undefined; },
     sketch: (t) => { const p = findSketch(t); const svg = p ? readFile(p) : undefined; return p && svg != null ? { path: p, svg } : undefined; },
+    embed: (t, heading) => {
+      const p = resolve(ix, t, from);
+      const d = p ? ix.docs.get(p) : undefined;
+      if (!d || d.sealed || d.kind === "hub") return undefined;
+      const text = heading ? sectionOf(d.body, heading) : d.body;
+      return text == null ? undefined : { path: d.path, title: d.title, body: text };
+    },
+    self: from,
   }), [body, ix, from]);
   if (!body.trim()) return empty ? <p className="muted small">{empty}</p> : null;
 

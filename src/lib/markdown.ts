@@ -14,6 +14,24 @@ export interface MdEnv {
   title?: (path: string) => string | undefined;
   /** An embedded drawing: its path and SVG text, if the vault has it. */
   sketch?: (target: string) => { path: string; svg: string } | undefined;
+  /** An embedded note (![[Note]] or ![[Note#Heading]] on its own line): its path, title and the text to show. */
+  embed?: (target: string, heading?: string) => { path: string; title: string; body: string } | undefined;
+  /** How deep in embeds this is (embeds stop at 2, and never show the note they're in). */
+  depth?: number;
+  /** The note being shown, so it never embeds itself. */
+  self?: string;
+}
+
+/** The part of a body under a heading (to the next heading of the same level or higher); undefined if there's none. */
+export function sectionOf(body: string, heading: string): string | undefined {
+  const lines = body.split("\n");
+  const want = heading.trim().toLowerCase();
+  const at = lines.findIndex((l) => { const m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l); return !!m && m[2].toLowerCase() === want; });
+  if (at < 0) return undefined;
+  const level = /^#+/.exec(lines[at])![0].length;
+  let end = lines.length;
+  for (let i = at + 1; i < lines.length; i++) { const m = /^(#{1,6})\s/.exec(lines[i]); if (m && m[1].length <= level) { end = i; break; } }
+  return lines.slice(at + 1, end).join("\n").trim();
 }
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true, typographer: false });
@@ -130,6 +148,18 @@ md.core.ruler.push("obsidian", (state: StateCore) => {
         toks[i - 1].attrSet("data-block", m[1]);
       }
     }
+    // a paragraph that is only ![[Note]] is an embedded note: no <p> around it (the embed is a block)
+    if (t.type === "inline" && toks[i - 1]?.type === "paragraph_open" && t.children?.length) {
+      const real = t.children.filter((c) => !(c.type === "text" && !c.content.trim()));
+      const w = real.length === 1 && real[0].type === "wikilink" ? real[0] : null;
+      const meta = w?.meta as { target: string; embed: boolean; block?: boolean } | undefined;
+      if (w && meta?.embed && !/\.[a-z0-9]{2,4}$/i.test(meta.target.replace(/\.md$/i, ""))) {
+        meta.block = true;
+        toks[i - 1].hidden = true;
+        if (toks[i + 1]?.type === "paragraph_close") toks[i + 1].hidden = true;
+        t.children = [w];
+      }
+    }
     // - [ ] task / - [x] done
     if (t.type === "inline" && toks[i - 1]?.type === "paragraph_open" && toks[i - 2]?.type === "list_item_open") {
       const first = t.children?.[0];
@@ -162,6 +192,15 @@ md.renderer.rules.wikilink = (tokens: Token[], idx: number, _o, envAny) => {
   }
   if (embed && !/\.md$/i.test(target) && /\.[a-z0-9]{2,4}$/i.test(target)) return `<span class="embed-chip">📎 ${esc(target)}</span>`;
   const path = env?.resolve?.(target);
+  if (embed && (tokens[idx].meta as { block?: boolean }).block && path && env?.embed && (env.depth ?? 0) < 2 && path !== env.self) {
+    const e = env.embed(target, heading);
+    if (e) {
+      const inner = renderMarkdown(e.body, { ...env, depth: (env.depth ?? 0) + 1, self: env.self })
+        .replace(/class="task-box"/g, 'class="task-box" disabled'); // its tasks belong to the other note: ticked there
+      const name = heading ? `${e.title} › ${heading}` : e.title;
+      return `<div class="note-embed"><a class="embed-title wikilink" href="${esc(docHref(e.path))}">${esc(name)}</a><div class="embed-body">${inner || '<p class="muted small">Empty</p>'}</div></div>`;
+    }
+  }
   const shown = path && !alias ? env?.title?.(path) : undefined;
   if (shown) label = heading ? `${shown} › ${heading}` : shown;
   if (path) return `<a class="wikilink" href="${esc(docHref(path))}">${esc(label)}</a>`;
