@@ -2,6 +2,7 @@
 import { confirmAsk } from "../lib/confirm";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { ago } from "../lib/dates";
+import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
 import { removeSuggestions, suggestionCount } from "../state/actions";
 import { clearAll } from "../state/db";
@@ -326,6 +327,7 @@ function MoreSection() {
   return (
     <section className="dlg-section" aria-labelledby="more-title">
       <h3 id="more-title">More</h3>
+      <button type="button" className="text-btn" onClick={() => openSheet({ kind: "shortcuts" })}>Keyboard shortcuts and slash commands</button>
       {n > 0 && (
         <div className="row-between">
           <span className="small">{n} starter suggestions you haven't touched</span>

@@ -18,6 +18,8 @@ export type SheetReq =
   | { kind: "cook"; path: string }
   /** add a recipe's ingredients to the shopping list */
   | { kind: "shop"; path: string }
+  /** every keyboard shortcut and slash command */
+  | { kind: "shortcuts" }
   /** /ask: a question to Claude about a note */
   | { kind: "ask"; path: string }
   /** start a timed habit (a fast): choose how long */

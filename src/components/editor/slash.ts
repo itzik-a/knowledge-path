@@ -103,6 +103,8 @@ export const SLASH: SlashCommand[] = [
   { names: ["date"], title: "Date", hint: "today, as text", group: "Dates", run: (v, f, t) => snippet(formatDate(new Date(), "D MMMM YYYY"))(v, f, t) },
   { names: ["time"], title: "Time", hint: "now, e.g. 14:30", group: "Dates", run: (v, f, t) => snippet(time())(v, f, t) },
   { names: ["now"], title: "Date and time", hint: "[[today]] 14:30", group: "Dates", run: (v, f, t) => snippet(`${dayLink(todayISO())} ${time()}`)(v, f, t) },
+  { names: ["shortcuts", "help", "keys"], title: "Shortcuts", hint: "every key and slash command", group: "Insert",
+    run: (v, from, to) => { v.dispatch({ changes: { from, to } }); openSheet({ kind: "shortcuts" }); } },
   { names: ["ask", "claude"], title: "Ask Claude", hint: "a question about this note, answered in it", group: "Claude",
     run: (v, from, to, c) => { v.dispatch({ changes: { from, to } }); if (c.path) openSheet({ kind: "ask", path: c.path }); } },
   { names: ["dictate", "voice", "mic"], title: "Dictate", hint: "speak; tap the mic or Done to stop", group: "Insert",

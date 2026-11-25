@@ -1265,3 +1265,16 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .note-embed .embed-body > :last-child { margin-bottom: 0; }
 .word-count { margin: 6px 0 0; text-align: end; }
 .kb-btn.on { color: var(--accent); background: var(--accent-soft); }
+
+/* Shortcuts sheet */
+.keys { display: grid; gap: 0; margin: 0; }
+.key-row { display: grid; grid-template-columns: minmax(110px, 38%) 1fr; gap: 12px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line); }
+.key-row:first-child { border-top: 0; }
+.key-row dt { margin: 0; }
+.key-row dd { margin: 0; font-size: .92rem; }
+kbd {
+  display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 6px; text-align: center;
+  font: 600 .82rem/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink);
+  background: var(--surface-2); box-shadow: inset 0 -1px 0 var(--line);
+}
+.slash-group h4 { font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 2px; }
