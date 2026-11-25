@@ -530,3 +530,16 @@ export function requestExplore(topicId: string, ask?: string) {
   const id = `${Date.now().toString(36)}`;
   writeFiles([{ path: `.hub/requests/${id}.json`, content: JSON.stringify({ kind: "explore", topic: topicId, ask: ask?.trim() || undefined, at: new Date().toISOString() }, null, 2) + "\n" }]);
 }
+
+/** Pin an item (`pinned:` the time, local, so the newest pin comes first) or unpin it; Undo puts back what was there.
+    A locked note's frontmatter stays readable, so it can be pinned too. */
+export function setPinned(path: string, on: boolean) {
+  const c = readFile(path);
+  if (c == null) return;
+  const before = splitFrontmatter(c).fm.pinned;
+  patch(path, { pinned: on ? stampOf(new Date()) : undefined });
+  showToast(on ? "Pinned" : "Unpinned", { label: "Undo", run: () => patch(path, { pinned: before ?? undefined }) });
+}
+
+/** "Pin" / "Unpin" for a page's More menu. */
+export const pinItem = (d: { path: string; pinned?: boolean }) => ({ label: d.pinned ? "Unpin" : "Pin", run: () => setPinned(d.path, !d.pinned) });

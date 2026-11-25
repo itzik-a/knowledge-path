@@ -6,7 +6,7 @@ import { medDate, shortDate } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
-import { IconCheck, IconClose, IconLock, IconPlus, IconSearch } from "./Icons";
+import { IconCheck, IconClose, IconLock, IconPin, IconPlus, IconSearch } from "./Icons";
 import { RecipeRow } from "./recipes";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
@@ -141,15 +141,24 @@ export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Ind
   );
 }
 
+/** The little picture for an item: its type for a saved link, else its kind (a habit's own icon). */
+export function docEmoji(d: Doc): string {
+  if (d.kind === "resource") return TYPE_EMOJI[d.resource!.type];
+  return d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : d.kind === "chapter" ? "📖" : "📝";
+}
+
+/** An item's name in a short list: a journal day by its date. */
+export const docLabel = (d: Doc) => (d.kind === "journal" && d.date ? shortDate(d.date) : d.title);
+
 export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
-  const label = d.kind === "journal" && d.date ? shortDate(d.date) : d.title;
+  const label = docLabel(d);
   const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
   return (
     <li>
       <RowShell path={d.path} sel={sel}>
-        <span className="thumb emoji" aria-hidden="true">{d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : "📝"}</span>
+        <span className="thumb emoji" aria-hidden="true">{docEmoji(d)}</span>
         <span className="item-main">
-          <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Locked" aria-hidden={false} />}</span>
+          <span className="item-title" dir="auto">{label}{d.private && <IconLock className="inline-icon" role="img" aria-label="Locked" aria-hidden={false} />}{d.pinned && <IconPin className="inline-icon pin-mark" role="img" aria-label="Pinned" aria-hidden={false} />}</span>
           {d.excerpt && <span className="item-meta clamp" dir="auto">{d.excerpt}</span>}
           {(showTopics || when) && (
             <span className="item-tags">

@@ -537,7 +537,22 @@ html.sheet-open .fab { visibility: hidden; }
 .side-actions { display: flex; gap: 8px; align-items: center; padding: 0 4px; }
 .side-actions .btn { justify-self: stretch; }
 .badge { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: .74rem; font-weight: 700; text-align: center; }
-.side-topics { display: grid; gap: 0; overflow-y: auto; min-height: 0; padding-top: 4px; }
+/* pinned items, then the topics: one scrolling area between the sections and the sync pill */
+.side-scroll { flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 18px; }
+.side-topics { display: grid; gap: 0; padding-top: 4px; }
+.side-emoji { width: 18px; flex: none; text-align: center; font-size: .9rem; line-height: 1; }
+.clamp1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-head { display: flex; align-items: center; gap: 8px; }
+.pin-head svg { color: var(--accent); }
+.pinned-list .pin-mark { display: none; } /* every row there is pinned */
+/* Home cards fold away from their heading (the whole heading is the button, 44px tall) */
+.home-card .card-head h2 { min-width: 0; flex: 1; }
+.fold-btn { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; margin: -10px 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: start; cursor: pointer; }
+.fold-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.fold-chev { flex: none; color: var(--muted); transition: transform .15s ease; }
+.home-card.folded .fold-chev { transform: rotate(-90deg); }
+:where([dir="rtl"]) .home-card.folded .fold-chev { transform: rotate(90deg); }
+.fold-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .side-topics .eyebrow { padding: 0 12px 6px; }
 .side-topics a { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border-radius: 10px; color: var(--ink); font-size: .92rem; font-weight: 500; }
 .side-topics a:hover { background: var(--surface-2); }

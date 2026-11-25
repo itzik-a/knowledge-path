@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
@@ -12,7 +12,7 @@ import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, requestEpub, patchResource, retitle, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
@@ -91,6 +91,16 @@ function Topics({ ix, d }: { ix: Index; d: Doc }) {
   return <TopicPicker value={named} onChange={(ids) => setTopics(d.path, ids)} fixed={fixed} suggested={d.resource?.suggestedTopics.map((n) => [...ix.topics.values()].find((t) => t.name.toLowerCase() === n.toLowerCase() || t.id === n)?.id ?? "") ?? []} />;
 }
 
+/** Pin / unpin, for the note and journal pages' tools. */
+function PinButton({ d }: { d: Doc }) {
+  const label = d.pinned ? "Unpin" : "Pin";
+  return (
+    <button type="button" className={`icon-btn subtle${d.pinned ? " on" : ""}`} aria-pressed={!!d.pinned} aria-label={label} title={label} onClick={() => setPinned(d.path, !d.pinned)}>
+      <IconPin />
+    </button>
+  );
+}
+
 /** Draw a sketch and put it in this note (at the cursor while editing, else at the end). */
 function SketchButton({ note }: { note: string }) {
   return (
@@ -157,6 +167,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             {(r.author || r.year) && <p className="muted" dir="auto">{[r.author, r.year].filter(Boolean).join(" · ")}</p>}
           </div>
           <Menu label="More" icon={<IconMore />} items={[
+            pinItem(d),
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
@@ -412,6 +423,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <div className="head-tools">
             {!d.sealed && <PrivateButton path={d.path} on={!!d.private} />}
+            <PinButton d={d} />
             {!d.sealed && <SketchButton note={d.path} />}
             {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
             <Menu label="More" icon={<IconMore />} items={[
@@ -454,6 +466,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
           </div>
           <div className="head-tools">
             {!d?.sealed && <PrivateButton path={path} on={!!d?.private} />}
+            {d && <PinButton d={d} />}
             {!d?.sealed && <SketchButton note={path} />}
             {!d?.sealed && <EditToggle editing={editing} set={setEditing} write={!body.trim()} />}
             {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
@@ -509,6 +522,7 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
             {desc && <p className="muted" dir="auto">{desc}</p>}
           </div>
           <Menu label="More" icon={<IconMore />} items={[
+            pinItem(d),
             { label: editing ? "Show steps" : "Edit steps", run: () => setEditing((x) => !x) },
             { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#topics"); } },
           ]} />

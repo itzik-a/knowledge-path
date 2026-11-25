@@ -129,3 +129,6 @@ export const IconBook = (p: P) => (
 export const IconDownload = (p: P) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" /></svg>
 );
+export const IconPin = (p: P) => (
+  <svg {...base(p)}><path d="M9 3.5h6M10 3.5v6.2L6.5 14h11L14 9.7V3.5M12 14v6.5" /></svg>
+);

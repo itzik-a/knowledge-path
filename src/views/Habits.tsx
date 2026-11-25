@@ -11,7 +11,7 @@ import { Markdown } from "../components/Markdown";
 import { Menu, useMedia } from "../components/ui";
 import { back } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { deleteDocs, setArchived, setTopics } from "../state/actions";
+import { deleteDocs, pinItem, setArchived, setTopics } from "../state/actions";
 import { useIndex } from "../state/store";
 
 export const habitsOf = (ix: Index) => [...ix.docs.values()].filter((d) => d.kind === "habit").sort((a, b) => a.title.localeCompare(b.title));
@@ -83,6 +83,7 @@ export function HabitPage({ d, ix }: { d: Doc; ix: Index }) {
           <div className="head-tools">
             <button type="button" className="btn ghost sm" onClick={() => openSheet({ kind: "habit", path: d.path })}>Edit</button>
             <Menu label="More" icon={<IconMore />} items={[
+              pinItem(d),
               { label: h.archived ? "Back on Home" : "Archive", run: () => setArchived(d.path, !h.archived) },
               { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path], `“${d.title}” and its log`)) back("#habits"); } },
             ]} />

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Doc } from "../../shared/index.ts";
 import { journalPath, todayISO } from "../../shared/vault.ts";
 import { DocRow, NoteRow } from "../components/bits";
-import { IconBack, IconClose, IconNext, IconPlus, IconSearch } from "../components/Icons";
+import { IconBack, IconClose, IconNext, IconPin, IconPlus, IconSearch } from "../components/Icons";
 import { SelectBar, SelectButton, useSelection, type Selection } from "../components/Select";
 import { Seg } from "../components/ui";
 import { iso, monthName, parseISO, shortDate } from "../lib/dates";
@@ -43,9 +43,12 @@ function NoteList() {
   const notes = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "note" || d.kind === "path").sort((a, b) => b.mtime - a.mtime || a.title.localeCompare(b.title)), [ix]);
   const s = q.trim().toLowerCase();
   const shown = s ? notes.filter((d) => d.title.toLowerCase().includes(s) || d.body.toLowerCase().includes(s)) : notes;
+  // pinned notes in their own group at the top (the most recently pinned first), not again in their folder
+  const pinned = useMemo(() => shown.filter((d) => d.pinned).sort((a, b) => (b.pinnedAt ?? "").localeCompare(a.pinnedAt ?? "") || a.title.localeCompare(b.title)), [shown]);
   const folders = useMemo(() => {
     const m = new Map<string, Doc[]>();
     for (const d of shown) {
+      if (d.pinned) continue;
       const f = d.path.includes("/") ? d.path.slice(0, d.path.lastIndexOf("/")) : "";
       const arr = m.get(f) ?? [];
       arr.push(d);
@@ -53,7 +56,7 @@ function NoteList() {
     }
     return [...m].sort(([a], [b]) => (a === "Notes" ? -1 : b === "Notes" ? 1 : a.localeCompare(b)));
   }, [shown]);
-  const sel = useSelection(folders.flatMap(([, docs]) => docs.map((d) => d.path)));
+  const sel = useSelection([...pinned, ...folders.flatMap(([, docs]) => docs)].map((d) => d.path));
 
   return (
     <>
@@ -63,6 +66,12 @@ function NoteList() {
         <input type="search" dir="auto" placeholder="Filter notes" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter notes" />
         {q && <button type="button" className="search-clear" onClick={() => setQ("")} aria-label="Clear"><IconClose /></button>}
       </label>
+      {pinned.length > 0 && (
+        <section className="card">
+          <h2 className="folder-name pin-head"><IconPin width={18} height={18} /> Pinned <span className="muted">{pinned.length}</span></h2>
+          <ul className="item-list pinned-list">{pinned.map((d) => <NoteRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
+        </section>
+      )}
       {folders.map(([f, docs]) => (
         <section key={f} className="card">
           <h2 className="folder-name">{f || "Vault"} <span className="muted">{docs.length}</span></h2>

@@ -1,8 +1,8 @@
-/* #home: today's journal entry, what I'm in the middle of, what's next, the inbox, a highlight to revisit, and the topics. */
-import { useMemo } from "react";
-import { inbox, itemsIn, type Doc } from "../../shared/index.ts";
+/* #home: what I pinned, today's journal entry, what I'm in the middle of, what's next, and a highlight to revisit. */
+import { useMemo, type ReactNode } from "react";
+import { pinnedDocs, type Doc } from "../../shared/index.ts";
 import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
-import { ResourceRow, topicColor } from "../components/bits";
+import { DocRow, ResourceRow } from "../components/bits";
 import { HabitRow } from "../components/habits";
 import { habitsOf } from "./Habits";
 import { recipesOf } from "./Recipes";
@@ -10,12 +10,11 @@ import { shoppingLeft } from "./Shopping";
 import { SHOPPING_PATH } from "../../shared/shopping.ts";
 import { RecipeRow } from "../components/recipes";
 import { addDays } from "../lib/dates";
-import { IconCart, IconHabit, IconRecipe, IconInbox, IconJournal, IconPlus, IconQuote } from "../components/Icons";
+import { IconCart, IconChevronDown, IconHabit, IconPin, IconRecipe, IconJournal, IconQuote } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
-import { docHref, topicHref } from "../lib/route";
-import { openSheet } from "../lib/sheets";
+import { docHref } from "../lib/route";
 import { useIndex } from "../state/store";
 
 /** The same highlight all day, a different one tomorrow. */
@@ -26,23 +25,48 @@ function dailyPick<T>(list: T[], day: string): T | undefined {
   return list[h % list.length];
 }
 
+type Fold = { closed: string[]; toggle: (id: string) => void };
+
+/** A Home card whose heading folds it away; which ones are folded is kept per device. `count` shows beside a folded title. */
+function HomeCard({ id, title, count, link, className, fold, children }: {
+  id: string; title: ReactNode; count?: ReactNode; link?: ReactNode; className?: string; fold: Fold; children: ReactNode;
+}) {
+  const open = !fold.closed.includes(id);
+  return (
+    <section className={`card home-card${open ? "" : " folded"}${className ? " " + className : ""}`}>
+      <div className="card-head">
+        <h2>
+          <button type="button" className="fold-btn" aria-expanded={open} onClick={() => fold.toggle(id)}>
+            <IconChevronDown className="fold-chev" />
+            <span className="fold-title">{title}</span>
+            {count != null && <span className="muted"> · {count}</span>}
+          </button>
+        </h2>
+        {link}
+      </div>
+      {open && children}
+    </section>
+  );
+}
+
 export function Home() {
   const ix = useIndex();
   const today = todayISO();
   const entry = ix.docs.get(journalPath(today));
   const [introDone, setIntroDone] = useLocalState("knowledgePath.introDone", false);
+  const [closed, setClosed] = useLocalState<string[]>("knowledgePath.homeFolded", []);
+  const fold: Fold = { closed, toggle: (id) => setClosed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id])) };
 
   const resources = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "resource"), [ix]);
   const now = resources.filter((d) => d.resource!.status === "in-progress").sort((a, b) => b.mtime - a.mtime);
   const next = resources.filter((d) => d.resource!.status === "next").sort((a, b) => b.mtime - a.mtime);
   const recent = [...resources].filter((d) => d.resource!.status === "saved").sort((a, b) => (b.resource!.added ?? "").localeCompare(a.resource!.added ?? "") || b.mtime - a.mtime).slice(0, 4);
-  const waiting = inbox(ix).length;
+  const pinned = useMemo(() => pinnedDocs(ix), [ix]);
   const hl = useMemo(() => {
     const all: { d: Doc; quote: string; comment?: string }[] = [];
     for (const d of resources) for (const h of parseHighlights(d.body)) all.push({ d, quote: h.quote, comment: h.comment });
     return dailyPick(all, today);
   }, [resources, today]);
-  const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const allHabits = useMemo(() => habitsOf(ix), [ix]);
   const habits = allHabits.filter((d) => !d.habit!.archived);
   // a habit with no schedule ("whenever") is never due, so it isn't counted in "N of M today"
@@ -76,14 +100,16 @@ export function Home() {
         </section>
       )}
 
+      {pinned.length > 0 && (
+        <HomeCard id="pinned" fold={fold} count={pinned.length} title={<span className="pin-head"><IconPin width={18} height={18} /> Pinned</span>}>
+          <ul className="item-list pinned-list">{pinned.map((d) => <DocRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
+        </HomeCard>
+      )}
+
       {habits.length > 0 ? (
-        <section className="card">
-          <div className="card-head">
-            <h2>Habits{due.length > 0 && <span className="muted"> · {habitsDone} of {due.length} today</span>}</h2>
-            <a className="link" href="#habits">All</a>
-          </div>
+        <HomeCard id="habits" fold={fold} title="Habits" count={due.length > 0 ? `${habitsDone} of ${due.length} today` : undefined} link={<a className="link" href="#habits">All</a>}>
           <ul className="item-list habit-list">{habits.map((d) => <HabitRow key={d.path} d={d} />)}</ul>
-        </section>
+        </HomeCard>
       ) : allHabits.length === 0 && (
         <a className="card journal-card" href="#habits">
           <span className="journal-icon"><IconHabit /></span>
@@ -93,14 +119,10 @@ export function Home() {
       )}
 
       {recipes.length > 0 ? (
-        <section className="card">
-          <div className="card-head">
-            <h2>Recipes{againOld && <span className="muted"> · cook again</span>}</h2>
-            <a className="link" href="#recipes">All {recipes.length}</a>
-          </div>
+        <HomeCard id="recipes" fold={fold} title="Recipes" count={againOld ? "cook again" : undefined} link={<a className="link" href="#recipes">All {recipes.length}</a>}>
           <ul className="item-list">{again.map((d) => <RecipeRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
           {toBuy > 0 && <a className="link small shop-link" href="#shopping"><IconCart width={16} height={16} /> Shopping list · {toBuy} to buy</a>}
-        </section>
+        </HomeCard>
       ) : (
         <a className="card journal-card" href="#recipes">
           <span className="journal-icon"><IconRecipe /></span>
@@ -118,58 +140,30 @@ export function Home() {
         <span className="chev">›</span>
       </a>
 
-      {waiting > 0 && (
-        <a className="card inbox-banner" href="#inbox"><IconInbox /> <span className="grow"><b>{waiting} in the Inbox</b> <span className="muted">waiting for a topic</span></span><span className="chev">›</span></a>
-      )}
-
       {now.length > 0 && (
-        <section className="card">
-          <div className="card-head"><h2>In progress</h2><a className="link" href="#library">Library</a></div>
+        <HomeCard id="now" fold={fold} title="In progress" count={now.length} link={<a className="link" href="#library">Library</a>}>
           <ul className="item-list">{now.slice(0, 5).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </section>
+        </HomeCard>
       )}
 
       {next.length > 0 && (
-        <section className="card">
-          <h2>Up next</h2>
+        <HomeCard id="next" fold={fold} title="Up next" count={next.length}>
           <ul className="item-list">{next.slice(0, 4).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </section>
+        </HomeCard>
       )}
 
       {hl && (
-        <section className="card hl-card">
-          <span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>
+        <HomeCard id="highlight" fold={fold} className="hl-card" title={<span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>}>
           <blockquote dir="auto">{hl.quote}</blockquote>
           {hl.comment && <Markdown body={hl.comment} from={hl.d.path} className="muted small" />}
           <a className="link small" href={docHref(hl.d.path)} dir="auto">{hl.d.title}{hl.d.resource?.author ? `, ${hl.d.resource.author}` : ""}</a>
-        </section>
+        </HomeCard>
       )}
 
-      <section className="card">
-        <div className="card-head"><h2>Topics</h2><a className="link" href="#topics">All</a></div>
-        <ul className="topic-list">
-          {top.map((t) => {
-            const items = itemsIn(ix, t.id);
-            const active = items.filter((d) => d.resource?.status === "in-progress").length;
-            return (
-              <li key={t.id}>
-                <a href={topicHref(t.id)} style={{ ["--tc" as string]: topicColor(t) }}>
-                  <span className="topic-icon" aria-hidden="true">{t.icon ?? "•"}</span>
-                  <span className="grow"><b dir="auto">{t.name}</b><span className="muted small">{items.length} items{active ? ` · ${active} in progress` : ""}</span></span>
-                  <span className="chev">›</span>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-        <button type="button" className="btn ghost sm" onClick={() => openSheet({ kind: "topic" })}><IconPlus /> Topic</button>
-      </section>
-
       {recent.length > 0 && (
-        <section className="card">
-          <div className="card-head"><h2>Recently saved</h2><a className="link" href="#library">All</a></div>
+        <HomeCard id="recent" fold={fold} title="Recently saved" link={<a className="link" href="#library">All</a>}>
           <ul className="item-list">{recent.map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </section>
+        </HomeCard>
       )}
     </>
   );

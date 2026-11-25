@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType, type SVGProps } from "react";
-import { inbox } from "../shared/index.ts";
+import { inbox, pinnedDocs } from "../shared/index.ts";
 import { kindOf } from "../shared/vault.ts";
-import { topicColor } from "./components/bits";
+import { docEmoji, docLabel, topicColor } from "./components/bits";
 import { CaptureSheet } from "./components/CaptureSheet";
 import { ConfirmDialog } from "./components/Confirm";
 import { DataPill, DataSheet } from "./components/DataSheet";
@@ -17,7 +17,7 @@ const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ defa
 const SitMode = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
 const SitDock = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
 import { TopicSheet } from "./components/TopicSheet";
-import { readHash, topicHref, type Route } from "./lib/route";
+import { docHref, readHash, topicHref, type Route } from "./lib/route";
 import { PrivateSheet } from "./components/PrivateNotes";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useTimers } from "./lib/timers";
@@ -103,6 +103,7 @@ export function App() {
   const toBuy = ready ? shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body) : 0;
   const waiting = ready ? inbox(ix).length : 0;
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
+  const pinned = ready ? pinnedDocs(ix) : [];
   const onCaptureClose = () => {
     closeSheetReq();
     // opened by the bookmarklet in its own little window: send it and close
@@ -129,14 +130,26 @@ export function App() {
           <a href="#shopping" aria-current={route.view === "shopping" ? "page" : undefined}><IconCart /><span>Shopping list</span>{toBuy > 0 && <span className="badge">{toBuy}</span>}</a>
           <a href="#inbox" aria-current={route.view === "inbox" ? "page" : undefined}><IconInbox /><span>Inbox</span>{waiting > 0 && <span className="badge">{waiting}</span>}</a>
         </nav>
-        <nav className="side-topics" aria-label="Topics">
-          <span className="eyebrow">Topics</span>
-          {top.map((t) => (
-            <a key={t.id} href={topicHref(t.id)} aria-current={route.view === "topics" && (route.sub === t.id || route.sub?.startsWith(t.id + "/")) ? "page" : undefined}>
-              <span className="swatch sm" style={{ background: topicColor(t) }} /><span dir="auto">{t.name}</span>
-            </a>
-          ))}
-        </nav>
+        <div className="side-scroll">
+          {pinned.length > 0 && (
+            <nav className="side-topics" aria-label="Pinned">
+              <span className="eyebrow">Pinned</span>
+              {pinned.map((d) => (
+                <a key={d.path} href={docHref(d.path)} aria-current={route.view === "doc" && route.sub === d.path ? "page" : undefined}>
+                  <span className="side-emoji" aria-hidden="true">{docEmoji(d)}</span><span className="clamp1" dir="auto">{docLabel(d)}</span>
+                </a>
+              ))}
+            </nav>
+          )}
+          <nav className="side-topics" aria-label="Topics">
+            <span className="eyebrow">Topics</span>
+            {top.map((t) => (
+              <a key={t.id} href={topicHref(t.id)} aria-current={route.view === "topics" && (route.sub === t.id || route.sub?.startsWith(t.id + "/")) ? "page" : undefined}>
+                <span className="swatch sm" style={{ background: topicColor(t) }} /><span dir="auto">{t.name}</span>
+              </a>
+            ))}
+          </nav>
+        </div>
         <div className="side-foot"><DataPill onOpen={() => openSheet({ kind: "data" })} /></div>
       </aside>
 

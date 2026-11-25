@@ -15,7 +15,7 @@ import { Menu, Seg, useSessionState } from "../components/ui";
 import { medDate } from "../lib/dates";
 import { back } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { deleteDocs, patch } from "../state/actions";
+import { deleteDocs, patch, pinItem } from "../state/actions";
 import { useIndex } from "../state/store";
 import { DocTags, DocTopics, LinkedFrom, TitleInput } from "./DocPage";
 
@@ -116,6 +116,7 @@ export function RecipePage({ d, ix }: { d: Doc; ix: Index }) {
             {(times || r.yield) && <p className="muted small" dir="auto">{[times, r.yield].filter(Boolean).join(" · ")}</p>}
           </div>
           <Menu label="More" icon={<IconMore />} items={[
+            pinItem(d),
             { label: "Edit details", run: () => setDetails(true) },
             { label: editing ? "Done editing" : "Edit the recipe", run: () => setEditing((x) => !x) },
             r.source ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.source!) } : null,

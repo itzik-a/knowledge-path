@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIndex, inbox, itemsIn, parseDoc, resolve, type Doc } from "../shared/index.ts";
+import { buildIndex, inbox, itemsIn, parseDoc, pinnedDocs, resolve, type Doc } from "../shared/index.ts";
 import { SEED } from "../shared/seed.ts";
 import {
   addHighlight, excerpt, extractLinks, extractTags, guessType, kindOf, parseHighlights, parseSteps, renameLinks, replaceHighlight,
@@ -149,5 +149,24 @@ describe("index", () => {
     expect(resources.filter((d) => !s.topicsOf.has(d.path)).map((d) => d.path)).toEqual([]);
     expect(inbox(s)).toEqual([]);
     expect(s.docs.get("Resources/Israel - A History.md")?.title).toBe("Israel: A History");
+  });
+});
+
+describe("pins", () => {
+  it("reads pinned: as a time, a date or true, and lists the most recently pinned first", () => {
+    const v = ix({
+      "Notes/Old.md": "---\npinned: 2026-11-20T09:00\n---\nold",
+      "Notes/New.md": "---\npinned: 2026-11-25T16:30\n---\nnew",
+      "Notes/Day.md": "---\npinned: 2026-11-22\n---\nday",
+      "Notes/Plain.md": "---\npinned: true\n---\nplain",
+      "Notes/Off.md": "---\npinned: false\n---\noff",
+      "Notes/Junk.md": "---\npinned: soon\n---\njunk",
+      "Notes/None.md": "nothing",
+      "Topics/Dev.md": "---\npinned: true\n---\n",
+      "Recipes/Soup.md": "---\npinned: 2026-11-21T10:00\n---\n## Ingredients\n- water",
+    });
+    expect(pinnedDocs(v).map((d) => d.title)).toEqual(["New", "Day", "Soup", "Old", "Plain"]);
+    expect(v.docs.get("Notes/None.md")!.pinned).toBeUndefined();
+    expect(v.docs.get("Topics/Dev.md")!.pinned).toBeUndefined();
   });
 });

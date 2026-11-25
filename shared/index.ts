@@ -5,7 +5,7 @@ import {
   basename, dirname, excerpt, extractLinks, extractTags, firstLine, FOLDER, journalDate, kindOf, refTarget, resourceOf,
   slug, splitFrontmatter, strList, type Kind, type Link, type Resource,
 } from "./vault.ts";
-import { habitOf, parseLog, type Habit, type LogEntry } from "./habits.ts";
+import { habitOf, parseLog, parseStamp, type Habit, type LogEntry } from "./habits.ts";
 import { parseRecipe, recipeOf, summarize, type Recipe, type RecipeSummary } from "./recipes.ts";
 import { isLockedName, sealedPayload } from "./private.ts";
 import { chapterOf, type ChapterInfo } from "./books.ts";
@@ -36,6 +36,10 @@ export interface Doc {
   private?: boolean;
   /** still encrypted on this device (no passphrase yet): the body is empty here */
   sealed?: boolean;
+  /** `pinned: 2026-11-25T16:30` (when it was pinned, local time) or `pinned: true`: kept at hand on Home and in the sidebar */
+  pinned?: boolean;
+  /** when it was pinned ("" for `pinned: true`), for the order */
+  pinnedAt?: string;
 }
 
 export interface Topic {
@@ -76,6 +80,7 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
   return {
     path, kind, name, fm, body, mtime, date,
     private: fm.private === true || undefined, sealed: sealed || undefined,
+    ...pinOf(kind, fm.pinned),
     // a locked note's file name is neutral: its title is in its frontmatter (or its first line, or just "Locked note")
     title: fmTitle ?? (isLockedName(name) ? firstLine(body) || "Locked note" : name === "Untitled" ? firstLine(body) || name : name),
     links: kind === "hub" ? [] : extractLinks(body),
@@ -233,6 +238,20 @@ export function ancestry(ix: Index, id: string): Topic[] {
   const out: Topic[] = [];
   for (let t = ix.topics.get(id); t; t = t.parent ? ix.topics.get(t.parent) : undefined) out.unshift(t);
   return out;
+}
+
+/** A file's pin: `pinned: true`, or the time it was pinned (any date or date-time Obsidian writes). Not for topics or app data. */
+function pinOf(kind: Kind, v: unknown): { pinned?: boolean; pinnedAt?: string } {
+  if (kind === "hub" || kind === "topic" || v == null || v === false) return {};
+  if (v === true) return { pinned: true, pinnedAt: "" };
+  const at = parseStamp(v) ?? (v instanceof Date ? v.toISOString().slice(0, 10) : typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : undefined);
+  return at === undefined ? {} : { pinned: true, pinnedAt: at };
+}
+
+/** Pinned items, the most recently pinned first (then by title). */
+export function pinnedDocs(ix: Index): Doc[] {
+  return [...ix.docs.values()].filter((d) => d.pinned)
+    .sort((a, b) => (b.pinnedAt ?? "").localeCompare(a.pinnedAt ?? "") || a.title.localeCompare(b.title));
 }
 
 /** Items waiting to be sorted: resources and notes in no topic yet. */
