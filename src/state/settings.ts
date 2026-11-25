@@ -3,6 +3,7 @@
    (false: ticked tasks stay where they are) and `home` ({ order, hidden }: Home's cards, src/views/Home.tsx). */
 import { useSyncExternalStore } from "react";
 import { showToast } from "../lib/toast";
+import type { Index } from "../../shared/index.ts";
 import { readFile, subscribe, writeFile } from "./store";
 
 export const SETTINGS_PATH = ".hub/settings.json";
@@ -41,7 +42,7 @@ export const setSinkChecked = (on: boolean) =>
   changeSetting("sinkChecked", on ? undefined : false, on ? "Ticked items move to the bottom" : "Ticked items stay in place");
 
 // Home's cards
-export const HOME_CARDS: { id: string; name: string }[] = [
+export const HOME_CARDS: HomeCardInfo[] = [
   { id: "pinned", name: "Pinned" },
   { id: "habits", name: "Habits" },
   { id: "recipes", name: "Recipes" },
@@ -51,37 +52,48 @@ export const HOME_CARDS: { id: string; name: string }[] = [
   { id: "highlight", name: "From your highlights" },
   { id: "recent", name: "Recently saved" },
 ];
-const DEFAULT_ORDER = HOME_CARDS.map((c) => c.id);
+export type HomeCardInfo = { id: string; name: string };
 export type HomeLayout = { order: string[]; hidden: string[] };
 
-/** The saved order (unknown ids dropped, cards added since appended in their default place) and the hidden ones. */
-export function homeLayout(s: Record<string, unknown>): HomeLayout {
+/** Every card Home can show: the fixed ones, and after Habits one per habit with its own card (`card: true`),
+   id `habit:<path>` (renaming the habit puts its card back in that default place). */
+export function homeCards(ix: Index): HomeCardInfo[] {
+  const own = [...ix.docs.values()].filter((d) => d.kind === "habit" && d.habit?.card && !d.habit.archived)
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((d) => ({ id: `habit:${d.path}`, name: `${d.habit!.icon ?? "🔁"} ${d.title}` }));
+  const at = HOME_CARDS.findIndex((c) => c.id === "habits") + 1;
+  return [...HOME_CARDS.slice(0, at), ...own, ...HOME_CARDS.slice(at)];
+}
+
+/** The saved order (unknown ids dropped, cards added since slotted in at their default place) and the hidden ones. */
+export function homeLayout(s: Record<string, unknown>, cards: HomeCardInfo[] = HOME_CARDS): HomeLayout {
+  const all = cards.map((c) => c.id);
   const h = (s.home && typeof s.home === "object" ? s.home : {}) as { order?: unknown; hidden?: unknown };
-  const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && DEFAULT_ORDER.includes(x)) : []);
+  const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && all.includes(x)) : []);
   const order = [...new Set(strs(h.order))];
-  for (const id of DEFAULT_ORDER) if (!order.includes(id)) {
+  for (const id of all) if (!order.includes(id)) {
     // after the card that comes before it by default, else first
-    const prev = DEFAULT_ORDER.slice(0, DEFAULT_ORDER.indexOf(id)).reverse().find((p) => order.includes(p));
+    const prev = all.slice(0, all.indexOf(id)).reverse().find((p) => order.includes(p));
     order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, id);
   }
   return { order, hidden: strs(h.hidden) };
 }
-export const useHomeLayout = () => homeLayout(useSettings());
+export const useHomeLayout = (cards: HomeCardInfo[]) => homeLayout(useSettings(), cards);
 
-/** Write the layout; with a toast, offer Undo. */
-function writeHome(l: HomeLayout, toast?: string) {
-  const plain = l.order.join() === DEFAULT_ORDER.join();
+/** Write the layout (only what differs from the default); with a toast, offer Undo. */
+function writeHome(l: HomeLayout, cards: HomeCardInfo[], toast?: string) {
+  const plain = l.order.join() === cards.map((c) => c.id).join();
   const v = plain && !l.hidden.length ? undefined : { ...(plain ? {} : { order: l.order }), ...(l.hidden.length ? { hidden: l.hidden } : {}) };
   if (toast) changeSetting("home", v, toast); else writeSetting("home", v);
 }
-export function setHomeCardShown(id: string, shown: boolean) {
-  const l = homeLayout(readSettings());
+export function setHomeCardShown(id: string, shown: boolean, cards: HomeCardInfo[]) {
+  const l = homeLayout(readSettings(), cards);
   const hidden = shown ? l.hidden.filter((x) => x !== id) : [...new Set([...l.hidden, id])];
-  writeHome({ ...l, hidden }, `${HOME_CARDS.find((c) => c.id === id)?.name}: ${shown ? "shown" : "hidden"} on Home`);
+  writeHome({ ...l, hidden }, cards, `${cards.find((c) => c.id === id)?.name}: ${shown ? "shown" : "hidden"} on Home`);
 }
 /** A new order (from dragging in Vault & settings → Home); no toast: dragging again undoes it. */
-export function setHomeOrder(order: string[]) {
-  const l = homeLayout(readSettings());
-  writeHome({ ...l, order: homeLayout({ home: { order } }).order });
+export function setHomeOrder(order: string[], cards: HomeCardInfo[]) {
+  const l = homeLayout(readSettings(), cards);
+  writeHome({ ...l, order: homeLayout({ home: { order } }, cards).order }, cards);
 }
-export function resetHome() { writeHome({ order: DEFAULT_ORDER, hidden: [] }, "Home cards back to the default"); }
+export function resetHome(cards: HomeCardInfo[]) { writeHome({ order: cards.map((c) => c.id), hidden: [] }, cards, "Home cards back to the default"); }

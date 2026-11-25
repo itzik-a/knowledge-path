@@ -8,7 +8,7 @@ import { docHref, go } from "../lib/route";
 import { createHabit, setBodyOf, updateHabit } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { TopicPicker } from "./bits";
-import { Field, Seg, Sheet, Stepper, closeSheet } from "./ui";
+import { Field, Seg, Sheet, Stepper, Switch, closeSheet } from "./ui";
 
 export function HabitSheet({ path, topics: startTopics, onClose }: { path?: string; topics?: string[]; onClose: () => void }) {
   const ix = useIndex();
@@ -23,6 +23,7 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
   const [target, setTarget] = useState(h?.target != null ? String(h.target) : "");
   const [topics, setTopics] = useState<string[]>(startTopics ?? []);
   const [desc, setDesc] = useState(d ? habitIntro(d.body) : "");
+  const [card, setCard] = useState(!!h?.card);
   const [err, setErr] = useState("");
   const form = useRef<HTMLFormElement>(null);
 
@@ -32,7 +33,7 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
     const goal: Goal = per === "week" ? { per: "week", times } : { per };
     const u = mode === "timer" ? "h" : mode === "amount" ? unit.trim() || "times" : undefined;
     const tn = Number(target.replace(",", "."));
-    const fields = { name: name.trim(), icon: icon.trim() || undefined, goal, unit: u, target: u && target.trim() && Number.isFinite(tn) && tn > 0 ? tn : undefined, timer: mode === "timer" };
+    const fields = { name: name.trim(), icon: icon.trim() || undefined, goal, unit: u, target: u && target.trim() && Number.isFinite(tn) && tn > 0 ? tn : undefined, timer: mode === "timer", card };
     if (d) {
       const next = updateHabit(d.path, fields);
       const c = readFile(next);
@@ -69,8 +70,8 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
           {mode === "amount" && <p className="muted small">Minutes, pages, km… each time you log.</p>}
           {mode === "timer" && (
             <>
-              <p className="muted small">Start it, then end it, e.g. a fast. The hours go in the log on the day it ends.</p>
-              <Field label="Goal in hours" hint="Optional, e.g. 16 for 16:8.">
+              <p className="muted small">Start it, then end it, e.g. a fast. You choose how long each time you start; the hours go in the log on the day it ends.</p>
+              <Field label="Usual length in hours" hint="Optional, e.g. 16 for 16:8: picked first when you start.">
                 <input className="text-input" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="16" />
               </Field>
             </>
@@ -92,6 +93,10 @@ export function HabitSheet({ path, topics: startTopics, onClose }: { path?: stri
             <TopicPicker value={topics} onChange={setTopics} />
           </div>
         )}
+        <div className="field">
+          <label className="switch-row"><Switch on={card} onChange={setCard} label="Own card on Home" /> Own card on Home</label>
+          <p className="muted small">{mode === "timer" ? "Its timer and progress get a card of their own" : "It gets a card of its own"}, and it leaves the Habits card and its count for today. Move or hide the card in Vault & settings → Home.</p>
+        </div>
         <Field label="About it">
           <textarea className="text-input" dir="auto" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Optional: why, when, how much" />
         </Field>

@@ -33,6 +33,10 @@ export interface Habit {
   timer: boolean;
   /** A timed habit's running timer: local "YYYY-MM-DDTHH:MM". */
   started?: string;
+  /** The running timer's chosen length in hours (`length:`, set when it starts; 0 = open-ended). */
+  length?: number;
+  /** Shown in its own card on Home (`card: true`), not in the Habits card. */
+  card: boolean;
 }
 
 export interface LogEntry { date: string; amount?: number; line: number }
@@ -69,8 +73,13 @@ export function habitOf(fm: Record<string, unknown>): Habit {
     archived: fm.archived === true,
     timer: fm.timer === true,
     started: fm.timer === true ? parseStamp(fm.started) : undefined,
+    ...(fm.timer === true && parseStamp(fm.started) && (fm.length === 0 || posNum(fm.length)) ? { length: fm.length === 0 ? 0 : posNum(fm.length) } : {}),
+    card: fm.card === true,
   };
 }
+
+/** What a running timer counts toward: the length chosen when it started (none if open-ended), else the habit's goal. */
+export const timerAim = (h: Pick<Habit, "length" | "target">) => (h.length === 0 ? undefined : h.length ?? h.target);
 
 // ── Timed habits ──────────────────────────────────────────────
 // A running timer is the frontmatter's `started:` (local time, the way Obsidian writes a "Date & time" property),
@@ -127,7 +136,7 @@ export function endTimerIn(text: string, now: Date): { text: string; date: strin
   if (!h.started) return null;
   const { date, hours } = timerEnd(h.started, now);
   const prev = parseLog(body).find((e) => e.date === date);
-  const next = setFrontmatter(setBody(text, setLogEntry(body, date, hours, h.unit ?? "h")), { started: undefined });
+  const next = setFrontmatter(setBody(text, setLogEntry(body, date, hours, h.unit ?? "h")), { started: undefined, length: undefined });
   return { text: next, date, hours, prev };
 }
 

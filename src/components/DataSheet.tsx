@@ -1,15 +1,15 @@
 /* "Vault & settings": connect the vault repo, capture from other apps, the enricher's status, suggestions, backup. */
 import { confirmAsk } from "../lib/confirm";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { ago } from "../lib/dates";
 import { showToast } from "../lib/toast";
 import { removeSuggestions, suggestionCount } from "../state/actions";
 import { clearAll } from "../state/db";
-import { allRecords, readFile, useVault, writeFiles } from "../state/store";
+import { allRecords, readFile, useIndex, useVault, writeFiles } from "../state/store";
 import { DEFAULT_REPO, TOKEN_URL, checkRepo, connect, disconnect, getConfig, syncNow, useSyncStatus, type RepoCheck, type SyncStatus } from "../state/sync";
 import { IconExternal, IconGrip } from "./Icons";
 import { AccentPicker, ThemePicker } from "./ThemePicker";
-import { HOME_CARDS, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, useHomeLayout, useSinkChecked } from "../state/settings";
+import { homeCards, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, useHomeLayout, useSinkChecked } from "../state/settings";
 import { PrivateForm } from "./PrivateNotes";
 import { Sheet, Switch } from "./ui";
 
@@ -71,9 +71,11 @@ function NotesSection() {
 /** Home's cards: a switch each, dragged by the handle into order (pointer events, so it works with a finger, the Pencil
    and the mouse; ↑ ↓ on a focused handle move it too). The list reorders as the card passes its neighbours' middles. */
 function HomeSection() {
-  const { order, hidden } = useHomeLayout();
-  const name = (id: string) => HOME_CARDS.find((c) => c.id === id)!.name;
-  const changed = order.join() !== HOME_CARDS.map((c) => c.id).join() || hidden.length > 0;
+  const ix = useIndex();
+  const cards = useMemo(() => homeCards(ix), [ix]);
+  const { order, hidden } = useHomeLayout(cards);
+  const name = (id: string) => cards.find((c) => c.id === id)?.name ?? id;
+  const changed = order.join() !== cards.map((c) => c.id).join() || hidden.length > 0;
   const [drag, setDrag] = useState<{ id: string; list: string[]; startY: number; dy: number } | null>(null);
   const rows = useRef(new Map<string, HTMLLIElement>());
   const list = drag?.list ?? order;
@@ -103,7 +105,7 @@ function HomeSection() {
     setDrag({ ...drag, list: l, startY, dy: e.clientY - startY });
   }
   function onUp() {
-    if (drag && drag.list.join() !== order.join()) setHomeOrder(drag.list);
+    if (drag && drag.list.join() !== order.join()) setHomeOrder(drag.list, cards);
     setDrag(null);
   }
   function onKey(e: KeyboardEvent<HTMLButtonElement>, id: string) {
@@ -112,13 +114,13 @@ function HomeSection() {
     if (!by || j < 0 || j >= order.length) return;
     e.preventDefault();
     const l = [...order]; [l[i], l[j]] = [l[j], l[i]];
-    setHomeOrder(l);
+    setHomeOrder(l, cards);
   }
 
   return (
     <section className="dlg-section" aria-labelledby="home-title">
       <h3 id="home-title">Home</h3>
-      <p className="muted small">Which cards Home shows; drag them by the handle into order. A card with nothing in it stays away anyway. The same on every device.</p>
+      <p className="muted small">Which cards Home shows; drag them by the handle into order. A habit gets its own card from its Edit sheet. A card with nothing in it stays away anyway. The same on every device.</p>
       <ul className={`home-cards${drag ? " dragging" : ""}`}>
         {list.map((id) => {
           const shown = !hidden.includes(id);
@@ -127,7 +129,7 @@ function HomeSection() {
             <li key={id} ref={(el) => { if (el) rows.current.set(id, el); else rows.current.delete(id); }}
               className={[shown ? "" : "off", me ? "lifted" : ""].join(" ").trim() || undefined}
               style={me ? { transform: `translateY(${drag.dy}px)` } : undefined}>
-              <Switch on={shown} onChange={(on) => setHomeCardShown(id, on)} label={`Show ${name(id)}`} />
+              <Switch on={shown} onChange={(on) => setHomeCardShown(id, on, cards)} label={`Show ${name(id)}`} />
               <span className="grow">{name(id)}</span>
               <button type="button" className="icon-btn grip" aria-label={`Reorder ${name(id)} (drag, or use the arrow keys)`}
                 onPointerDown={(e) => onDown(e, id)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
@@ -136,7 +138,7 @@ function HomeSection() {
           );
         })}
       </ul>
-      {changed && <button type="button" className="text-btn" onClick={resetHome}>Back to the default</button>}
+      {changed && <button type="button" className="text-btn" onClick={() => resetHome(cards)}>Back to the default</button>}
     </section>
   );
 }

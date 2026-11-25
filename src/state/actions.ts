@@ -6,7 +6,7 @@ import {
   addHighlight as addHl, FOLDER, journalPath, kindOf, replaceHighlight, resourceOf, safeName, setBody, setFrontmatter, splitFrontmatter,
   toggleStep as toggle, todayISO, uniquePath, type Highlight, type ResourceType, type Status,
 } from "../../shared/vault.ts";
-import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
+import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, hoursSince, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
 import { sinkCheckedOn } from "./settings";
 import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
@@ -181,13 +181,13 @@ export async function deleteDocs(paths: string[], label?: string): Promise<boole
 }
 
 // ── habits ────────────────────────────────────────────────────
-export interface HabitFields { name: string; icon?: string; goal: Goal; unit?: string; target?: number; timer?: boolean; topics: string[]; description?: string }
+export interface HabitFields { name: string; icon?: string; goal: Goal; unit?: string; target?: number; timer?: boolean; card?: boolean; topics: string[]; description?: string }
 
 export function createHabit(f: HabitFields): string {
   const path = uniquePath(FOLDER.habits, f.name, taken);
   const fm = {
     title: safeName(f.name) !== f.name.trim() ? f.name.trim() : undefined,
-    icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined,
+    icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined, card: f.card || undefined,
     topics: f.topics.map(topicLink), created: todayISO(),
   };
   writeFile(path, setFrontmatter("", fm) + newHabitBody(f.description));
@@ -197,14 +197,20 @@ export function createHabit(f: HabitFields): string {
 /** Edit a habit's settings (renaming the file when the name changes). Returns its path. */
 export function updateHabit(path: string, f: Omit<HabitFields, "description" | "topics">): string {
   const next = retitle(path, f.name);
-  patch(next, { icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined, ...(f.timer ? {} : { started: undefined }) });
+  patch(next, { icon: f.icon, goal: goalText(f.goal), unit: f.unit, target: f.unit ? f.target : undefined, timer: f.timer || undefined, card: f.card || undefined, ...(f.timer ? {} : { started: undefined, length: undefined }) });
   return next;
 }
 
 // ── timed habits ──────────────────────────────────────────────
-/** Start a timed habit's timer (now, or at a given time). */
-export function startTimer(path: string, at = new Date()) {
-  patch(path, { started: stampOf(at) });
+/** Start a timed habit's timer (now, or at a given time, never in the future) for `length` hours (0: open-ended). */
+export function startTimer(path: string, length: number, at = new Date()) {
+  patch(path, { started: stampOf(new Date(Math.min(at.getTime(), Date.now()))), length });
+}
+
+/** A running timer's start and length as the frontmatter has them, to put back on Undo. */
+function runningOf(c: string) {
+  const fm = splitFrontmatter(c).fm;
+  return { started: fm.started, length: fm.length };
 }
 
 /** Move a running timer's start (never into the future). */
@@ -218,8 +224,8 @@ export function endTimer(path: string, title: string) {
   if (c == null) return;
   const r = endTimerIn(c, new Date());
   if (!r) return;
-  const started = habitOf(splitFrontmatter(c).fm).started!;
-  if (r.hours <= 0) { patch(path, { started: undefined }); showToast(`${title}: under a minute, not logged`, { label: "Undo", run: () => patch(path, { started }) }); return; }
+  const was = runningOf(c);
+  if (r.hours <= 0) { patch(path, { started: undefined, length: undefined }); showToast(`${title}: under a minute, not logged`, { label: "Undo", run: () => patch(path, was) }); return; }
   writeFile(path, r.text);
   showToast(`${title}: ${fmtHours(r.hours)} logged`, {
     label: "Undo",
@@ -228,19 +234,23 @@ export function endTimer(path: string, title: string) {
       if (now == null) return;
       const { body } = splitFrontmatter(now);
       const unit = habitOf(splitFrontmatter(now).fm).unit;
-      writeFile(path, setFrontmatter(setBody(now, setLogEntry(body, r.date, r.prev ? r.prev.amount : null, unit)), { started }));
+      writeFile(path, setFrontmatter(setBody(now, setLogEntry(body, r.date, r.prev ? r.prev.amount : null, unit)), was));
     },
   });
 }
 
-/** Stop the timer without logging it, with Undo. */
-export function discardTimer(path: string, title: string) {
-  const c = readFile(path);
-  if (c == null) return;
-  const started = habitOf(splitFrontmatter(c).fm).started;
-  if (!started) return;
-  patch(path, { started: undefined });
-  showToast(`${title}: timer discarded`, { label: "Undo", run: () => patch(path, { started }) });
+/** Stop the timer without logging it: asks first (the confirm modal), then offers Undo. Resolves to whether it was. */
+export async function discardTimer(path: string, title: string): Promise<boolean> {
+  const started = readFile(path) != null ? habitOf(splitFrontmatter(readFile(path)!).fm).started : undefined;
+  if (!started) return false;
+  const so = fmtHours(hoursSince(started, new Date()));
+  if (!(await confirmAsk({ title: `Discard this ${title} timer?`, body: `${so} so far won't be logged. Ending it instead logs the hours.`, ok: "Discard" }))) return false;
+  const c = readFile(path); // read again: it may have changed (or ended on another device) while the question was open
+  if (c == null || !habitOf(splitFrontmatter(c).fm).started) return false;
+  const was = runningOf(c);
+  patch(path, { started: undefined, length: undefined });
+  showToast(`${title}: timer discarded`, { label: "Undo", run: () => patch(path, was) });
+  return true;
 }
 
 /** Log a day (or change its amount). */

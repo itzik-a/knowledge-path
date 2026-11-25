@@ -2,14 +2,14 @@
    (Home and #habits), a timed habit's timer card, a minutes habit's session timer card and button, the last-7-days strip, the calendar heatmap and the log list. */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Doc } from "../../shared/index.ts";
-import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, isMinutesHabit, parseHours, parseStamp, shiftDay, stampOf, stampTime, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
+import { dayNum, dayStr, fmtAmount, fmtHours, goalLabel, habitStats, hoursSince, isMinutesHabit, parseHours, parseStamp, shiftDay, stampOf, stampTime, timerAim, weekOf, type HabitStats, type LogEntry } from "../../shared/habits.ts";
 import { todayISO } from "../../shared/vault.ts";
 import { longDate, medDate, parseISO, shortDate } from "../lib/dates";
 import { docHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { fmtLeft } from "../lib/timers";
 import { settleLeft, sitElapsed, sitLeft, useSit } from "../state/sit";
-import { discardTimer, endTimer, logHabit, setTimerStart, startTimer, unlogHabit } from "../state/actions";
+import { discardTimer, endTimer, logHabit, setTimerStart, unlogHabit } from "../state/actions";
 import { IconCheck, IconClose, IconEdit, IconPlay, IconStop, IconTrash } from "./Icons";
 
 export const habitIcon = (d: Doc) => d.habit?.icon ?? "🔁";
@@ -80,7 +80,7 @@ export function habitMeta(d: Doc, s: HabitStats, today = todayISO(), now = new D
   const g = d.habit!.goal;
   const parts: string[] = [];
   if (d.habit!.started) {
-    const el = hoursSince(d.habit!.started, now), target = d.habit!.target;
+    const el = hoursSince(d.habit!.started, now), target = timerAim(d.habit!);
     parts.push(target && el >= target ? `${fmtHours(el)} · goal reached` : `${fmtHours(el)}${target ? ` of ${fmtAmount(target)} h` : " so far"}`);
     if (s.current) parts.push(`${s.current}-${s.unit} streak`);
     return parts.join(" · ");
@@ -125,13 +125,14 @@ export function TimerButton({ d, now }: { d: Doc; now: Date }) {
   const h = d.habit!;
   if (!h.started) {
     return (
-      <button type="button" className="habit-check timer" aria-label={`Start ${d.title}`} onClick={() => startTimer(d.path)}>
+      <button type="button" className="habit-check timer" aria-label={`Start ${d.title}`} onClick={() => openTimerStart(d)}>
         <IconPlay width={18} height={18} />
       </button>
     );
   }
   const el = hoursSince(h.started, now);
-  const p = h.target ? Math.min(1, el / h.target) : 0;
+  const aim = timerAim(h);
+  const p = aim ? Math.min(1, el / aim) : 0;
   const C = 2 * Math.PI * 20;
   return (
     <button type="button" className={`habit-check timer running${p >= 1 ? " met" : ""}`} aria-label={`End ${d.title} (${fmtHours(el)} so far)`} onClick={() => endTimer(d.path, d.title)}>
@@ -144,50 +145,55 @@ export function TimerButton({ d, now }: { d: Doc; now: Date }) {
   );
 }
 
+/** Starting a timed habit asks how long first (components/TimerStartSheet.tsx). */
+export const openTimerStart = (d: Doc) => openSheet({ kind: "timer", path: d.path });
+
 /** A timed habit's timer on its page: how long so far, toward the goal, when it started (and changing that), End and Discard. */
 export function TimerCard({ d }: { d: Doc }) {
+  return <section className={`card timer-card${d.habit!.started ? " running" : ""}`}><TimerPanel d={d} heading /></section>;
+}
+
+/** The timer card's contents (also a timed habit's own card on Home, whose card head is the heading). */
+export function TimerPanel({ d, heading }: { d: Doc; heading?: boolean }) {
   const h = d.habit!;
   const now = useNow(h.started ? 5000 : 0);
   const [editing, setEditing] = useState(false);
   if (!h.started) {
     const last = d.log?.find((e) => e.amount != null);
     return (
-      <section className="card timer-card">
-        <div className="timer-idle">
-          <div className="grow">
-            <h2>Timer</h2>
-            <p className="muted small">{last ? `Last: ${fmtHours(last.amount!)}, ${shortDate(last.date)}` : "Start it when you begin and end it when you're done; the hours go in the log."}</p>
-          </div>
-          <button type="button" className="btn primary" onClick={() => startTimer(d.path)}><IconPlay width={16} height={16} /> Start</button>
+      <div className="timer-idle">
+        <div className="grow">
+          {heading && <h2>Timer</h2>}
+          <p className="muted small">{last ? `Last: ${fmtHours(last.amount!)}, ${shortDate(last.date)}` : "Start it when you begin and end it when you're done; the hours go in the log."}</p>
         </div>
-        <p className="muted small">Started earlier? Start it, then change the start time.</p>
-      </section>
+        <button type="button" className="btn primary" onClick={() => openTimerStart(d)}><IconPlay width={16} height={16} /> Start</button>
+      </div>
     );
   }
   const start = stampTime(h.started);
   const el = hoursSince(h.started, now);
-  const target = h.target;
+  const target = timerAim(h);
   const met = !!target && el >= target;
   const goalAt = target ? new Date(start.getTime() + target * 36e5) : undefined;
   return (
-    <section className="card timer-card running">
+    <>
       <span className="eyebrow">Running since {whenText(start, now)}</span>
-      <div className="timer-big" aria-live="off">{fmtHours(el)}</div>
-      {target && (
+      <div className="timer-big" aria-live="off">{fmtHours(el)}{target ? <span className="timer-of"> / {fmtAmount(target)} h</span> : null}</div>
+      {target ? (
         <>
           <div className="timer-bar" role="progressbar" aria-label="Toward the goal" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(el, target)} aria-valuetext={`${fmtHours(el)} of ${fmtAmount(target)} h`}>
             <span style={{ width: `${Math.min(100, (el / target) * 100)}%` }} />
           </div>
-          <p className="muted small">{met ? `Goal of ${fmtAmount(target)} h reached at ${whenText(goalAt!, now)}` : `Goal of ${fmtAmount(target)} h at ${whenText(goalAt!, now)} · ${fmtHours(target - el)} to go`}</p>
+          <p className="muted small">{met ? `${fmtAmount(target)} h reached at ${whenText(goalAt!, now)}` : `${fmtAmount(target)} h at ${whenText(goalAt!, now)} · ${fmtHours(target - el)} to go · ${Math.floor((el / target) * 100)}%`}</p>
         </>
-      )}
+      ) : <p className="muted small">Open-ended: end it when you're done.</p>}
       {editing && <StartForm d={d} started={h.started} onDone={() => setEditing(false)} />}
       <div className="btn-row">
         <button type="button" className="btn primary" onClick={() => endTimer(d.path, d.title)}><IconStop width={16} height={16} /> End</button>
         {!editing && <button type="button" className="btn ghost sm" onClick={() => setEditing(true)}>Change start</button>}
-        <button type="button" className="btn ghost sm" onClick={() => discardTimer(d.path, d.title)}>Discard</button>
+        <button type="button" className="btn ghost sm" onClick={() => void discardTimer(d.path, d.title)}>Discard</button>
       </div>
-    </section>
+    </>
   );
 }
 

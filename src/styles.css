@@ -1214,3 +1214,6 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .home-cards li.lifted { z-index: 1; box-shadow: var(--shadow-chip); border-radius: 10px; }
 .home-cards.dragging li.lifted + li, .home-cards li.lifted { border-top-color: transparent; }
 .home-edit { justify-self: center; margin: 4px auto 8px; display: block; color: var(--muted); font-weight: 500; min-height: 44px; }
+.timer-of { font-size: 1.1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.habit-card-title { display: inline-flex; gap: 6px; align-items: center; }
+.home-card .habit-row { margin-bottom: 4px; }

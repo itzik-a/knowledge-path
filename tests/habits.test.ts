@@ -27,9 +27,9 @@ describe("habit files", () => {
   });
 
   it("read the frontmatter, all of it optional", () => {
-    expect(habitOf({})).toEqual({ icon: undefined, goal: { per: "day" }, unit: undefined, target: undefined, archived: false, timer: false });
+    expect(habitOf({})).toEqual({ icon: undefined, goal: { per: "day" }, unit: undefined, target: undefined, archived: false, timer: false, card: false });
     expect(habitOf({ icon: "🧘", goal: "3/week", unit: "min", target: "20", archived: true }))
-      .toEqual({ icon: "🧘", goal: { per: "week", times: 3 }, unit: "min", target: 20, archived: true, timer: false });
+      .toEqual({ icon: "🧘", goal: { per: "week", times: 3 }, unit: "min", target: 20, archived: true, timer: false, card: false });
   });
 
   it("are indexed with their log, and filed under topics", () => {
@@ -193,6 +193,18 @@ describe("timed habits (a fast)", () => {
     expect(again.prev).toMatchObject({ date: "2026-11-23", amount: 16.5 });
     expect(again.text).toContain("- 2026-11-23: 2 h\n");
     expect(endTimerIn(r.text, new Date())).toBeNull();
+  });
+
+  it("a running timer's chosen length is what it counts toward, and ending it removes the length too", async () => {
+    const { endTimerIn, timerAim } = await import("../shared/habits.ts");
+    const fm = { timer: true, unit: "h", target: 16, started: "2026-11-22T20:00" };
+    expect(timerAim(habitOf({ ...fm, length: 18 }))).toBe(18);
+    expect(timerAim(habitOf({ ...fm, length: 0 }))).toBeUndefined(); // open-ended
+    expect(timerAim(habitOf(fm))).toBe(16); // started before lengths existed: the goal
+    expect(habitOf({ ...fm, started: undefined, length: 18 }).length).toBeUndefined(); // only while running
+    expect(habitOf({ card: true }).card).toBe(true);
+    const r = endTimerIn("---\ntimer: true\nunit: h\nstarted: 2026-11-22T20:00\nlength: 18\ncard: true\n---\n## Log\n\n", new Date(2026, 10, 23, 14, 0))!;
+    expect(r.text).toBe("---\ntimer: true\nunit: h\ncard: true\n---\n## Log\n\n- 2026-11-23: 18 h\n");
   });
 
   it("a timed habit indexes like any other, its log in hours", () => {

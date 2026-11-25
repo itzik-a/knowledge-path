@@ -1,9 +1,9 @@
 /* #home: what I pinned, today's journal entry, what I'm in the middle of, what's next, and a highlight to revisit. */
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { pinnedDocs, type Doc } from "../../shared/index.ts";
 import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
 import { DocRow, ResourceRow } from "../components/bits";
-import { HabitRow } from "../components/habits";
+import { HabitCheck, HabitRow, AmountForm, TimerPanel, WeekStrip, habitIcon, habitMeta, statsOf, useNow } from "../components/habits";
 import { habitsOf } from "./Habits";
 import { recipesOf } from "./Recipes";
 import { shoppingLeft } from "./Shopping";
@@ -16,7 +16,7 @@ import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
 import { docHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { useHomeLayout } from "../state/settings";
+import { homeCards, useHomeLayout } from "../state/settings";
 import { useIndex } from "../state/store";
 
 /** The same highlight all day, a different one tomorrow. */
@@ -51,13 +51,39 @@ function HomeCard({ id, title, count, link, className, fold, children }: {
   );
 }
 
+/** A habit with its own card (`card: true`): a timed one (a fast) shows its timer with the progress toward the length
+   chosen; any other its check, how it's going and the last 7 days. The card's id is `habit:<path>`. */
+function HabitCard({ d, fold }: { d: Doc; fold: Fold }) {
+  const today = todayISO();
+  const h = d.habit!;
+  const now = useNow(h.started ? 30000 : 0);
+  const [asking, setAsking] = useState(false);
+  const title = <span className="habit-card-title"><span aria-hidden="true">{habitIcon(d)}</span> <span dir="auto">{d.title}</span></span>;
+  const meta = habitMeta(d, statsOf(d, today), today, now);
+  return (
+    <HomeCard id={`habit:${d.path}`} fold={fold} title={title} count={h.timer && h.started && fold.closed.includes(`habit:${d.path}`) ? meta.split(" · ")[0] : undefined}
+      className={h.timer ? `timer-card${h.started ? " running" : ""}` : undefined} link={<a className="link" href={docHref(d.path)}>Open</a>}>
+      {h.timer ? <TimerPanel d={d} /> : (
+        <>
+          <div className="habit-row">
+            <span className="item-meta grow">{meta}</span>
+            <HabitCheck d={d} date={today} onAsk={() => setAsking(true)} />
+          </div>
+          {asking && <AmountForm d={d} date={today} onDone={() => setAsking(false)} />}
+          <WeekStrip d={d} />
+        </>
+      )}
+    </HomeCard>
+  );
+}
+
 export function Home() {
   const ix = useIndex();
   const today = todayISO();
   const entry = ix.docs.get(journalPath(today));
   const [introDone, setIntroDone] = useLocalState("knowledgePath.introDone", false);
   const [closed, setClosed] = useLocalState<string[]>("knowledgePath.homeFolded", []);
-  const layout = useHomeLayout();
+  const layout = useHomeLayout(useMemo(() => homeCards(ix), [ix]));
   const fold: Fold = { closed, toggle: (id) => setClosed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id])) };
 
   const resources = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "resource"), [ix]);
@@ -71,7 +97,9 @@ export function Home() {
     return dailyPick(all, today);
   }, [resources, today]);
   const allHabits = useMemo(() => habitsOf(ix), [ix]);
-  const habits = allHabits.filter((d) => !d.habit!.archived);
+  // a habit with its own card isn't in the Habits card (nor in its count)
+  const habits = allHabits.filter((d) => !d.habit!.archived && !d.habit!.card);
+  const ownCards = allHabits.filter((d) => !d.habit!.archived && d.habit!.card);
   // a habit with no schedule ("whenever") is never due, so it isn't counted in "N of M today"
   const due = habits.filter((d) => d.habit!.goal.per !== "any");
   const habitsDone = due.filter((d) => d.log?.some((e) => e.date === today)).length;
@@ -142,6 +170,7 @@ export function Home() {
         <a className="link small" href={docHref(hl.d.path)} dir="auto">{hl.d.title}{hl.d.resource?.author ? `, ${hl.d.resource.author}` : ""}</a>
       </HomeCard>
     ),
+    ...Object.fromEntries(ownCards.map((d) => [`habit:${d.path}`, <HabitCard key={d.path} d={d} fold={fold} />])),
     recent: recent.length > 0 && (
       <HomeCard id="recent" fold={fold} title="Recently saved" link={<a className="link" href="#library">All</a>}>
         <ul className="item-list">{recent.map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
