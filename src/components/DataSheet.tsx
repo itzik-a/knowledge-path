@@ -1,16 +1,17 @@
 /* "Vault & settings": connect the vault repo, capture from other apps, the enricher's status, suggestions, backup. */
 import { confirmAsk } from "../lib/confirm";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { ago } from "../lib/dates";
 import { showToast } from "../lib/toast";
 import { removeSuggestions, suggestionCount } from "../state/actions";
 import { clearAll } from "../state/db";
 import { allRecords, readFile, useVault, writeFiles } from "../state/store";
 import { DEFAULT_REPO, TOKEN_URL, checkRepo, connect, disconnect, getConfig, syncNow, useSyncStatus, type RepoCheck, type SyncStatus } from "../state/sync";
-import { IconExternal } from "./Icons";
+import { IconExternal, IconGrip } from "./Icons";
 import { AccentPicker, ThemePicker } from "./ThemePicker";
+import { HOME_CARDS, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, useHomeLayout, useSinkChecked } from "../state/settings";
 import { PrivateForm } from "./PrivateNotes";
-import { Sheet } from "./ui";
+import { Sheet, Switch } from "./ui";
 
 const dotClass = (s: SyncStatus) => (s.kind === "ok" ? "ok" : s.kind === "busy" ? "busy" : s.kind === "pending" ? "pending" : s.kind === "error" ? "err" : "");
 
@@ -24,9 +25,14 @@ export function DataPill({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-export function DataSheet({ onClose }: { onClose: () => void }) {
+export function DataSheet({ onClose, section }: { onClose: () => void; section?: string }) {
   const [, tick] = useState(0);
   useEffect(() => { const iv = setInterval(() => tick((n) => n + 1), 10_000); return () => clearInterval(iv); }, []);
+  useEffect(() => {
+    if (!section) return;
+    const t = setTimeout(() => document.getElementById(`${section}-title`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+    return () => clearTimeout(t);
+  }, [section]);
   return (
     <Sheet title="Vault & settings" onClose={onClose}>
       <SyncSection />
@@ -43,8 +49,95 @@ export function DataSheet({ onClose }: { onClose: () => void }) {
         <AccentPicker />
         <p className="muted small">The accent colour is the same on every device (it syncs with the vault).</p>
       </section>
+      <NotesSection />
+      <HomeSection />
       <MoreSection />
     </Sheet>
+  );
+}
+
+/* Settings for every device (synced in .hub/settings.json, src/state/settings.ts). */
+function NotesSection() {
+  const sink = useSinkChecked();
+  return (
+    <section className="dlg-section" aria-labelledby="notes-title">
+      <h3 id="notes-title">Checklists</h3>
+      <label className="switch-row"><Switch on={sink} onChange={setSinkChecked} label="Move ticked items to the bottom" /> Move ticked items to the bottom</label>
+      <p className="muted small">Like Apple Notes: a ticked item moves down to the top of the ticked ones, and an unticked one goes back to the end of the items still to do. In notes, journal entries and topic pages; study paths keep their order. The same on every device.</p>
+    </section>
+  );
+}
+
+/** Home's cards: a switch each, dragged by the handle into order (pointer events, so it works with a finger, the Pencil
+   and the mouse; ↑ ↓ on a focused handle move it too). The list reorders as the card passes its neighbours' middles. */
+function HomeSection() {
+  const { order, hidden } = useHomeLayout();
+  const name = (id: string) => HOME_CARDS.find((c) => c.id === id)!.name;
+  const changed = order.join() !== HOME_CARDS.map((c) => c.id).join() || hidden.length > 0;
+  const [drag, setDrag] = useState<{ id: string; list: string[]; startY: number; dy: number } | null>(null);
+  const rows = useRef(new Map<string, HTMLLIElement>());
+  const list = drag?.list ?? order;
+
+  function onDown(e: PointerEvent<HTMLButtonElement>, id: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ id, list: order, startY: e.clientY, dy: 0 });
+  }
+  function onMove(e: PointerEvent<HTMLButtonElement>) {
+    if (!drag) return;
+    let { list: l, startY } = drag;
+    const i = l.indexOf(drag.id);
+    const me = rows.current.get(drag.id)?.getBoundingClientRect();
+    const midOf = (id: string | undefined) => { const r = id ? rows.current.get(id)?.getBoundingClientRect() : undefined; return r && { mid: r.top + r.height / 2, h: r.height }; };
+    if (me) {
+      // the card's middle where the pointer has it now (its rect includes the old offset)
+      const mid = me.top - drag.dy + me.height / 2 + (e.clientY - startY);
+      const next = midOf(l[i + 1]), prev = midOf(l[i - 1]);
+      const to = next && mid > next.mid ? { j: i + 1, by: next.h } : prev && mid < prev.mid ? { j: i - 1, by: -prev.h } : null;
+      if (to) {
+        l = [...l]; [l[i], l[to.j]] = [l[to.j], l[i]];
+        startY += to.by; // its slot moved by the neighbour's height
+      }
+    }
+    setDrag({ ...drag, list: l, startY, dy: e.clientY - startY });
+  }
+  function onUp() {
+    if (drag && drag.list.join() !== order.join()) setHomeOrder(drag.list);
+    setDrag(null);
+  }
+  function onKey(e: KeyboardEvent<HTMLButtonElement>, id: string) {
+    const by = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    const i = order.indexOf(id), j = i + by;
+    if (!by || j < 0 || j >= order.length) return;
+    e.preventDefault();
+    const l = [...order]; [l[i], l[j]] = [l[j], l[i]];
+    setHomeOrder(l);
+  }
+
+  return (
+    <section className="dlg-section" aria-labelledby="home-title">
+      <h3 id="home-title">Home</h3>
+      <p className="muted small">Which cards Home shows; drag them by the handle into order. A card with nothing in it stays away anyway. The same on every device.</p>
+      <ul className={`home-cards${drag ? " dragging" : ""}`}>
+        {list.map((id) => {
+          const shown = !hidden.includes(id);
+          const me = drag?.id === id;
+          return (
+            <li key={id} ref={(el) => { if (el) rows.current.set(id, el); else rows.current.delete(id); }}
+              className={[shown ? "" : "off", me ? "lifted" : ""].join(" ").trim() || undefined}
+              style={me ? { transform: `translateY(${drag.dy}px)` } : undefined}>
+              <Switch on={shown} onChange={(on) => setHomeCardShown(id, on)} label={`Show ${name(id)}`} />
+              <span className="grow">{name(id)}</span>
+              <button type="button" className="icon-btn grip" aria-label={`Reorder ${name(id)} (drag, or use the arrow keys)`}
+                onPointerDown={(e) => onDown(e, id)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+                onKeyDown={(e) => onKey(e, id)}><IconGrip /></button>
+            </li>
+          );
+        })}
+      </ul>
+      {changed && <button type="button" className="text-btn" onClick={resetHome}>Back to the default</button>}
+    </section>
   );
 }
 

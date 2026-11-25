@@ -132,3 +132,6 @@ export const IconDownload = (p: P) => (
 export const IconPin = (p: P) => (
   <svg {...base(p)}><path d="M9 3.5h6M10 3.5v6.2L6.5 14h11L14 9.7V3.5M12 14v6.5" /></svg>
 );
+export const IconGrip = (p: P) => (
+  <svg {...base(p)}><path d="M5 9h14M5 15h14" /></svg>
+);

@@ -8,7 +8,8 @@ export type SheetReq =
   | { kind: "topic"; id?: string; parent?: string }
   | { kind: "habit"; path?: string; topics?: string[] }
   | { kind: "search" }
-  | { kind: "data" }
+  /** vault & settings; `section`: scroll to it ("home") */
+  | { kind: "data"; section?: string }
   /** draw: a new sketch for `note`, or change the sketch at `path` */
   | { kind: "sketch"; path?: string; note?: string }
   /** the passphrase for private notes; `then`: a note to make private once it's set */

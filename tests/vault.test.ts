@@ -110,6 +110,27 @@ describe("study paths", () => {
   });
 });
 
+describe("ticked items sink (Apple Notes style)", () => {
+  const b = "Shopping\n\n- [ ] eggs\n- [ ] milk\n  - oat if they have it\n- [ ] bread\n- [x] salt\n\nAfter\n- [ ] other list\n";
+  it("moves a ticked item, with its sub-items, to the top of the ticked ones", () => {
+    expect(toggleStep(b, 3, true)).toBe("Shopping\n\n- [ ] eggs\n- [ ] bread\n- [x] milk\n  - oat if they have it\n- [x] salt\n\nAfter\n- [ ] other list\n");
+    expect(toggleStep("- [ ] a\n- [ ] b\n", 0, true)).toBe("- [ ] b\n- [x] a\n");
+  });
+  it("moves an unticked item to the end of the unticked ones", () => {
+    const t = "- [x] a\n- [ ] b\n- [x] c\n";
+    expect(toggleStep(t, 0, true)).toBe("- [ ] b\n- [ ] a\n- [x] c\n");
+    expect(toggleStep("- [x] a\n- [x] b\n", 1, true)).toBe("- [ ] b\n- [x] a\n");
+  });
+  it("keeps nested lists and other lists apart", () => {
+    const n = "- [ ] top\n  - [ ] one\n  - [ ] two\n- [ ] next\n";
+    expect(toggleStep(n, 1, true)).toBe("- [ ] top\n  - [ ] two\n  - [x] one\n- [ ] next\n");
+    expect(toggleStep("- [ ] a\n- plain\n- [ ] b\n", 0, true)).toBe("- [x] a\n- plain\n- [ ] b\n");
+  });
+  it("leaves the order alone without sink", () => {
+    expect(toggleStep(b, 3)).toBe(b.replace("- [ ] milk", "- [x] milk"));
+  });
+});
+
 describe("index", () => {
   const files = {
     "Topics/Philosophy.md": "---\nicon: 🦉\ncolor: 7\n---\n",

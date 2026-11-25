@@ -201,7 +201,7 @@ export function App() {
       {sheet?.kind === "topic" && <TopicSheet id={sheet.id} parent={sheet.parent} onClose={closeSheetReq} />}
       {sheet?.kind === "habit" && <HabitSheet key={sheet.path ?? "new"} path={sheet.path} topics={sheet.topics} onClose={closeSheetReq} />}
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
-      {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} />}
+      {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} section={sheet.section} />}
       {sheet?.kind === "private" && <PrivateSheet then={sheet.then} onClose={closeSheetReq} />}
       {sheet?.kind === "shop" && <ShoppingSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "cook" && <Suspense fallback={null}><CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}

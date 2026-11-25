@@ -1,5 +1,5 @@
 /* #home: what I pinned, today's journal entry, what I'm in the middle of, what's next, and a highlight to revisit. */
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import { pinnedDocs, type Doc } from "../../shared/index.ts";
 import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
 import { DocRow, ResourceRow } from "../components/bits";
@@ -15,6 +15,8 @@ import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
 import { docHref } from "../lib/route";
+import { openSheet } from "../lib/sheets";
+import { useHomeLayout } from "../state/settings";
 import { useIndex } from "../state/store";
 
 /** The same highlight all day, a different one tomorrow. */
@@ -55,6 +57,7 @@ export function Home() {
   const entry = ix.docs.get(journalPath(today));
   const [introDone, setIntroDone] = useLocalState("knowledgePath.introDone", false);
   const [closed, setClosed] = useLocalState<string[]>("knowledgePath.homeFolded", []);
+  const layout = useHomeLayout();
   const fold: Fold = { closed, toggle: (id) => setClosed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id])) };
 
   const resources = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "resource"), [ix]);
@@ -83,6 +86,69 @@ export function Home() {
   const againOld = again.some((d) => d.cooking?.cooked.length);
   const toBuy = shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body);
 
+  const cards: Record<string, ReactNode> = {
+    pinned: pinned.length > 0 && (
+      <HomeCard id="pinned" fold={fold} count={pinned.length} title={<span className="pin-head"><IconPin width={18} height={18} /> Pinned</span>}>
+        <ul className="item-list pinned-list">{pinned.map((d) => <DocRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
+      </HomeCard>
+    ),
+    habits: habits.length > 0 ? (
+      <HomeCard id="habits" fold={fold} title="Habits" count={due.length > 0 ? `${habitsDone} of ${due.length} today` : undefined} link={<a className="link" href="#habits">All</a>}>
+        <ul className="item-list habit-list">{habits.map((d) => <HabitRow key={d.path} d={d} />)}</ul>
+      </HomeCard>
+    ) : allHabits.length === 0 && (
+      <a className="card journal-card" href="#habits">
+        <span className="journal-icon"><IconHabit /></span>
+        <span className="grow"><b>Track a habit</b><span className="muted small">Something to do every day, or a few times a week.</span></span>
+        <span className="chev">›</span>
+      </a>
+    ),
+    recipes: recipes.length > 0 ? (
+      <HomeCard id="recipes" fold={fold} title="Recipes" count={againOld ? "cook again" : undefined} link={<a className="link" href="#recipes">All {recipes.length}</a>}>
+        <ul className="item-list">{again.map((d) => <RecipeRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
+        {toBuy > 0 && <a className="link small shop-link" href="#shopping"><IconCart width={16} height={16} /> Shopping list · {toBuy} to buy</a>}
+      </HomeCard>
+    ) : (
+      <a className="card journal-card" href="#recipes">
+        <span className="journal-icon"><IconRecipe /></span>
+        <span className="grow"><b>Save a recipe</b><span className="muted small">Paste a link or write it down; scale it and cook from it step by step.</span></span>
+        <span className="chev">›</span>
+      </a>
+    ),
+    journal: (
+      <a className="card journal-card" href={docHref(journalPath(today))}>
+        <span className="journal-icon"><IconJournal /></span>
+        <span className="grow">
+          <b>{entry ? "Today's entry" : "Write today's entry"}</b>
+          <span className="muted small clamp" dir="auto">{entry?.excerpt || "What are you reading, thinking, noticing?"}</span>
+        </span>
+        <span className="chev">›</span>
+      </a>
+    ),
+    now: now.length > 0 && (
+      <HomeCard id="now" fold={fold} title="In progress" count={now.length} link={<a className="link" href="#library">Library</a>}>
+        <ul className="item-list">{now.slice(0, 5).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
+      </HomeCard>
+    ),
+    next: next.length > 0 && (
+      <HomeCard id="next" fold={fold} title="Up next" count={next.length}>
+        <ul className="item-list">{next.slice(0, 4).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
+      </HomeCard>
+    ),
+    highlight: hl && (
+      <HomeCard id="highlight" fold={fold} className="hl-card" title={<span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>}>
+        <blockquote dir="auto">{hl.quote}</blockquote>
+        {hl.comment && <Markdown body={hl.comment} from={hl.d.path} className="muted small" />}
+        <a className="link small" href={docHref(hl.d.path)} dir="auto">{hl.d.title}{hl.d.resource?.author ? `, ${hl.d.resource.author}` : ""}</a>
+      </HomeCard>
+    ),
+    recent: recent.length > 0 && (
+      <HomeCard id="recent" fold={fold} title="Recently saved" link={<a className="link" href="#library">All</a>}>
+        <ul className="item-list">{recent.map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
+      </HomeCard>
+    ),
+  };
+
   return (
     <>
       <div className="page-head">
@@ -100,71 +166,9 @@ export function Home() {
         </section>
       )}
 
-      {pinned.length > 0 && (
-        <HomeCard id="pinned" fold={fold} count={pinned.length} title={<span className="pin-head"><IconPin width={18} height={18} /> Pinned</span>}>
-          <ul className="item-list pinned-list">{pinned.map((d) => <DocRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
-        </HomeCard>
-      )}
+      {layout.order.filter((id) => !layout.hidden.includes(id)).map((id) => <Fragment key={id}>{cards[id]}</Fragment>)}
 
-      {habits.length > 0 ? (
-        <HomeCard id="habits" fold={fold} title="Habits" count={due.length > 0 ? `${habitsDone} of ${due.length} today` : undefined} link={<a className="link" href="#habits">All</a>}>
-          <ul className="item-list habit-list">{habits.map((d) => <HabitRow key={d.path} d={d} />)}</ul>
-        </HomeCard>
-      ) : allHabits.length === 0 && (
-        <a className="card journal-card" href="#habits">
-          <span className="journal-icon"><IconHabit /></span>
-          <span className="grow"><b>Track a habit</b><span className="muted small">Something to do every day, or a few times a week.</span></span>
-          <span className="chev">›</span>
-        </a>
-      )}
-
-      {recipes.length > 0 ? (
-        <HomeCard id="recipes" fold={fold} title="Recipes" count={againOld ? "cook again" : undefined} link={<a className="link" href="#recipes">All {recipes.length}</a>}>
-          <ul className="item-list">{again.map((d) => <RecipeRow key={d.path} d={d} ix={ix} showTopics={false} />)}</ul>
-          {toBuy > 0 && <a className="link small shop-link" href="#shopping"><IconCart width={16} height={16} /> Shopping list · {toBuy} to buy</a>}
-        </HomeCard>
-      ) : (
-        <a className="card journal-card" href="#recipes">
-          <span className="journal-icon"><IconRecipe /></span>
-          <span className="grow"><b>Save a recipe</b><span className="muted small">Paste a link or write it down; scale it and cook from it step by step.</span></span>
-          <span className="chev">›</span>
-        </a>
-      )}
-
-      <a className="card journal-card" href={docHref(journalPath(today))}>
-        <span className="journal-icon"><IconJournal /></span>
-        <span className="grow">
-          <b>{entry ? "Today's entry" : "Write today's entry"}</b>
-          <span className="muted small clamp" dir="auto">{entry?.excerpt || "What are you reading, thinking, noticing?"}</span>
-        </span>
-        <span className="chev">›</span>
-      </a>
-
-      {now.length > 0 && (
-        <HomeCard id="now" fold={fold} title="In progress" count={now.length} link={<a className="link" href="#library">Library</a>}>
-          <ul className="item-list">{now.slice(0, 5).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </HomeCard>
-      )}
-
-      {next.length > 0 && (
-        <HomeCard id="next" fold={fold} title="Up next" count={next.length}>
-          <ul className="item-list">{next.slice(0, 4).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </HomeCard>
-      )}
-
-      {hl && (
-        <HomeCard id="highlight" fold={fold} className="hl-card" title={<span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>}>
-          <blockquote dir="auto">{hl.quote}</blockquote>
-          {hl.comment && <Markdown body={hl.comment} from={hl.d.path} className="muted small" />}
-          <a className="link small" href={docHref(hl.d.path)} dir="auto">{hl.d.title}{hl.d.resource?.author ? `, ${hl.d.resource.author}` : ""}</a>
-        </HomeCard>
-      )}
-
-      {recent.length > 0 && (
-        <HomeCard id="recent" fold={fold} title="Recently saved" link={<a className="link" href="#library">All</a>}>
-          <ul className="item-list">{recent.map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
-        </HomeCard>
-      )}
+      <button type="button" className="text-btn small home-edit" onClick={() => openSheet({ kind: "data", section: "home" })}>Choose what Home shows</button>
     </>
   );
 }

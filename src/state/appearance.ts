@@ -5,9 +5,8 @@
 import { useSyncExternalStore } from "react";
 import { refreshThemeColor } from "../lib/theme";
 import { showToast } from "../lib/toast";
-import { readFile, subscribe, writeFile } from "./store";
-
-export const SETTINGS_PATH = ".hub/settings.json";
+import { readFile, subscribe } from "./store";
+import { SETTINGS_PATH, readSettings, writeSetting } from "./settings";
 const KEY = "knowledgePath.accent";
 
 export type Accent = "plum" | "blue" | "teal" | "green" | "amber" | "indigo" | "graphite";
@@ -24,10 +23,6 @@ export const ACCENTS: { id: Accent; name: string; light: string; dark: string; o
 ];
 
 const isAccent = (v: unknown): v is Accent => ACCENTS.some((a) => a.id === v);
-
-function readSettings(): Record<string, unknown> {
-  try { const j = JSON.parse(readFile(SETTINGS_PATH) ?? "{}") as unknown; return j && typeof j === "object" && !Array.isArray(j) ? j as Record<string, unknown> : {}; } catch { return {}; }
-}
 
 let current: Accent = (() => { try { const v = localStorage.getItem(KEY); return isAccent(v) ? v : "plum"; } catch { return "plum"; } })();
 const subs = new Set<() => void>();
@@ -70,11 +65,7 @@ function follow() {
 export function setAccent(a: Accent) {
   const before = current;
   if (a === before) return;
-  const write = (x: Accent) => {
-    const rest = readSettings();
-    if (x === "plum") delete rest.accent; else rest.accent = x;
-    writeFile(SETTINGS_PATH, JSON.stringify(rest, null, 2) + "\n");
-  };
+  const write = (x: Accent) => writeSetting("accent", x === "plum" ? undefined : x);
   write(a);
   showToast(`Accent: ${ACCENTS.find((x) => x.id === a)!.name.split(" (")[0]}`, { label: "Undo", run: () => write(before) });
 }

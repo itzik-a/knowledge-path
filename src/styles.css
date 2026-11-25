@@ -1202,3 +1202,15 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .accent-pick[aria-checked="true"] span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
 .accent-pick svg { width: 16px; height: 16px; }
 .accent-name { margin: 0; font-weight: 600; font-size: .9rem; }
+
+/* Vault & settings → Home: which cards, in what order */
+.home-cards { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.home-cards li { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 6px 4px 12px; }
+.home-cards li + li { border-top: 1px solid var(--line); }
+.home-cards li.off .grow { color: var(--muted); }
+.home-cards li { position: relative; background: var(--raised); }
+.home-cards .grip { background: transparent; color: var(--muted); cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.home-cards.dragging, .home-cards.dragging * { cursor: grabbing; -webkit-user-select: none; user-select: none; }
+.home-cards li.lifted { z-index: 1; box-shadow: var(--shadow-chip); border-radius: 10px; }
+.home-cards.dragging li.lifted + li, .home-cards li.lifted { border-top-color: transparent; }
+.home-edit { justify-self: center; margin: 4px auto 8px; display: block; color: var(--muted); font-weight: 500; min-height: 44px; }

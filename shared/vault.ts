@@ -352,11 +352,37 @@ export function parseSteps(body: string): Step[] {
 }
 
 /** Tick or untick the checkbox on a body line. */
-export function toggleStep(body: string, line: number): string {
+/** Tick or untick the task on `line`. With `sink` (Apple Notes style), the item moves with its sub-items to where the
+   unticked items end: a ticked one becomes the first ticked item, an unticked one the last unticked item. "Its list" is the run of task items at
+   the same indent around it (a blank line, a plain item or anything less indented ends it). */
+export function toggleStep(body: string, line: number, sink = false): string {
   const lines = body.split("\n");
   const m = STEP_RE.exec(lines[line] ?? "");
   if (!m) return body;
-  lines[line] = lines[line].replace(/\[([ xX])\]/, m[2] === " " ? "[x]" : "[ ]");
+  const done = m[2] === " ";
+  lines[line] = lines[line].replace(/\[([ xX])\]/, done ? "[x]" : "[ ]");
+  if (!sink) return lines.join("\n");
+
+  const ind = m[1].length;
+  const indentOf = (l: string) => /^\s*/.exec(l)![0].length;
+  const isChild = (i: number) => i < lines.length && lines[i].trim() !== "" && indentOf(lines[i]) > ind;
+  const sibling = (i: number) => { const s = STEP_RE.exec(lines[i] ?? ""); return !!s && s[1].length === ind; };
+  const blockEnd = (i: number) => { let e = i + 1; while (isChild(e)) e++; return e; };
+  // the run: back over siblings and their children, forward the same way
+  let start = line;
+  for (let i = line - 1; i >= 0; i--) {
+    if (sibling(i)) start = i;
+    else if (!isChild(i)) break;
+  }
+  let end = blockEnd(line);
+  while (sibling(end)) end = blockEnd(end);
+
+  const item = lines.slice(line, blockEnd(line));
+  const rest = [...lines.slice(start, line), ...lines.slice(line + item.length, end)];
+  // before the first ticked sibling, else at the end
+  const first = rest.findIndex((l) => { const s = STEP_RE.exec(l); return !!s && s[1].length === ind && s[2] !== " "; });
+  rest.splice(first >= 0 ? first : rest.length, 0, ...item);
+  lines.splice(start, end - start, ...rest);
   return lines.join("\n");
 }
 

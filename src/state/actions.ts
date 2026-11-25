@@ -8,6 +8,7 @@ import {
 } from "../../shared/vault.ts";
 import { addToLog, endTimerIn, fmtAmount, fmtHours, goalText, habitOf, newHabitBody, parseLog, setLogEntry, stampOf, type Goal } from "../../shared/habits.ts";
 import { recipeBody, setCooked } from "../../shared/recipes.ts";
+import { sinkCheckedOn } from "./settings";
 import { addItems, clearDone, parseShopping, SHOPPING_PATH, type NewItem } from "../../shared/shopping.ts";
 import { showToast } from "../lib/toast";
 import { deleteVaultBranch } from "./sync";
@@ -140,11 +141,15 @@ export function createPath(title: string, topics: string[]): string {
 
 export const journalFor = (date = todayISO()) => journalPath(date);
 
+/** Tick a task. In notes, journal entries and topic pages a ticked item sinks to the bottom of its list (the setting in
+   Vault & settings); a study path's steps keep their order. */
 export function toggleStep(path: string, line: number) {
   const c = readFile(path);
   if (c == null) return;
   const { body } = splitFrontmatter(c);
-  writeFile(path, setBody(c, toggle(body, line)));
+  const kind = kindOf(path);
+  const sink = (kind === "note" || kind === "journal" || kind === "topic") && sinkCheckedOn();
+  writeFile(path, setBody(c, toggle(body, line, sink)));
 }
 
 
