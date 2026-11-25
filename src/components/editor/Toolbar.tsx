@@ -1,33 +1,47 @@
 /* The bar above the on-screen keyboard (iPhone and iPad): checkbox, list, heading, bold, italic, link, tag, slash,
-   outdent / indent, undo / redo, the pen, and Done (hides the keyboard). Only on a touch screen and while the editor
+   outdent / indent, undo / redo, the pen, find, Ask Claude and the mic (no Done: Safari's own bar under it hides the
+   keyboard, and no web page can remove that bar). Only on a touch screen and while the editor
    has focus; it follows the keyboard with the visual viewport. Buttons keep the editor's focus (no blur on press).
    Extra buttons (dictation) come in through `extra`. */
 import { startCompletion } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { openSheet } from "../../lib/sheets";
 import { openSearchPanel } from "@codemirror/search";
 import { canDictate, stopDictation, toggleDictation, useDictating } from "./dictation";
-import { IconMic, IconSpark, IconSearch, IconCheckbox, IconIndent, IconKeyboardDown, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
-import { cycleHeading, done, indentLess, indentMore, linkSel, redo, toggleTask, undo, wrap } from "./commands";
+import { IconMic, IconSpark, IconSearch, IconCheckbox, IconIndent, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
+import { cycleHeading, indentLess, indentMore, linkSel, redo, toggleTask, undo, wrap } from "./commands";
 
 /** Is this a touch screen (no fine pointer)? */
 export const touchScreen = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
-/** How far the keyboard covers the bottom of the window, in px. */
-function useKeyboardInset(): number {
-  const [inset, setInset] = useState(0);
+/** Where the visible area ends (the top of the keyboard), in the page's fixed coordinates. Read from the visual
+   viewport alone: on iOS `innerHeight` shrinks with it when the keyboard opens, so "innerHeight minus the viewport"
+   comes out 0 and the bar would sit behind the keyboard. Followed through the keyboard's slide-in with a few frames
+   after each change, since iOS reports the size late. */
+function useViewportBottom(): number | null {
+  const [bottom, setBottom] = useState<number | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
-    const f = () => setInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
-    f();
-    vv.addEventListener("resize", f);
-    vv.addEventListener("scroll", f);
-    return () => { vv.removeEventListener("resize", f); vv.removeEventListener("scroll", f); };
+    const read = () => setBottom(vv ? vv.offsetTop + vv.height : window.innerHeight);
+    let frame = 0, until = 0;
+    const follow = () => { read(); if (performance.now() < until) frame = requestAnimationFrame(follow); };
+    const kick = () => { until = performance.now() + 700; cancelAnimationFrame(frame); follow(); };
+    kick();
+    vv?.addEventListener("resize", kick);
+    vv?.addEventListener("scroll", read);
+    window.addEventListener("scroll", read, { passive: true });
+    window.addEventListener("orientationchange", kick);
+    return () => {
+      cancelAnimationFrame(frame);
+      vv?.removeEventListener("resize", kick);
+      vv?.removeEventListener("scroll", read);
+      window.removeEventListener("scroll", read);
+      window.removeEventListener("orientationchange", kick);
+    };
   }, []);
-  return inset;
+  return bottom;
 }
 
 /** Type text at the cursor (a space first after a word), then maybe open the completion menu. */
@@ -40,15 +54,20 @@ function type(view: EditorView, text: string, after = "", complete = false) {
 }
 
 export function Toolbar({ view, path, extra }: { view: EditorView; path?: string; extra?: ReactNode }) {
-  const inset = useKeyboardInset();
+  const bottom = useViewportBottom();
+  const bar = useRef<HTMLDivElement>(null);
+  const h = bar.current?.offsetHeight ?? 44;
   const dictating = useDictating();
+  // leaving the editor (Safari's own keyboard bar hides the keyboard) ends dictation too
+  useEffect(() => () => stopDictation(), []);
   const run = (f: (v: EditorView) => unknown) => () => { f(view); if (view.contentDOM.isConnected && document.activeElement !== document.body) view.focus(); };
   const b = (label: string, f: (v: EditorView) => unknown, icon: ReactNode, cls = "") => (
     <button type="button" className={`kb-btn ${cls}`} aria-label={label} title={label}
       onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={run(f)}>{icon}</button>
   );
   return createPortal(
-    <div className="kb-bar" role="toolbar" aria-label="Formatting" style={{ bottom: inset }}>
+    <div ref={bar} className="kb-bar" role="toolbar" aria-label="Formatting"
+      style={{ transform: `translateY(${(bottom ?? 0) - h}px)`, visibility: bottom == null ? "hidden" : undefined }}>
       <div className="kb-scroll">
         {b("Checkbox", toggleTask, <IconCheckbox />)}
         {b("Bullet list", (v) => { const l = v.state.doc.lineAt(v.state.selection.main.head); if (!/^\s*[-*+] /.test(l.text)) v.dispatch({ changes: { from: l.from, insert: "- " } }); }, <IconList />)}
@@ -68,7 +87,6 @@ export function Toolbar({ view, path, extra }: { view: EditorView; path?: string
         {canDictate() && b(dictating ? "Stop dictating" : "Dictate", toggleDictation, <IconMic />, dictating ? "on" : "")}
         {extra}
       </div>
-      {b("Done: hide the keyboard", (v) => { stopDictation(); done(v); }, <IconKeyboardDown />, "kb-done")}
     </div>,
     document.body,
   );
