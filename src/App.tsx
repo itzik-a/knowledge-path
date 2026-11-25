@@ -17,12 +17,13 @@ const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ defa
 const SitMode = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
 const SitDock = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
 import { TopicSheet } from "./components/TopicSheet";
-import { docHref, readHash, topicHref, type Route } from "./lib/route";
+import { docHref, readHash, tagHref, topicHref, type Route } from "./lib/route";
 import { PrivateSheet } from "./components/PrivateNotes";
 import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useTimers } from "./lib/timers";
 import { useSit } from "./state/sit";
 import { useVault } from "./state/store";
+import { usePinnedTags } from "./state/tagpins";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
 import { Habits } from "./views/Habits";
@@ -104,6 +105,7 @@ export function App() {
   const waiting = ready ? inbox(ix).length : 0;
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const pinned = ready ? pinnedDocs(ix) : [];
+  const pinnedTags = usePinnedTags();
   const onCaptureClose = () => {
     closeSheetReq();
     // opened by the bookmarklet in its own little window: send it and close
@@ -137,6 +139,17 @@ export function App() {
               {pinned.map((d) => (
                 <a key={d.path} href={docHref(d.path)} aria-current={route.view === "doc" && route.sub === d.path ? "page" : undefined}>
                   <span className="side-emoji" aria-hidden="true">{docEmoji(d)}</span><span className="clamp1" dir="auto">{docLabel(d)}</span>
+                </a>
+              ))}
+            </nav>
+          )}
+          {pinnedTags.length > 0 && (
+            <nav className="side-topics" aria-label="Pinned tags">
+              <span className="eyebrow">Pinned tags</span>
+              {pinnedTags.map((tag) => (
+                <a key={tag} href={tagHref(tag)} aria-current={route.view === "tag" && route.sub === tag ? "page" : undefined}>
+                  <span className="side-emoji muted" aria-hidden="true">#</span><span className="clamp1 grow" dir="auto">{tag}</span>
+                  <span className="side-count">{ix.tags.get(tag)?.length ?? 0}</span>
                 </a>
               ))}
             </nav>

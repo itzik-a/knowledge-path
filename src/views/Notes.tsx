@@ -10,6 +10,7 @@ import { Seg } from "../components/ui";
 import { iso, monthName, parseISO, shortDate } from "../lib/dates";
 import { docHref, go, tagHref } from "../lib/route";
 import { createNote } from "../state/actions";
+import { setTagPinned, usePinnedTags } from "../state/tagpins";
 import { useIndex } from "../state/store";
 
 export function Notes({ sub }: { sub?: string }) {
@@ -141,6 +142,10 @@ function Tags() {
   const tags = useMemo(() => [...ix.tags].map(([tag, paths]) => ({ tag, n: paths.length })).sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag)), [ix]);
   const s = q.trim().toLowerCase().replace(/^#/, "");
   const shown = s ? tags.filter((t) => t.tag.toLowerCase().includes(s)) : tags;
+  const pins = usePinnedTags();
+  const count = new Map(tags.map((t) => [t.tag, t.n]));
+  const pinnedShown = pins.filter((t) => !s || t.includes(s));
+  const rest = shown.filter((t) => !pins.includes(t.tag));
   return (
     <>
       <NotesHead tab="tags" />
@@ -151,12 +156,18 @@ function Tags() {
           {q && <button type="button" className="search-clear" onClick={() => setQ("")} aria-label="Clear"><IconClose /></button>}
         </label>
       )}
-      {shown.length ? (
+      {pinnedShown.length > 0 && (
         <section className="card">
-          <div className="chips">{shown.map(({ tag, n }) => <a key={tag} className="chip" dir="auto" href={tagHref(tag)}>#{tag} <span className="count">{n}</span></a>)}</div>
+          <h2 className="pin-head"><IconPin width={18} height={18} /> Pinned</h2>
+          <div className="chips">{pinnedShown.map((tag) => <a key={tag} className="chip" dir="auto" href={tagHref(tag)}>#{tag} <span className="count">{count.get(tag) ?? 0}</span></a>)}</div>
+        </section>
+      )}
+      {rest.length ? (
+        <section className="card">
+          <div className="chips">{rest.map(({ tag, n }) => <a key={tag} className="chip" dir="auto" href={tagHref(tag)}>#{tag} <span className="count">{n}</span></a>)}</div>
         </section>
       ) : (
-        <div className="card empty"><p className="muted">{tags.length ? "No tag matches." : "No tags yet. Write #tag in a note, or add tags: to a file's properties."}</p></div>
+        !pinnedShown.length && <div className="card empty"><p className="muted">{tags.length ? "No tag matches." : "No tags yet. Write #tag in a note, or add tags: to a file's properties."}</p></div>
       )}
     </>
   );
@@ -166,11 +177,16 @@ export function TagPage({ tag }: { tag: string }) {
   const ix = useIndex();
   const docs = (ix.tags.get(tag) ?? []).map((p) => ix.docs.get(p)).filter((d): d is Doc => !!d).sort((a, b) => b.mtime - a.mtime);
   const topic = [...ix.topics.values()].find((t) => t.name.toLowerCase().replace(/\s+/g, "-") === tag || t.id.toLowerCase().replace(/\s+/g, "-") === tag);
+  const pinned = usePinnedTags().includes(tag.toLowerCase());
+  const label = pinned ? "Unpin this tag" : "Pin this tag";
   return (
     <>
       <div className="page-head">
         <a className="crumb eyebrow" href="#notes/tags">All tags</a>
-        <h1 className="display">#{tag}</h1>
+        <div className="tag-title">
+          <h1 className="display">#{tag}</h1>
+          <button type="button" className={`icon-btn subtle${pinned ? " on" : ""}`} aria-pressed={pinned} aria-label={label} title={label} onClick={() => setTagPinned(tag, !pinned)}><IconPin /></button>
+        </div>
         {topic && <p className="muted">Everything tagged #{tag} is also in <a href={`#topics/${topic.id}`}>{topic.name}</a>.</p>}
       </div>
       {docs.length ? <ul className="card item-list">{docs.map((d) => <DocRow key={d.path} d={d} ix={ix} />)}</ul>

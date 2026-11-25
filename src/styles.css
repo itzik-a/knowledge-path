@@ -544,6 +544,9 @@ html.sheet-open .fab { visibility: hidden; }
 .clamp1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-head { display: flex; align-items: center; gap: 8px; }
 .pin-head svg { color: var(--accent); }
+.tag-title { display: flex; align-items: center; gap: 8px; }
+.tag-title h1 { min-width: 0; overflow-wrap: anywhere; }
+.side-count { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
 .pinned-list .pin-mark { display: none; } /* every row there is pinned */
 /* Home cards fold away from their heading (the whole heading is the button, 44px tall) */
 .home-card .card-head h2 { min-width: 0; flex: 1; }
