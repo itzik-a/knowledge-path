@@ -9,6 +9,7 @@ import { habitOf, parseLog, parseStamp, type Habit, type LogEntry } from "./habi
 import { parseRecipe, recipeOf, summarize, type Recipe, type RecipeSummary } from "./recipes.ts";
 import { isLockedName, sealedPayload } from "./private.ts";
 import { chapterOf, type ChapterInfo } from "./books.ts";
+import { SHOPPING_PATH } from "./shopping.ts";
 
 export interface Doc {
   path: string;
@@ -254,12 +255,16 @@ export function pinnedDocs(ix: Index): Doc[] {
     .sort((a, b) => (b.pinnedAt ?? "").localeCompare(a.pinnedAt ?? "") || a.title.localeCompare(b.title));
 }
 
-/** Items waiting to be sorted: resources and notes in no topic yet. */
+/** Items waiting to be sorted: resources and notes in no topic yet, except ones kept without a topic
+   (`inbox: false`, "Keep without a topic") and the shopping list. */
 export function inbox(ix: Index): Doc[] {
   return [...ix.docs.values()]
-    .filter((d) => (d.kind === "resource" || d.kind === "note") && !ix.topicsOf.has(d.path))
+    .filter((d) => (d.kind === "resource" || d.kind === "note") && !ix.topicsOf.has(d.path) && !keptOutOfInbox(d) && d.path !== SHOPPING_PATH)
     .sort((a, b) => b.mtime - a.mtime);
 }
+
+/** Taken out of the Inbox without a topic (`inbox: false`). */
+export const keptOutOfInbox = (d: Pick<Doc, "fm">) => d.fm.inbox === false;
 
 /** Top-level topic of an item (for its colour). */
 export function rootTopic(ix: Index, id: string): Topic | undefined {

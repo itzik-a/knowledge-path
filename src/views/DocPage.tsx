@@ -12,7 +12,7 @@ import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
@@ -168,6 +168,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             pinItem(d),
+            inboxItem(d),
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
@@ -427,6 +428,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
             {!d.sealed && <SketchButton note={d.path} />}
             {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
             <Menu label="More" icon={<IconMore />} items={[
+              inboxItem(d),
               { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
             ]} />
           </div>

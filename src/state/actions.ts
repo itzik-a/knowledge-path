@@ -556,5 +556,18 @@ export function setPinned(path: string, on: boolean) {
   showToast(on ? "Pinned" : "Unpinned", { label: "Undo", run: () => patch(path, { pinned: before ?? undefined }) });
 }
 
+/** Take an item out of the Inbox without giving it a topic (`inbox: false`), or put it back; with Undo. */
+export function setKeptOutOfInbox(path: string, out: boolean) {
+  const c = readFile(path);
+  if (c == null) return;
+  const before = splitFrontmatter(c).fm.inbox;
+  patch(path, { inbox: out ? false : undefined });
+  showToast(out ? "Kept without a topic: out of the Inbox" : "Back in the Inbox", { label: "Undo", run: () => patch(path, { inbox: before ?? undefined }) });
+}
+
+/** "Back to Inbox" for a page's More menu, on an item kept out of it. */
+export const inboxItem = (d: { path: string; fm: Record<string, unknown> }) =>
+  d.fm.inbox === false ? { label: "Back to Inbox", run: () => setKeptOutOfInbox(d.path, false) } : null;
+
 /** "Pin" / "Unpin" for a page's More menu. */
 export const pinItem = (d: { path: string; pinned?: boolean }) => ({ label: d.pinned ? "Unpin" : "Pin", run: () => setPinned(d.path, !d.pinned) });

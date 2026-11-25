@@ -1217,3 +1217,4 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .timer-of { font-size: 1.1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .habit-card-title { display: inline-flex; gap: 6px; align-items: center; }
 .home-card .habit-row { margin-bottom: 4px; }
+.inbox-keep { justify-self: start; min-height: 44px; color: var(--muted); font-weight: 500; }

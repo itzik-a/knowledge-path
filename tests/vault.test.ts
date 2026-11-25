@@ -163,6 +163,14 @@ describe("index", () => {
     expect(x.backlinks.get("Topics/Philosophy/Stoicism.md")).toEqual(["Journal/2026/2026-11-21.md"]);
     expect(inbox(x).map((d) => d.path)).toEqual(["Notes/Loose.md"]);
   });
+  it("inbox leaves out what's kept without a topic and the shopping list", () => {
+    const y = ix({
+      "Notes/Loose.md": "Nothing here\n",
+      "Notes/Kept.md": "---\ninbox: false\n---\nOn purpose\n",
+      "Shopping list.md": "## Produce\n- [ ] onions\n",
+    });
+    expect(inbox(y).map((d) => d.path)).toEqual(["Notes/Loose.md"]);
+  });
   it("the seed vault parses with every resource in a topic", () => {
     const s = ix(SEED);
     const resources = [...s.docs.values()].filter((d) => d.kind === "resource");

@@ -1,9 +1,10 @@
-/* #inbox: resources and notes without a topic. Give each one a topic (the enricher's suggestions first) and it moves on. */
+/* #inbox: resources and notes without a topic. Give each one a topic (the enricher's suggestions first) and it moves on,
+   or keep it without one (`inbox: false`; Back to Inbox in its page's More menu undoes that). */
 import { inbox, type Doc, type Index } from "../../shared/index.ts";
 import { DocRow, TopicPicker } from "../components/bits";
 import { IconPlus } from "../components/Icons";
 import { openSheet } from "../lib/sheets";
-import { setTopics } from "../state/actions";
+import { setKeptOutOfInbox, setTopics } from "../state/actions";
 import { useIndex } from "../state/store";
 
 export function Inbox() {
@@ -19,7 +20,7 @@ export function Inbox() {
         <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: {} })}><IconPlus /> Add</button>
       </div>
       {items.map((d) => <InboxItem key={d.path} d={d} ix={ix} />)}
-      {!items.length && <div className="card empty"><p className="muted">Things you save without a topic wait here until you file them.</p></div>}
+      {!items.length && <div className="card empty"><p className="muted">Things you save without a topic wait here until you file them, or keep them without one.</p></div>}
     </>
   );
 }
@@ -33,6 +34,7 @@ function InboxItem({ d, ix }: { d: Doc; ix: Index }) {
       <ul className="item-list"><DocRow d={d} ix={ix} showTopics={false} /></ul>
       {d.resource?.summary && <p className="small" dir="auto">{d.resource.summary}</p>}
       <TopicPicker value={[]} onChange={(ids) => setTopics(d.path, ids)} suggested={suggested} />
+      <button type="button" className="text-btn small inbox-keep" onClick={() => setKeptOutOfInbox(d.path, true)}>Keep without a topic</button>
     </section>
   );
 }
