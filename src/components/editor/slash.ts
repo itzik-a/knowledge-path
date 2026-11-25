@@ -10,6 +10,7 @@ import { addDays } from "../../lib/dates";
 import { openSheet } from "../../lib/sheets";
 import { getIndex } from "../../state/store";
 import { templateText, templatesOf } from "../../state/templates";
+import { toggleDictation } from "./dictation";
 
 export interface SlashCtx { path?: string; title?: string }
 export interface SlashCommand {
@@ -102,6 +103,10 @@ export const SLASH: SlashCommand[] = [
   { names: ["date"], title: "Date", hint: "today, as text", group: "Dates", run: (v, f, t) => snippet(formatDate(new Date(), "D MMMM YYYY"))(v, f, t) },
   { names: ["time"], title: "Time", hint: "now, e.g. 14:30", group: "Dates", run: (v, f, t) => snippet(time())(v, f, t) },
   { names: ["now"], title: "Date and time", hint: "[[today]] 14:30", group: "Dates", run: (v, f, t) => snippet(`${dayLink(todayISO())} ${time()}`)(v, f, t) },
+  { names: ["ask", "claude"], title: "Ask Claude", hint: "a question about this note, answered in it", group: "Claude",
+    run: (v, from, to, c) => { v.dispatch({ changes: { from, to } }); if (c.path) openSheet({ kind: "ask", path: c.path }); } },
+  { names: ["dictate", "voice", "mic"], title: "Dictate", hint: "speak; tap the mic or Done to stop", group: "Insert",
+    run: (v, from, to) => { v.dispatch({ changes: { from, to } }); toggleDictation(v); } },
 ];
 
 /** More commands from elsewhere (dictation, /ask): added once at start by the module that has them. */

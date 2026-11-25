@@ -6,11 +6,12 @@ import { init } from "./state/store";
 import { startSync } from "./state/sync";
 import { migrateLocked } from "./state/privacy";
 import { startAppearance } from "./state/appearance";
+import { startAsks } from "./state/ask";
 import "./lib/theme";
 import "./styles.css";
 
 trackHistory();
-void init().then(async () => { startAppearance(); try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); });
+void init().then(async () => { startAppearance(); startAsks(); try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); });
 // Fetch the editor's code once the app is idle, so editing works offline from the first launch.
 setTimeout(() => { void import("./components/Editor"); }, 4000);
 

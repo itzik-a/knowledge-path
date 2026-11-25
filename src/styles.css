@@ -1264,3 +1264,4 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .note-embed .embed-body > :first-child { margin-top: 0; }
 .note-embed .embed-body > :last-child { margin-bottom: 0; }
 .word-count { margin: 6px 0 0; text-align: end; }
+.kb-btn.on { color: var(--accent); background: var(--accent-soft); }

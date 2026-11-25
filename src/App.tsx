@@ -7,6 +7,7 @@ import { ConfirmDialog } from "./components/Confirm";
 import { DataPill, DataSheet } from "./components/DataSheet";
 import { HabitSheet } from "./components/HabitSheet";
 import { TimerStartSheet } from "./components/TimerStartSheet";
+import { AskSheet } from "./components/AskSheet";
 import { IconCart, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
@@ -204,6 +205,7 @@ export function App() {
       {sheet?.kind === "search" && <SearchDialog onClose={closeSheetReq} />}
       {sheet?.kind === "data" && <DataSheet onClose={closeSheetReq} section={sheet.section} />}
       {sheet?.kind === "private" && <PrivateSheet then={sheet.then} onClose={closeSheetReq} />}
+      {sheet?.kind === "ask" && <AskSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "timer" && <TimerStartSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "shop" && <ShoppingSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "cook" && <Suspense fallback={null}><CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}

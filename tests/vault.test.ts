@@ -215,3 +215,14 @@ describe("templates", () => {
     expect(inbox(y).map((d) => d.path)).toEqual(["Notes/Loose.md"]);
   });
 });
+
+describe("/ask callouts", () => {
+  it("waits in a callout, then swaps in the answer, leaving the rest", async () => {
+    const { answerBlock, replaceWaiting, waitingBlock } = await import("../shared/ask.ts");
+    const body = `Intro\n\n${waitingBlock("x1", "What is\nthe main idea?")}\n\nAfter\n`;
+    expect(body).toContain("> [!question] Asked Claude: What is the main idea?\n> Waiting for the answer… ^ask-x1");
+    expect(replaceWaiting(body, "x1", answerBlock("What is the main idea?", "Freedom.\n\n- one\n- two"))).toBe(
+      "Intro\n\n> [!info] Claude: What is the main idea?\n> Freedom.\n>\n> - one\n> - two\n\nAfter\n");
+    expect(replaceWaiting("Gone\n", "x1", "y")).toBeNull();
+  });
+});

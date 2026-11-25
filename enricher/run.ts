@@ -11,7 +11,8 @@
       cycle is fetched (enricher/book.ts) into chapter notes in Books/<Title (GA n)>/, and the resource gets
       book and chapters (and type, author, translator, ga, image, summary if missing).
       Nothing from rsarchive.org goes to Claude (its robots.txt asks for reference use only).
-   2. .hub/requests/*.json: Explore (Claude Opus maps the topic into .hub/explore/<topic>.json), and EPUBs of
+   2. .hub/requests/*.json: Explore (Claude Opus maps the topic into .hub/explore/<topic>.json), /ask (Claude Opus
+      answers a question about a note, in the request; the app puts it in the note), and EPUBs of
       rsarchive.org books (enricher/epubs.ts: built and pushed to a branch epub/<id>, never to main; the
       request says where; branches and requests nobody came for go after a week).
    3. .hub/status.json: when it ran, what it did, what it cost (this month too).
@@ -28,7 +29,8 @@ import {
   basename, explorePath, kindOf, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
 } from "../shared/vault.ts";
 import { fillRecipe } from "../shared/recipes.ts";
-import { Declined, describe, explore, extractRecipe, spend } from "./claude.ts";
+import { Declined, ask, describe, explore, extractRecipe, spend } from "./claude.ts";
+import type { AskRequest } from "../shared/ask.ts";
 import type { Imported } from "./recipe.ts";
 import { readPage, shortDescription } from "./extract.ts";
 import { pool } from "./net.ts";
@@ -232,7 +234,7 @@ async function main() {
   }
 
   // ── 2. requests: explore, EPUBs ─────────────────────────────
-  let explored = 0, epubs = 0;
+  let explored = 0, epubs = 0, asked = 0;
   const requests = [...files.keys()].filter((p) => p.startsWith(`${HUB}/requests/`) && p.endsWith(".json"));
   const liveBranches = new Set<string>();
   for (const r of requests) {
@@ -262,6 +264,29 @@ async function main() {
         errors.push(`EPUB ${e.url}: ${msg}`);
         console.warn(`  ✗ epub ${e.url}: ${msg}`);
         await save(r, JSON.stringify({ ...e, error: msg }, null, 2) + "\n");
+      }
+      continue;
+    }
+    if (req.kind === "ask") {
+      // a question about a note (/ask): answered in the request; the app puts the answer in the note and removes it
+      const a = req as unknown as AskRequest;
+      const old = a.at && Date.now() - Date.parse(a.at) > MAX_AGE_DAYS * 86_400_000;
+      if (old || !a.note || !a.question) { await done(); continue; }
+      if (a.answer || a.error) continue;
+      const text = files.get(a.note);
+      const locked = text != null && splitFrontmatter(text).fm.private === true;
+      if (text == null || locked) { await save(r, JSON.stringify({ ...a, error: text == null ? "The note isn't in the vault (yet)." : "Locked notes aren't sent to Claude." }, null, 2) + "\n"); continue; }
+      if (!CLAUDE) { console.log(`  ask ${a.note}: waiting for ANTHROPIC_API_KEY`); continue; }
+      try {
+        const res = await ask({ title: basename(a.note), text: splitFrontmatter(text).body }, a.question);
+        await save(r, JSON.stringify({ ...a, answer: res.answer, model: res.model }, null, 2) + "\n");
+        asked++;
+        console.log(`  ✓ answered a question on ${a.note}`);
+      } catch (e) {
+        const msg = e instanceof Declined ? "Claude declined to answer this one." : (e as Error).message.slice(0, 200);
+        errors.push(`Ask ${a.note}: ${msg.slice(0, 120)}`);
+        console.warn(`  ✗ ask ${a.note}: ${(e as Error).message}`);
+        await save(r, JSON.stringify({ ...a, error: msg }, null, 2) + "\n");
       }
       continue;
     }
@@ -302,13 +327,13 @@ async function main() {
   let prev: { month?: string; monthUsd?: number } = {};
   try { prev = JSON.parse(files.get(`${HUB}/status.json`) ?? "{}"); } catch { /* fresh */ }
   const status = {
-    at: new Date().toISOString(), enriched, recipes: recipesDone, books: booksDone, epubs, failed, explored, claude: CLAUDE,
+    at: new Date().toISOString(), enriched, recipes: recipesDone, books: booksDone, epubs, failed, explored, asked, claude: CLAUDE,
     costUsd: Math.round(spend.usd * 10000) / 10000,
     month, monthUsd: Math.round(((prev.month === month ? prev.monthUsd ?? 0 : 0) + spend.usd) * 10000) / 10000,
     error: errors.length ? errors.slice(0, 3).join(" · ") : undefined,
   };
   await save(`${HUB}/status.json`, JSON.stringify(status, null, 2) + "\n");
-  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${booksDone} books, ${epubs} EPUBs, ${failed} failed, ${explored} explored, $${spend.usd.toFixed(4)}.`);
+  console.log(`Done: ${enriched} filled in, ${recipesDone} recipes, ${booksDone} books, ${epubs} EPUBs, ${failed} failed, ${explored} explored, ${asked} asked,$${spend.usd.toFixed(4)}.`);
 
   /** What Claude sees about a topic: my overview, subtopics, what I've saved and its status, my notes' titles (not private ones). */
   function exploreContext(id: string): string {

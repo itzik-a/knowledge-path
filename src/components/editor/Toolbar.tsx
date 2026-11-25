@@ -8,7 +8,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { openSheet } from "../../lib/sheets";
 import { openSearchPanel } from "@codemirror/search";
-import { IconSearch, IconCheckbox, IconIndent, IconKeyboardDown, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
+import { canDictate, stopDictation, toggleDictation, useDictating } from "./dictation";
+import { IconMic, IconSpark, IconSearch, IconCheckbox, IconIndent, IconKeyboardDown, IconList, IconOutdent, IconRedo, IconSketch, IconUndo } from "../Icons";
 import { cycleHeading, done, indentLess, indentMore, linkSel, redo, toggleTask, undo, wrap } from "./commands";
 
 /** Is this a touch screen (no fine pointer)? */
@@ -40,7 +41,8 @@ function type(view: EditorView, text: string, after = "", complete = false) {
 
 export function Toolbar({ view, path, extra }: { view: EditorView; path?: string; extra?: ReactNode }) {
   const inset = useKeyboardInset();
-  const run = (f: (v: EditorView) => unknown) => () => { f(view); if (f !== done) view.focus(); };
+  const dictating = useDictating();
+  const run = (f: (v: EditorView) => unknown) => () => { f(view); if (view.contentDOM.isConnected && document.activeElement !== document.body) view.focus(); };
   const b = (label: string, f: (v: EditorView) => unknown, icon: ReactNode, cls = "") => (
     <button type="button" className={`kb-btn ${cls}`} aria-label={label} title={label}
       onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={run(f)}>{icon}</button>
@@ -62,9 +64,11 @@ export function Toolbar({ view, path, extra }: { view: EditorView; path?: string
         {b("Redo", redo, <IconRedo />)}
         {path && b("Sketch", () => openSheet({ kind: "sketch", note: path }), <IconSketch />)}
         {b("Find and replace", openSearchPanel, <IconSearch />)}
+        {path && b("Ask Claude about this note", () => openSheet({ kind: "ask", path }), <IconSpark />)}
+        {canDictate() && b(dictating ? "Stop dictating" : "Dictate", toggleDictation, <IconMic />, dictating ? "on" : "")}
         {extra}
       </div>
-      {b("Done: hide the keyboard", done, <IconKeyboardDown />, "kb-done")}
+      {b("Done: hide the keyboard", (v) => { stopDictation(); done(v); }, <IconKeyboardDown />, "kb-done")}
     </div>,
     document.body,
   );
