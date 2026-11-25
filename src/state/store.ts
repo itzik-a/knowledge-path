@@ -81,7 +81,8 @@ export async function init() {
 }
 
 // ── reading ───────────────────────────────────────────────────
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+/** Called after every change to the vault (local or synced). */
+export const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 export const getSnapshot = () => snap;
 export const getIndex = () => snap.index;
 export function useVault() { return useSyncExternalStore(subscribe, getSnapshot); }

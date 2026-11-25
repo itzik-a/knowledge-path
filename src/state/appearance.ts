@@ -1,0 +1,75 @@
+/* The accent colour: one choice for every device, synced as app data in `.hub/settings.json` ({ "accent": "blue" }; none or
+   "plum" is the default). Applied as <html data-accent="…">, which styles.css keys each accent's tokens on (light and dark).
+   A copy is kept in localStorage (knowledgePath.accent) only so index.html can set it before the first paint; the vault's
+   file is the truth and wins whenever it changes (another device chose). Light / Dark stays per device (src/lib/theme.ts). */
+import { useSyncExternalStore } from "react";
+import { refreshThemeColor } from "../lib/theme";
+import { showToast } from "../lib/toast";
+import { readFile, subscribe, writeFile } from "./store";
+
+export const SETTINGS_PATH = ".hub/settings.json";
+const KEY = "knowledgePath.accent";
+
+export type Accent = "plum" | "blue" | "teal" | "green" | "amber" | "indigo" | "graphite";
+
+/** The swatches (the same values as styles.css): each mode's accent and the colour that reads on it; graphite's background too. */
+export const ACCENTS: { id: Accent; name: string; light: string; dark: string; onDark: string; bg?: { light: string; dark: string } }[] = [
+  { id: "plum", name: "Plum", light: "#9C2F5A", dark: "#F08DB4", onDark: "#3A0A1E" },
+  { id: "blue", name: "Blue", light: "#1F5FBF", dark: "#8DB8F5", onDark: "#0A1A33" },
+  { id: "teal", name: "Teal", light: "#0F766E", dark: "#6FD6CC", onDark: "#052522" },
+  { id: "green", name: "Green", light: "#2F7A2F", dark: "#8BD68B", onDark: "#0A240D" },
+  { id: "amber", name: "Amber", light: "#9A5200", dark: "#F2B76A", onDark: "#2E1A00" },
+  { id: "indigo", name: "Indigo", light: "#4B3FB8", dark: "#A99EF5", onDark: "#15103A" },
+  { id: "graphite", name: "Graphite (red on grey, like Bear)", light: "#C8393B", dark: "#F0716F", onDark: "#2A0C0C", bg: { light: "#F7F7F8", dark: "#1C1D20" } },
+];
+
+const isAccent = (v: unknown): v is Accent => ACCENTS.some((a) => a.id === v);
+
+function readSettings(): Record<string, unknown> {
+  try { const j = JSON.parse(readFile(SETTINGS_PATH) ?? "{}") as unknown; return j && typeof j === "object" && !Array.isArray(j) ? j as Record<string, unknown> : {}; } catch { return {}; }
+}
+
+let current: Accent = (() => { try { const v = localStorage.getItem(KEY); return isAccent(v) ? v : "plum"; } catch { return "plum"; } })();
+const subs = new Set<() => void>();
+
+export const getAccent = () => current;
+export function useAccent(): Accent {
+  return useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f); }; }, getAccent);
+}
+
+function apply(a: Accent) {
+  current = a;
+  if (a === "plum") delete document.documentElement.dataset.accent; else document.documentElement.dataset.accent = a;
+  try { if (a === "plum") localStorage.removeItem(KEY); else localStorage.setItem(KEY, a); } catch { /* private mode */ }
+  refreshThemeColor(ACCENTS.find((x) => x.id === a)?.bg);
+  subs.forEach((f) => f());
+}
+
+/** Follow the vault's file (called on every change; cheap when nothing changed). Before the vault has loaded, keep the copy. */
+let seen: string | undefined;
+function follow() {
+  const raw = readFile(SETTINGS_PATH);
+  if (raw === seen) return;
+  seen = raw;
+  const v = readSettings().accent;
+  apply(isAccent(v) ? v : "plum");
+}
+
+/** Choose an accent for every device, with Undo. */
+export function setAccent(a: Accent) {
+  const before = current;
+  if (a === before) return;
+  const write = (x: Accent) => {
+    const rest = readSettings();
+    if (x === "plum") delete rest.accent; else rest.accent = x;
+    writeFile(SETTINGS_PATH, JSON.stringify(rest, null, 2) + "\n");
+  };
+  write(a);
+  showToast(`Accent: ${ACCENTS.find((x) => x.id === a)!.name.split(" (")[0]}`, { label: "Undo", run: () => write(before) });
+}
+
+/** Start following the vault once it has loaded (main.tsx). */
+export function startAppearance() {
+  follow();
+  subscribe(follow);
+}

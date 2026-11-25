@@ -10,8 +10,14 @@
 <meta name="theme-color" content="#F6F5F3" media="(prefers-color-scheme: light)" data-for="light">
 <meta name="theme-color" content="#0C0B0A" media="(prefers-color-scheme: dark)" data-for="dark">
 <script>
-/* Light or dark before the first paint: this device's choice, else the system's. src/lib/theme.ts does the same afterwards. */
+/* Light or dark before the first paint: this device's choice, else the system's. src/lib/theme.ts does the same afterwards.
+   The accent too, from the copy src/state/appearance.ts keeps of the vault's choice (Graphite also changes the page colour). */
 (function () {
+  var a; try { a = localStorage.getItem("knowledgePath.accent"); } catch (e) {}
+  if (a) {
+    document.documentElement.dataset.accent = a;
+    if (a === "graphite") document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) { m.content = m.dataset.for === "dark" ? "#1C1D20" : "#F7F7F8"; });
+  }
   var t; try { t = localStorage.getItem("knowledgePath.theme"); } catch (e) {}
   if (t !== "light" && t !== "dark") return void (document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.dataset.theme = t;

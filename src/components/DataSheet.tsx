@@ -8,7 +8,7 @@ import { clearAll } from "../state/db";
 import { allRecords, readFile, useVault, writeFiles } from "../state/store";
 import { DEFAULT_REPO, TOKEN_URL, checkRepo, connect, disconnect, getConfig, syncNow, useSyncStatus, type RepoCheck, type SyncStatus } from "../state/sync";
 import { IconExternal } from "./Icons";
-import { ThemePicker } from "./ThemePicker";
+import { AccentPicker, ThemePicker } from "./ThemePicker";
 import { PrivateForm } from "./PrivateNotes";
 import { Sheet } from "./ui";
 
@@ -40,6 +40,8 @@ export function DataSheet({ onClose }: { onClose: () => void }) {
         <h3 id="theme-title">Appearance</h3>
         <ThemePicker />
         <p className="muted small">System follows this device's light or dark setting. Each device keeps its own choice.</p>
+        <AccentPicker />
+        <p className="muted small">The accent colour is the same on every device (it syncs with the vault).</p>
       </section>
       <MoreSection />
     </Sheet>

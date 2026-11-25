@@ -84,6 +84,33 @@
   color-scheme: dark;
 }
 
+/* ---------- Accents ----------
+   The accent is chosen in settings and synced through the vault (.hub/settings.json, src/state/appearance.ts), applied as
+   <html data-accent="…">; none = plum (above). Each sets the accent tokens for light, then for dark (a later, more
+   specific rule). Graphite (Bear-style: red on cool greys) also sets the surfaces. All pairs checked for 4.5:1. */
+:root[data-accent="blue"] { --accent: #1F5FBF; --accent-2: #2E72D6; --accent-soft: #E5EEFB; --on-accent: #FFFFFF; --toast-action: #8DB8F5; }
+:root[data-theme="dark"][data-accent="blue"] { --accent: #8DB8F5; --accent-2: #AECDF8; --accent-soft: #14243D; --on-accent: #0A1A33; --toast-action: #1F5FBF; }
+:root[data-accent="teal"] { --accent: #0F766E; --accent-2: #14897F; --accent-soft: #DDF2EF; --on-accent: #FFFFFF; --toast-action: #6FD6CC; }
+:root[data-theme="dark"][data-accent="teal"] { --accent: #6FD6CC; --accent-2: #9BE4DC; --accent-soft: #0F2E2C; --on-accent: #052522; --toast-action: #0F766E; }
+:root[data-accent="green"] { --accent: #2F7A2F; --accent-2: #3B8F3B; --accent-soft: #E6F3E3; --on-accent: #FFFFFF; --toast-action: #8BD68B; }
+:root[data-theme="dark"][data-accent="green"] { --accent: #8BD68B; --accent-2: #ADE3AD; --accent-soft: #16301A; --on-accent: #0A240D; --toast-action: #2F7A2F; }
+:root[data-accent="amber"] { --accent: #9A5200; --accent-2: #B26206; --accent-soft: #FBEEDC; --on-accent: #FFFFFF; --toast-action: #F2B76A; }
+:root[data-theme="dark"][data-accent="amber"] { --accent: #F2B76A; --accent-2: #F6CD94; --accent-soft: #3A2810; --on-accent: #2E1A00; --toast-action: #9A5200; }
+:root[data-accent="indigo"] { --accent: #4B3FB8; --accent-2: #5C50CF; --accent-soft: #ECEAFB; --on-accent: #FFFFFF; --toast-action: #A99EF5; }
+:root[data-theme="dark"][data-accent="indigo"] { --accent: #A99EF5; --accent-2: #C3BBF8; --accent-soft: #221E45; --on-accent: #15103A; --toast-action: #4B3FB8; }
+:root[data-accent="graphite"] {
+  --accent: #C8393B; --accent-2: #DB4B4D; --accent-soft: #FDF0F0; --on-accent: #FFFFFF; --toast-action: #F0716F;
+  --bg: #F7F7F8; --surface: #FFFFFF; --surface-2: #EFEFF1; --ink: #1E1F22; --muted: #686A70;
+  --line: rgba(30, 31, 34, .09); --track: rgba(30, 31, 34, .07); --toast-bg: #2A2B2F; --toast-ink: #F2F2F3;
+  --glass: rgba(255, 255, 255, .76); --glass-line: rgba(30, 31, 34, .07); --grid: #E8E8EB; --axis: #C2C3C8;
+}
+:root[data-theme="dark"][data-accent="graphite"] {
+  --accent: #F0716F; --accent-2: #F49593; --accent-soft: #3D1E1F; --on-accent: #2A0C0C; --toast-action: #C8393B;
+  --bg: #1C1D20; --surface: #25262A; --surface-2: #2E2F34; --ink: #E8E8EA; --muted: #9C9EA5; --raised: #3A3B41;
+  --line: rgba(255, 255, 255, .08); --track: rgba(255, 255, 255, .09); --toast-bg: #E8E8EA; --toast-ink: #1E1F22;
+  --glass: rgba(37, 38, 42, .76); --glass-line: rgba(255, 255, 255, .07); --grid: #33343A; --axis: #46474E;
+}
+
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -1164,3 +1191,10 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 
 /* Theme picker in settings (components/ThemePicker.tsx) */
 .theme-seg { justify-self: start; }
+.accent-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.accent-pick { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; }
+.accent-pick span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #fff; box-shadow: var(--shadow-chip); }
+.accent-pick span.split { background: linear-gradient(135deg, var(--sw) 50%, var(--sw2) 50%); }
+.accent-pick[aria-checked="true"] span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
+.accent-pick svg { width: 16px; height: 16px; }
+.accent-name { margin: 0; font-weight: 600; font-size: .9rem; }

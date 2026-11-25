@@ -1,6 +1,7 @@
 /* Light, dark, or the system's: chosen per device (localStorage knowledgePath.theme; nothing set is "system"), applied as
    <html data-theme="light|dark">, which styles.css keys the dark tokens on. index.html sets it before the first paint;
-   this keeps it right when the choice or the system's appearance changes. The theme-color metas follow the choice. */
+   this keeps it right when the choice or the system's appearance changes. The theme-color metas follow the choice
+   (and the accent's page colour). */
 import { useSyncExternalStore } from "react";
 
 export type Theme = "system" | "light" | "dark";
@@ -23,11 +24,16 @@ export function useTheme(): Theme {
 }
 
 let current: Theme = getTheme();
+/** The page colour for the theme-color metas: the default, or the accent's own (Graphite: src/state/appearance.ts). */
+const DEFAULT_BG = { light: "#F6F5F3", dark: "#0C0B0A" };
+let bg = DEFAULT_BG;
+export function refreshThemeColor(b?: { light: string; dark: string }) { bg = b ?? DEFAULT_BG; apply(current); }
 
 function apply(t: Theme = getTheme()) {
   current = t;
   document.documentElement.dataset.theme = t === "dark" || (t === "system" && dark.matches) ? "dark" : "light";
   for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"][data-for]')) {
+    m.content = bg[m.dataset.for === "dark" ? "dark" : "light"];
     m.media = t === "system" ? `(prefers-color-scheme: ${m.dataset.for})` : m.dataset.for === t ? "all" : "not all";
   }
   subs.forEach((f) => f());
