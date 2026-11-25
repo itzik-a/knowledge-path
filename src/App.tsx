@@ -23,6 +23,7 @@ import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useTimers } from "./lib/timers";
 import { useSit } from "./state/sit";
 import { useVault } from "./state/store";
+import { iconOf, useAccent } from "./state/appearance";
 import { usePinnedTags } from "./state/tagpins";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
@@ -61,6 +62,7 @@ const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isCo
 export function App() {
   const [route, setRoute] = useState<Route>(readHash);
   const { ready, index: ix } = useVault();
+  const accent = useAccent();
   const sheet = useSheet();
   const hasTimers = useTimers().length > 0;
   // a session timer (its clock runs from src/state/sit.ts, loaded here, even with its screen closed)
@@ -116,7 +118,7 @@ export function App() {
     <div className="shell">
       <aside className="sidebar">
         <a className="brand" href="#home" aria-label="Knowledge Hub, home">
-          <img src="./icon.svg" alt="" width={30} height={30} />
+          <img src={iconOf(accent)} alt="" width={30} height={30} />
           <span>Knowledge Hub</span>
         </a>
         <div className="side-actions">
@@ -168,7 +170,7 @@ export function App() {
 
       <header className="topbar">
         <a className="brand" href="#home" aria-label="Knowledge Hub, home">
-          <img src="./icon.svg" alt="" width={28} height={28} />
+          <img src={iconOf(accent)} alt="" width={28} height={28} />
           <span>Knowledge Hub</span>
         </a>
         <div className="top-actions">

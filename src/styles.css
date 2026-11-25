@@ -759,13 +759,17 @@ a.chip { color: var(--ink); }
 a.crumb.eyebrow { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0 -8px; }
 .topic-grid { display: grid; gap: 12px; }
 @media (min-width: 640px) { .topic-grid { grid-template-columns: 1fr 1fr; } }
-.topic-card { border-top: 4px solid var(--tc); gap: 10px; }
+.topic-card { gap: 10px; }
+/* a topic's colour: its icon on a tile of that colour, lightened (a light wash over it in dark mode too, so the emoji reads),
+   and a dot on each subtopic chip */
+.topic-card .topic-icon, .topic-head .topic-icon { background: color-mix(in srgb, var(--tc) 45%, #fff); box-shadow: 0 6px 16px -10px var(--tc); }
+:where(:root[data-theme="dark"]) .topic-card .topic-icon, :where(:root[data-theme="dark"]) .topic-head .topic-icon { background: color-mix(in srgb, var(--tc) 55%, var(--surface)); }
+.topic-card .sub-chips .chip::before { content: ""; width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--tc); }
 .topic-card-head { display: flex; align-items: flex-start; gap: 12px; color: var(--ink); }
 .topic-card-head .grow { display: grid; gap: 2px; }
 .topic-name { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
 .topic-icon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; font-size: 1.35rem; background: color-mix(in srgb, var(--tc, var(--s-other)) 16%, var(--surface)); }
 .topic-icon.big { width: 52px; height: 52px; font-size: 1.7rem; border-radius: 15px; }
-.topic-head { border-top: 4px solid var(--tc); }
 .sub-chips .chip { font-size: .85rem; min-height: 34px; }
 .tabs { display: flex; gap: 2px; overflow-x: auto; margin: -6px -6px 0; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
