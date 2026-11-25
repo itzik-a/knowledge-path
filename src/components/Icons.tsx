@@ -135,3 +135,24 @@ export const IconPin = (p: P) => (
 export const IconGrip = (p: P) => (
   <svg {...base(p)}><path d="M5 9h14M5 15h14" /></svg>
 );
+export const IconCheckbox = (p: P) => (
+  <svg {...base(p)}><rect x="4.5" y="4.5" width="15" height="15" rx="3.5" /><path d="m8.5 12 2.5 2.5 4.5-5" /></svg>
+);
+export const IconList = (p: P) => (
+  <svg {...base(p)}><path d="M9.5 7h10M9.5 12h10M9.5 17h10" /><circle cx="5" cy="7" r=".9" fill="currentColor" /><circle cx="5" cy="12" r=".9" fill="currentColor" /><circle cx="5" cy="17" r=".9" fill="currentColor" /></svg>
+);
+export const IconIndent = (p: P) => (
+  <svg {...base(p)}><path d="M4 6h16M11 10h9M11 14h9M4 18h16M4 9.5 7 12l-3 2.5" /></svg>
+);
+export const IconOutdent = (p: P) => (
+  <svg {...base(p)}><path d="M4 6h16M11 10h9M11 14h9M4 18h16M7 9.5 4 12l3 2.5" /></svg>
+);
+export const IconKeyboardDown = (p: P) => (
+  <svg {...base(p)}><rect x="3" y="4" width="18" height="11" rx="2.5" /><path d="M7 8h.01M10.5 8h.01M14 8h.01M17 8h.01M8 11.5h8M9 18.5l3 2 3-2" /></svg>
+);
+export const IconMic = (p: P) => (
+  <svg {...base(p)}><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" /></svg>
+);
+export const IconOutline = (p: P) => (
+  <svg {...base(p)}><path d="M5 6h14M8 10h11M11 14h8M8 18h11" /></svg>
+);

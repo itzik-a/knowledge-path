@@ -1,6 +1,7 @@
 /* The Markdown editor: CodeMirror 6 (the engine Obsidian uses). Wraps lines, picks each line's
-   direction from its text (Hebrew right-to-left), completes [[links]] and #tags, Markdown shortcuts
-   (⌘B bold, ⌘I italic, ⌘K link), and saves as I type.
+   direction from its text (Hebrew right-to-left), completes [[links]], #tags and /commands (editor/slash.ts),
+   Markdown shortcuts (editor/commands.ts), a toolbar above the on-screen keyboard (editor/Toolbar.tsx), pasted
+   links (editor/paste.ts), and saves as I type.
 
    `value` may change from outside (a sync brought an edit): it's applied unless it's text this editor
    produced itself, so a slow round trip never undoes typing. */
@@ -8,12 +9,15 @@ import { autocompletion, closeBrackets, type Completion, type CompletionContext 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { EditorSelection, EditorState } from "@codemirror/state";
-import { EditorView, keymap, placeholder as ph, type KeyBinding } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { EditorView, keymap, placeholder as ph } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getIndex } from "../state/store";
 import { slashSource } from "./editor/slash";
+import { keys, wrapOnType } from "./editor/commands";
+import { pasteLinks } from "./editor/paste";
+import { Toolbar, touchScreen } from "./editor/Toolbar";
 
 const style = HighlightStyle.define([
   { tag: t.heading1, fontWeight: "700", fontSize: "1.3em" },
@@ -83,26 +87,6 @@ function complete(ctx: CompletionContext) {
   return null;
 }
 
-function wrap(view: EditorView, mark: string) {
-  view.dispatch(view.state.changeByRange((r) => {
-    const text = view.state.sliceDoc(r.from, r.to);
-    return { changes: { from: r.from, to: r.to, insert: mark + text + mark }, range: EditorSelection.range(r.from + mark.length, r.to + mark.length) };
-  }));
-  return true;
-}
-
-const mdKeys: KeyBinding[] = [
-  { key: "Mod-b", run: (v) => wrap(v, "**") },
-  { key: "Mod-i", run: (v) => wrap(v, "*") },
-  { key: "Mod-k", run: (v) => {
-    v.dispatch(v.state.changeByRange((r) => {
-      const text = v.state.sliceDoc(r.from, r.to);
-      return { changes: { from: r.from, to: r.to, insert: `[[${text}]]` }, range: EditorSelection.cursor(r.to + 2 + (text ? 2 : 0)) };
-    }));
-    return true;
-  } },
-];
-
 export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, path }: {
   value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
   /** the file being edited, for commands that need it (/sketch, templates' {{title}}) */
@@ -112,6 +96,8 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [touch] = useState(touchScreen);
   const mine = useRef<string[]>([value]);
   const cb = useRef({ onChange, onBlur });
   cb.current = { onChange, onBlur };
@@ -124,7 +110,10 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
         extensions: [
           history(),
           closeBrackets(),
-          keymap.of([...mdKeys, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          keymap.of([...keys, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          wrapOnType,
+          pasteLinks,
+          EditorView.scrollMargins.of(() => (touch ? { bottom: 64 } : null)),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(style),
           autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60 }),
@@ -140,6 +129,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
               if (mine.current.length > 30) mine.current.shift();
               cb.current.onChange(text);
             }
+            if (u.focusChanged) setFocused(u.view.hasFocus);
             if (u.focusChanged && !u.view.hasFocus) cb.current.onBlur?.();
           }),
         ],
@@ -168,5 +158,10 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
     mine.current = [value];
   }, [value]);
 
-  return <div className="editor" ref={host} />;
+  return (
+    <>
+      <div className="editor" ref={host} />
+      {touch && focused && view.current && <Toolbar view={view.current} path={path} />}
+    </>
+  );
 }
