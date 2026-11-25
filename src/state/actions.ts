@@ -123,11 +123,14 @@ export const suggestionCount = () => [...getIndex().docs.values()].filter((d) =>
 
 // ── notes and journal ─────────────────────────────────────────
 /** A new note. `private`: encrypted in the vault from its very first sync (shared/private.ts). */
-export function createNote(o: { title: string; body?: string; topics?: string[]; folder?: string; private?: boolean }): string {
+export function createNote(o: { title: string; body?: string; topics?: string[]; folder?: string; private?: boolean; fm?: Record<string, unknown> }): string {
   const title = o.title.trim() || "Untitled";
   // a locked note gets a neutral file name, its title goes in the frontmatter (encrypted in the vault)
   const path = uniquePath(o.folder ?? FOLDER.notes, o.private ? newLockedName() : title, taken);
-  const text = setFrontmatter("", { topics: (o.topics ?? []).map(topicLink), created: todayISO(), private: o.private || undefined }) + (o.body ?? "");
+  // a template's own properties (tags, type…) first; topics given here join its topics
+  const { topics: tplTopics, created: _c, private: _p, title: _t, ...tpl } = o.fm ?? {};
+  const topics = [...new Set([...(Array.isArray(tplTopics) ? tplTopics.filter((x): x is string => typeof x === "string") : []), ...(o.topics ?? []).map(topicLink)])];
+  const text = setFrontmatter("", { ...tpl, topics, created: todayISO(), private: o.private || undefined }) + (o.body ?? "");
   writeFile(path, o.private && title !== "Untitled" ? withTitle(text, title) : text);
   return path;
 }

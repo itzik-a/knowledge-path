@@ -13,6 +13,7 @@ import { EditorView, keymap, placeholder as ph, type KeyBinding } from "@codemir
 import { tags as t } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
 import { getIndex } from "../state/store";
+import { slashSource } from "./editor/slash";
 
 const style = HighlightStyle.define([
   { tag: t.heading1, fontWeight: "700", fontSize: "1.3em" },
@@ -41,6 +42,10 @@ const theme = EditorView.theme({
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": { background: "var(--accent-soft) !important", color: "var(--ink) !important" },
   ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal", marginLeft: "8px", fontSize: ".85em" },
   ".cm-wl": { color: "var(--accent)" },
+  ".cm-tooltip-autocomplete": { maxWidth: "min(92vw, 380px)" },
+  ".cm-tooltip-autocomplete > ul": { maxHeight: "min(50vh, 320px) !important", fontFamily: "var(--font) !important" },
+  ".cm-completionSection": { padding: "8px 12px 4px !important", fontSize: ".75em", fontWeight: "650", color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em", border: "0 !important" },
+  ".cm-completionLabel": { fontWeight: "550" },
 });
 
 /** [[ → note and topic names; # → tags. */
@@ -98,8 +103,10 @@ const mdKeys: KeyBinding[] = [
   } },
 ];
 
-export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady }: {
+export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, path }: {
   value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
+  /** the file being edited, for commands that need it (/sketch, templates' {{title}}) */
+  path?: string;
   /** Gets a function that puts text on its own line at the cursor (null when the editor goes away). */
   onInsertReady?: (insert: ((text: string) => void) | null) => void;
 }) {
@@ -120,7 +127,7 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
           keymap.of([...mdKeys, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(style),
-          autocompletion({ override: [complete], icons: false }),
+          autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60 }),
           EditorView.lineWrapping,
           EditorView.perLineTextDirection.of(true),
           EditorView.contentAttributes.of({ "aria-label": label ?? "Note text", autocapitalize: "sentences", spellcheck: "true" }),

@@ -10,6 +10,7 @@ import { parseRecipe, recipeOf, summarize, type Recipe, type RecipeSummary } fro
 import { isLockedName, sealedPayload } from "./private.ts";
 import { chapterOf, type ChapterInfo } from "./books.ts";
 import { SHOPPING_PATH } from "./shopping.ts";
+import { isTemplatePath } from "./templates.ts";
 
 export interface Doc {
   path: string;
@@ -256,10 +257,10 @@ export function pinnedDocs(ix: Index): Doc[] {
 }
 
 /** Items waiting to be sorted: resources and notes in no topic yet, except ones kept without a topic
-   (`inbox: false`, "Keep without a topic") and the shopping list. */
+   (`inbox: false`, "Keep without a topic"), the shopping list and templates. */
 export function inbox(ix: Index): Doc[] {
   return [...ix.docs.values()]
-    .filter((d) => (d.kind === "resource" || d.kind === "note") && !ix.topicsOf.has(d.path) && !keptOutOfInbox(d) && d.path !== SHOPPING_PATH)
+    .filter((d) => (d.kind === "resource" || d.kind === "note") && !ix.topicsOf.has(d.path) && !keptOutOfInbox(d) && d.path !== SHOPPING_PATH && !isTemplatePath(d.path))
     .sort((a, b) => b.mtime - a.mtime);
 }
 

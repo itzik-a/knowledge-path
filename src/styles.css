@@ -1218,3 +1218,24 @@ button.back { border: 0; background: none; color: var(--accent); font-size: 1rem
 .habit-card-title { display: inline-flex; gap: 6px; align-items: center; }
 .home-card .habit-row { margin-bottom: 4px; }
 .inbox-keep { justify-self: start; min-height: 44px; color: var(--muted); font-weight: 500; }
+
+/* ==highlight== and Obsidian callouts (src/lib/markdown.ts). The family's colour is only the stripe, a faint wash and
+   the icon; the text stays ink. */
+.prose mark { background: color-mix(in srgb, var(--s4) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+.prose blockquote.callout {
+  --c: var(--s1);
+  color: var(--ink); padding: 10px 14px; border-radius: 10px;
+  border-inline-start: 3px solid var(--c);
+  background: color-mix(in srgb, var(--c) 9%, var(--raised));
+}
+.prose blockquote.callout > :first-child { margin-top: 0; }
+.prose blockquote.callout > :last-child { margin-bottom: 0; }
+.callout-tip { --c: var(--s3) !important; }
+.callout-ok { --c: var(--s6) !important; }
+.callout-question { --c: var(--s4) !important; }
+.callout-warn { --c: var(--s2) !important; }
+.callout-bad { --c: var(--s8) !important; }
+.callout-example { --c: var(--s7) !important; }
+.callout-quote { --c: var(--muted) !important; }
+.callout-title { display: flex; align-items: center; gap: 8px; font-weight: 650; margin-bottom: 2px; }
+.callout-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }

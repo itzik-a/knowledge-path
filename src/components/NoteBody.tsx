@@ -32,7 +32,7 @@ export function NoteBody({ path, body, editing, placeholder, empty, autoFocus, h
   if (editing) {
     return (
       <Suspense fallback={<div className="editor loading" aria-busy="true" />}>
-        <Editor value={body} onChange={write} placeholder={placeholder} autoFocus={autoFocus} onBlur={onBlur}
+        <Editor value={body} onChange={write} placeholder={placeholder} autoFocus={autoFocus} onBlur={onBlur} path={path}
           onInsertReady={(insert) => registerEditor(path, insert)} />
       </Suspense>
     );

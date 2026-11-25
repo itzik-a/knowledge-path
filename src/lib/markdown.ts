@@ -66,6 +66,36 @@ md.inline.ruler.after("wikilink", "hashtag", (state: StateInline, silent: boolea
   return true;
 });
 
+// ==highlight== (Obsidian's), as <mark>; its inside is parsed as usual
+md.inline.ruler.before("emphasis", "mark", (state: StateInline, silent: boolean) => {
+  const start = state.pos;
+  if (state.src.charCodeAt(start) !== 0x3d || state.src.charCodeAt(start + 1) !== 0x3d) return false;
+  const end = state.src.indexOf("==", start + 2);
+  if (end < 0 || end === start + 2) return false;
+  const inner = state.src.slice(start + 2, end);
+  if (inner.includes("\n") || /^\s|\s$/.test(inner)) return false;
+  if (!silent) {
+    const max = state.posMax;
+    state.push("mark_open", "mark", 1);
+    state.pos = start + 2;
+    state.posMax = end;
+    state.md.inline.tokenize(state);
+    state.push("mark_close", "mark", -1);
+    state.posMax = max;
+  }
+  state.pos = end + 2;
+  return true;
+});
+
+/** Obsidian's callout types and the family each one is coloured as. */
+const CALLOUT: Record<string, string> = {
+  note: "note", info: "note", todo: "note", abstract: "tip", summary: "tip", tldr: "tip", tip: "tip", hint: "tip", important: "tip",
+  success: "ok", check: "ok", done: "ok", question: "question", help: "question", faq: "question",
+  warning: "warn", caution: "warn", attention: "warn", failure: "bad", fail: "bad", missing: "bad", danger: "bad", error: "bad", bug: "bad",
+  example: "example", quote: "quote", cite: "quote",
+};
+export const CALLOUT_TYPES = ["note", "tip", "info", "success", "question", "warning", "danger", "example", "quote"];
+
 const BLOCKS = new Set(["paragraph_open", "heading_open", "blockquote_open", "list_item_open", "table_open"]);
 
 md.core.ruler.push("obsidian", (state: StateCore) => {
@@ -73,6 +103,24 @@ md.core.ruler.push("obsidian", (state: StateCore) => {
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i];
     if (BLOCKS.has(t.type)) t.attrSet("dir", "auto");
+    // > [!note] Title  (Obsidian's callout): the quote gets a class, the first line becomes its title
+    if (t.type === "blockquote_open" && toks[i + 1]?.type === "paragraph_open" && toks[i + 2]?.type === "inline") {
+      const inl = toks[i + 2];
+      const first = inl.children?.[0];
+      const m = first?.type === "text" ? /^\[!([A-Za-z-]+)\]([+-]?)[ \t]*/.exec(first.content) : null;
+      if (first && m && inl.children) {
+        const type = m[1].toLowerCase();
+        first.content = first.content.slice(m[0].length);
+        const br = inl.children.findIndex((c) => c.type === "softbreak" || c.type === "hardbreak");
+        const head = br < 0 ? inl.children : inl.children.slice(0, br);
+        const rest = br < 0 ? [] : inl.children.slice(br + 1);
+        const open = new state.Token("callout_title_open", "", 1);
+        open.meta = { type, empty: head.every((c) => c.type === "text" && !c.content.trim()) };
+        inl.children = [open, ...head, new state.Token("callout_title_close", "", -1), ...rest];
+        t.attrJoin("class", `callout callout-${CALLOUT[type] ?? "note"}`);
+        t.attrSet("data-callout", type);
+      }
+    }
     // An Obsidian block id at the end of a paragraph ("… ^p12") is hidden, as Obsidian does, and kept as data-block.
     if (t.type === "inline" && toks[i - 1]?.type === "paragraph_open" && t.children?.length) {
       const last = t.children[t.children.length - 1];
@@ -127,6 +175,11 @@ md.renderer.rules.task_box = (tokens: Token[], idx: number) => {
   const { checked, line } = tokens[idx].meta as { checked: boolean; line: number };
   return `<input type="checkbox" class="task-box" data-line="${line}"${checked ? " checked" : ""} aria-label="Done"> `;
 };
+md.renderer.rules.callout_title_open = (tokens: Token[], idx: number) => {
+  const { type, empty } = tokens[idx].meta as { type: string; empty: boolean };
+  return `<span class="callout-title"><span class="callout-icon" aria-hidden="true"></span>${empty ? esc(type[0].toUpperCase() + type.slice(1)) : ""}`;
+};
+md.renderer.rules.callout_title_close = () => `</span>`;
 md.renderer.rules.task_text_open = () => `<span class="task-text">`;
 md.renderer.rules.task_text_close = () => `</span>`;
 const defaultLink = md.renderer.rules.link_open ?? ((t, i, o, _e, self) => self.renderToken(t, i, o));

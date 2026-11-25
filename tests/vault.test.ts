@@ -199,3 +199,19 @@ describe("pins", () => {
     expect(v.docs.get("Topics/Dev.md")!.pinned).toBeUndefined();
   });
 });
+
+describe("templates", () => {
+  it("fills title, date and time placeholders and gives the template's frontmatter apart", async () => {
+    const { fillTemplate, formatDate } = await import("../shared/templates.ts");
+    const now = new Date(2026, 10, 25, 9, 5);
+    expect(formatDate(now, "dddd D MMMM YYYY, HH:mm")).toBe("Wednesday 25 November 2026, 09:05");
+    expect(formatDate(now, "[Week of] D MMM")).toBe("Week of 25 Nov");
+    const r = fillTemplate("---\ntags: [lecture]\n---\n# {{title}}\n{{date}} {{time}} · {{ date:ddd }}\n", { title: "Kant", now });
+    expect(r.body).toBe("# Kant\n2026-11-25 09:05 · Wed\n");
+    expect(r.fm).toEqual({ tags: ["lecture"] });
+  });
+  it("templates aren't waiting in the inbox", () => {
+    const y = ix({ "Templates/Lecture.md": "## Notes\n", "Notes/Loose.md": "x\n" });
+    expect(inbox(y).map((d) => d.path)).toEqual(["Notes/Loose.md"]);
+  });
+});

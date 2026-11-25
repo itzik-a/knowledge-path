@@ -3,7 +3,10 @@
    Without a topic, it lands in the Inbox. Opened by the + button, ⌘N, or #capture?url=…&title=…&text=…
    (the iOS Shortcut and the bookmarklet). */
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { guessType, isHttpUrl, RESOURCE_TYPES, titleFromUrl, type ResourceType, type Status } from "../../shared/vault.ts";
+import { guessType, isHttpUrl, RESOURCE_TYPES, titleFromUrl, todayISO, type ResourceType, type Status } from "../../shared/vault.ts";
+import { fillTemplate } from "../../shared/templates.ts";
+import { templateText, templatesOf } from "../state/templates";
+import { useIndex } from "../state/store";
 import { parseRecipeText, recipeBody } from "../../shared/recipes.ts";
 import { getPassphrase } from "../lib/passphrase";
 import { docHref, go } from "../lib/route";
@@ -45,6 +48,9 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
   const [topics, setTopics] = useState<string[]>(init.topics ?? []);
   const [priv, setPriv] = useState(false);
   const [recipeText, setRecipeText] = useState(init.mode === "recipe" ? init.text ?? "" : "");
+  const ix = useIndex();
+  const templates = templatesOf(ix);
+  const [tpl, setTpl] = useState("");
   const [err, setErr] = useState("");
   const form = useRef<HTMLFormElement>(null);
 
@@ -90,10 +96,13 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
       showToast(topics.length ? "Saved" : "Saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
     } else {
       const body = note.trim();
-      if (!body && !title.trim()) { setErr("Write something first."); return; }
-      const t = title.trim() || body.split("\n")[0].replace(/^#+\s*/, "").slice(0, 60) || "Untitled";
+      const chosen = templates.find((x) => x.name === tpl);
+      if (!body && !title.trim() && !chosen) { setErr("Write something first."); return; }
+      const t = title.trim() || body.split("\n")[0].replace(/^#+\s*/, "").slice(0, 60) || (chosen ? `${chosen.name} ${todayISO()}` : "Untitled");
       const rest = title.trim() ? body : body.split("\n").slice(1).join("\n").trim();
-      const path = createNote({ title: t, body: rest ? rest + "\n" : "", topics, private: priv });
+      const filled = chosen ? fillTemplate(templateText(chosen), { title: t, now: new Date() }) : undefined;
+      const text = [filled?.body.trimEnd(), rest].filter(Boolean).join("\n\n");
+      const path = createNote({ title: t, body: text ? text + "\n" : "", topics, private: priv, fm: filled?.fm });
       // without a passphrase the sync holds a private note back (never sent unencrypted) until one is chosen
       if (priv && !getPassphrase()) showToast("Locked note saved here. Choose a passphrase so it can go to the vault", { label: "Choose", run: () => openSheet({ kind: "private" }) });
       else showToast(priv ? "Locked note saved" : topics.length ? "Note saved" : "Note saved to the Inbox", { label: "Open", run: () => go(docHref(path)) });
@@ -144,9 +153,17 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
             </Field>
           </>
         ) : (
-          <Field label="Title">
-            <input className="text-input" dir="auto" placeholder="Optional: the first line is used" value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
+          <>
+            <Field label="Title">
+              <input className="text-input" dir="auto" placeholder="Optional: the first line is used" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </Field>
+            {templates.length > 0 && (
+              <Field label="Template" hint={tpl ? "Put in first; what you write below goes after it." : "Your own go in a Templates folder."}>
+                <Select<string> value={tpl} onChange={setTpl} label="Template"
+                  options={[{ id: "", label: "None" }, ...templates.map((x) => ({ id: x.name, label: x.starter ? `${x.name} (starter)` : x.name }))]} />
+              </Field>
+            )}
+          </>
         )}
         <div className="field">
           <span className="field-label">Topics</span>
