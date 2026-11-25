@@ -98,13 +98,14 @@ function complete(ctx: CompletionContext) {
   return null;
 }
 
-/** Where tooltips (the completion menus) may go: the part of the screen not under the on-screen keyboard and the
-   keyboard bar. CodeMirror's default is the whole window, which on the iPhone runs on under the keyboard. */
-const visibleSpace = (touch: boolean) => () => {
-  const vv = window.visualViewport;
-  const top = vv?.offsetTop ?? 0;
-  const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - (touch ? 48 : 0);
-  return { top, left: 0, right: vv?.width ?? window.innerWidth, bottom };
+/** Where tooltips (the completion menus) may go: above the keyboard bar, measured off the bar itself so it's in the
+   same coordinates as the cursor CodeMirror measures (the visual viewport's numbers aren't, on iOS, and a cursor
+   that seems outside the space hides the menu). Without the bar: CodeMirror's default, the window. */
+const visibleSpace = (touch: boolean) => (view: EditorView) => {
+  const bar = touch ? document.querySelector<HTMLElement>(".kb-bar") : null;
+  const win = view.dom.ownerDocument.defaultView ?? window;
+  const bottom = bar ? bar.getBoundingClientRect().top : win.innerHeight;
+  return { top: 0, left: 0, right: win.innerWidth, bottom: Math.max(bottom, 120) };
 };
 
 export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, onGotoReady, path, toolbarExtra }: {
