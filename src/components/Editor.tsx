@@ -11,7 +11,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { search, searchKeymap } from "@codemirror/search";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, placeholder as ph } from "@codemirror/view";
+import { EditorView, keymap, placeholder as ph, tooltips } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getIndex } from "../state/store";
@@ -98,6 +98,15 @@ function complete(ctx: CompletionContext) {
   return null;
 }
 
+/** Where tooltips (the completion menus) may go: the part of the screen not under the on-screen keyboard and the
+   keyboard bar. CodeMirror's default is the whole window, which on the iPhone runs on under the keyboard. */
+const visibleSpace = (touch: boolean) => () => {
+  const vv = window.visualViewport;
+  const top = vv?.offsetTop ?? 0;
+  const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - (touch ? 48 : 0);
+  return { top, left: 0, right: vv?.width ?? window.innerWidth, bottom };
+};
+
 export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label, onInsertReady, onGotoReady, path, toolbarExtra }: {
   value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; onBlur?: () => void; label?: string;
   /** the file being edited, for commands that need it (/sketch, templates' {{title}}) */
@@ -132,7 +141,9 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
           EditorView.scrollMargins.of(() => (touch ? { bottom: 64 } : null)),
           markdown({ base: markdownLanguage }),
           syntaxHighlighting(style),
-          autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60 }),
+          // on a touch screen the menu opens above the line: below it is the keyboard and the keyboard bar
+          autocompletion({ override: [complete, slashSource({ path })], icons: false, maxRenderedOptions: 60, aboveCursor: touch }),
+          tooltips({ tooltipSpace: visibleSpace(touch) }),
           EditorView.lineWrapping,
           EditorView.perLineTextDirection.of(true),
           EditorView.contentAttributes.of({ "aria-label": label ?? "Note text", autocapitalize: "sentences", spellcheck: "true" }),
