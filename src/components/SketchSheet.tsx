@@ -369,7 +369,7 @@ export function SketchSheet({ path, note, onClose }: { path?: string; note?: str
       </header>
 
       {notOurs ? (
-        <div className="card empty sketch-note"><p className="muted">This drawing wasn't made in Knowledge Path, so it can only be shown, not drawn on.</p></div>
+        <div className="card empty sketch-note"><p className="muted">This drawing wasn't made in Knowledge Hub, so it can only be shown, not drawn on.</p></div>
       ) : (
         <>
           <div className="sketch-tools" role="toolbar" aria-label="Drawing tools">

@@ -112,9 +112,9 @@ export function App() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <a className="brand" href="#home" aria-label="Knowledge Path, home">
+        <a className="brand" href="#home" aria-label="Knowledge Hub, home">
           <img src="./icon.svg" alt="" width={30} height={30} />
-          <span>Knowledge Path</span>
+          <span>Knowledge Hub</span>
         </a>
         <div className="side-actions">
           <button type="button" className="btn primary sm grow" onClick={() => openSheet({ kind: "capture", init: {} })}><IconPlus /> Add</button>
@@ -141,9 +141,9 @@ export function App() {
       </aside>
 
       <header className="topbar">
-        <a className="brand" href="#home" aria-label="Knowledge Path, home">
+        <a className="brand" href="#home" aria-label="Knowledge Hub, home">
           <img src="./icon.svg" alt="" width={28} height={28} />
-          <span>Knowledge</span>
+          <span>Knowledge Hub</span>
         </a>
         <div className="top-actions">
           <DataPill onOpen={() => openSheet({ kind: "data" })} />

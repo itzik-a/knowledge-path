@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ResourceSheet } from "../components/ResourceSheet";
-import { Menu, Seg, useMedia } from "../components/ui";
+import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
@@ -91,7 +91,6 @@ function Topics({ ix, d }: { ix: Index; d: Doc }) {
   return <TopicPicker value={named} onChange={(ids) => setTopics(d.path, ids)} fixed={fixed} suggested={d.resource?.suggestedTopics.map((n) => [...ix.topics.values()].find((t) => t.name.toLowerCase() === n.toLowerCase() || t.id === n)?.id ?? "") ?? []} />;
 }
 
-/** Edit / Done for a body; on a wide screen an empty body starts in the editor. */
 /** Draw a sketch and put it in this note (at the cursor while editing, else at the end). */
 function SketchButton({ note }: { note: string }) {
   return (
@@ -119,6 +118,16 @@ function PrivateButton({ path, on }: { path: string; on: boolean }) {
 
 function useEditing(empty: boolean) {
   return useState(empty);
+}
+
+/** Edit / Done as an icon: a pencil while reading, a check while editing. */
+function EditToggle({ editing, set, write }: { editing: boolean; set: (f: (x: boolean) => boolean) => void; write?: boolean }) {
+  const label = editing ? "Done" : write ? "Write" : "Edit";
+  return (
+    <button type="button" className={`icon-btn subtle${editing ? " on" : ""}`} aria-pressed={editing} aria-label={label} title={label} onClick={() => set((x) => !x)}>
+      {editing ? <IconCheck /> : <IconEdit />}
+    </button>
+  );
 }
 
 // ── resource ──────────────────────────────────────────────────
@@ -204,7 +213,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
       <section className="card">
         <div className="card-head">
           <h2>My notes</h2>
-          <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : hasNotes ? "Edit" : "Write"}</button>
+          <EditToggle editing={editing} set={setEditing} write={!hasNotes} />
         </div>
         <NoteBody path={d.path} body={d.body} editing={editing} hideHighlights={!editing} autoFocus placeholder="What I think, what I learned, questions… [[link]] anything."
           empty="Nothing yet. What did you think?" />
@@ -390,8 +399,7 @@ export function TitleInput({ d }: { d: Doc }) {
 }
 
 function NotePage({ d, ix }: { d: Doc; ix: Index }) {
-  const wide = useMedia("(min-width: 768px)");
-  const [editing, setEditing] = useEditing(!d.body.trim() || wide);
+  const [editing, setEditing] = useEditing(!d.body.trim());
   const folder = d.path.includes("/") ? d.path.slice(0, d.path.lastIndexOf("/")) : "";
   return (
     <>
@@ -405,7 +413,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           <div className="head-tools">
             {!d.sealed && <PrivateButton path={d.path} on={!!d.private} />}
             {!d.sealed && <SketchButton note={d.path} />}
-            {!d.sealed && <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>}
+            {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
             <Menu label="More" icon={<IconMore />} items={[
               { label: "Delete", danger: true, run: async () => { if (await deleteDocs([d.path])) back("#notes"); } },
             ]} />
@@ -447,7 +455,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
           <div className="head-tools">
             {!d?.sealed && <PrivateButton path={path} on={!!d?.private} />}
             {!d?.sealed && <SketchButton note={path} />}
-            {!d?.sealed && <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : body.trim() ? "Edit" : "Write"}</button>}
+            {!d?.sealed && <EditToggle editing={editing} set={setEditing} write={!body.trim()} />}
             {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
           </div>
         </div>
@@ -516,7 +524,7 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
       <section className="card">
         <div className="card-head">
           <h2>Steps</h2>
-          <button type="button" className="btn ghost sm" onClick={() => setEditing((x) => !x)}>{editing ? "Done" : "Edit"}</button>
+          <EditToggle editing={editing} set={setEditing} />
         </div>
         {editing ? (
           <>

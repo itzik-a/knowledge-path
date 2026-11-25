@@ -178,7 +178,7 @@ function CaptureSection() {
       <h3 id="cap-title">Save from other apps</h3>
       <p className="small"><b>Mac:</b> drag this to the bookmarks bar, then click it on any page (select text first to save a quote with it):</p>
       {/* eslint-disable-next-line no-script-url */}
-      <a className="btn ghost bookmarklet" href={bookmarklet} onClick={(e) => { e.preventDefault(); showToast("Drag it to the bookmarks bar"); }}>＋ Knowledge Path</a>
+      <a className="btn ghost bookmarklet" href={bookmarklet} onClick={(e) => { e.preventDefault(); showToast("Drag it to the bookmarks bar"); }}>＋ Knowledge Hub</a>
       <p className="small"><b>iPhone:</b> a Shortcut in the Share sheet that saves the link straight into the vault.</p>
       <button type="button" className="text-btn" onClick={() => setShow((x) => !x)}>{show ? "Hide the steps" : "Show how to make it"}</button>
       {show && (
@@ -216,7 +216,7 @@ function MoreSection() {
     if (!f) return;
     try {
       const j = JSON.parse(await f.text()) as { files?: Record<string, string> };
-      if (!j.files || typeof j.files !== "object") throw new Error("That isn't a Knowledge Path backup.");
+      if (!j.files || typeof j.files !== "object") throw new Error("That isn't a Knowledge Hub backup.");
       const add = Object.entries(j.files).filter(([p, c]) => typeof c === "string" && readFile(p) == null).map(([path, content]) => ({ path, content }));
       const differ = Object.entries(j.files).filter(([p, c]) => readFile(p) != null && readFile(p) !== c).length;
       if (!(await confirmAsk({ title: `Add ${add.length} files from the backup?`, body: differ ? `${differ} files that are here with other text are left as they are.` : undefined, ok: "Add", danger: false }))) return;
