@@ -15,6 +15,12 @@
      never synced (a starter file)      → kept if the vault has it or the vault is empty, dropped otherwise
    Then all pushes go out as one commit. If the vault moved meanwhile, the whole thing runs again.
 
+   A push can land without this device hearing back (the app closed or lost the connection mid-push, or the
+   new tree couldn't be read back). So what goes out is remembered first (`sent`); a later sync that finds
+   exactly that text in the vault knows it's my own push, not an edit from elsewhere, and only my edits since
+   are left to send (a removal since still goes out). Without that, a new note typed on after such a push
+   always became a conflict copy (no common ancestor), and an edit to the same lines did too.
+
    A `Codec` (private notes, shared/private.ts) changes text on the way: `open` what comes from the vault
    (decrypt; what it can't open stays as it is), `seal` what goes to it (encrypt; null holds a file back,
    still dirty, e.g. a private note on a device without the passphrase). Everything in between, merges
@@ -46,6 +52,8 @@ export interface LocalStore {
   settle(done: { path: string; rev: number; content: string | null; sha?: string }[]): void;
   /** A new local file (a conflict copy), dirty. */
   add(path: string, content: string): void;
+  /** Right before a push: the plain text going out per file, kept until the push is settled. */
+  sending(out: { path: string; content: string }[]): void;
 }
 
 export interface Codec {
@@ -156,8 +164,11 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opt
     if (r && r.baseSha === sha) continue;
     const theirs = got.get(path)!;
     if (!r || !r.dirty) { apply.push({ path, content: theirs, sha }); if (!r || r.content !== theirs) pulled++; continue; }
-    if (r.deleted) { apply.push({ path, content: theirs, sha }); pulled++; continue; }
+    // the vault has exactly what this device last sent: that push landed, nothing changed elsewhere
+    const mine = r.sent != null && r.sent === theirs;
+    if (r.deleted) { if (!mine) { apply.push({ path, content: theirs, sha }); pulled++; } continue; } // mine: the removal goes out
     if (r.content === theirs) { apply.push({ path, content: theirs, sha }); continue; }
+    if (mine) { apply.push({ path, content: r.content, sha, base: theirs, dirty: true }); continue; } // my edits since go out
     const merged = (isSketchPath(path) ? mergeSketch(r.base ?? "", r.content, theirs) : null)
       ?? merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" || kindOf(path) === "recipe" });
     if (merged != null) {
@@ -178,7 +189,9 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opt
       if (r.deleted) apply.push({ path: r.path, content: null });
       else if (r.dirty) apply.push({ path: r.path, content: r.content, dirty: true, base: "" });
       else { apply.push({ path: r.path, content: null }); pulled++; }
-    } else if (!r.dirty && !r.deleted && !vaultEmpty) {
+    } else if (r.deleted) {
+      apply.push({ path: r.path, content: null }); // sent, then removed, and the push never landed: nothing to do
+    } else if (!r.dirty && !vaultEmpty) {
       apply.push({ path: r.path, content: null }); // a starter file the vault doesn't have
     }
   }
@@ -200,13 +213,18 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opt
   if (held.length) push.splice(0, push.length, ...push.filter((p) => out.has(p.path)));
   let state: SyncState = { head: head.commit, tree: head.tree, files: Object.fromEntries(remoteFiles) };
   if (push.length) {
+    local.sending(push.flatMap((p) => (p.content == null ? [] : [{ path: p.path, content: p.content }])));
     const next = await remote.commit(head, push.map(({ path }) => ({ path, content: out.get(path) ?? null })), opts.message ?? commitMessage(push));
-    const tree = await remote.tree(next.tree);
-    const shas = new Map<string, string>();
-    const files: Record<string, string> = {};
-    for (const e of tree) if (isSynced(e.path)) { shas.set(e.path, e.sha); files[e.path] = e.sha; }
-    local.settle(push.map((p) => ({ ...p, sha: p.content == null ? undefined : shas.get(p.path) })));
-    state = { head: next.commit, tree: next.tree, files };
+    // It's in the vault now: settle even if the tree can't be read back. Then the shas are unknown, and the
+    // next sync reads the tree and finds the same text (`sent`), so there's nothing to merge.
+    let files: Record<string, string> | undefined;
+    try {
+      const tree = await remote.tree(next.tree);
+      files = {};
+      for (const e of tree) if (isSynced(e.path)) files[e.path] = e.sha;
+    } catch { /* settled below without shas */ }
+    local.settle(push.map((p) => ({ ...p, sha: p.content == null ? undefined : files?.[p.path] })));
+    state = files ? { head: next.commit, tree: next.tree, files } : { head: next.commit, tree: next.tree };
   }
   return { state, pulled, pushed: push.length, conflicts, other, held };
 }

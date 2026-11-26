@@ -14,7 +14,7 @@ import { lockedSketches } from "./sketches";
 import { showToast } from "../lib/toast";
 import { Moved, syncOnce, type Head, type LocalStore, type Remote, type SyncState, type TreeEntry } from "../lib/vaultsync";
 import { getMeta, setMeta } from "./db";
-import { allRecords, applyRemote, getRecord, onLocalChange, settle, writeFile } from "./store";
+import { allRecords, applyRemote, getRecord, markSent, onLocalChange, settle, writeFile } from "./store";
 
 const LS = "knowledgePath.vault";
 const API = "https://api.github.com";
@@ -187,6 +187,7 @@ const localStore: LocalStore = {
   get: getRecord,
   applyRemote,
   settle,
+  sending: markSent,
   add: (path, content) => writeFile(path, content),
 };
 

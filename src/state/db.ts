@@ -17,6 +17,9 @@ export interface FileRec {
   mtime: number;
   /** Bumped on every local change, so a sync can tell an edit made while it ran. */
   rev: number;
+  /** The text of a push this device hasn't heard back from (plain text, before encryption). If a later sync
+      finds exactly this in the vault, that push landed: it's my own text, not an edit from somewhere else. */
+  sent?: string;
 }
 
 let dbp: Promise<IDBPDatabase> | null = null;

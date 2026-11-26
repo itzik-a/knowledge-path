@@ -98,6 +98,9 @@ export const getRecord = (path: string) => files.get(path);
 export function onLocalChange(l: () => void) { localListeners.add(l); return () => { localListeners.delete(l); }; }
 const local = () => localListeners.forEach((l) => l());
 
+/** Synced, or pushed with no reply yet (it may be in the vault): removing it must reach the vault. */
+const inVault = (r: FileRec) => !!r.baseSha || r.sent != null;
+
 let lazyTimer = 0;
 /** Create or change a file. `lazy` (typing in the editor): the index catches up a moment later. */
 export function writeFile(path: string, content: string, opts: { lazy?: boolean } = {}) {
@@ -142,7 +145,7 @@ export function removeFiles(paths: string[]): () => void {
     const r = files.get(path);
     if (!r || r.deleted) continue;
     before.push({ ...r });
-    if (r.baseSha) files.set(path, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
+    if (inVault(r)) files.set(path, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
     else files.delete(path); // never synced: nothing to remove from the vault
   }
   if (!before.length) return () => {};
@@ -168,7 +171,7 @@ export function renameFile(from: string, to: string): boolean {
   const content = r.content;
   const oldName = basename(from), newName = basename(to);
   // remove the old path (kept as a removal if it was synced)
-  if (r.baseSha) files.set(from, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
+  if (inVault(r)) files.set(from, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });
   else files.delete(from);
   const prev = files.get(to);
   files.set(to, prev ? { ...prev, content, deleted: undefined, dirty: true, mtime: Date.now(), rev: prev.rev + 1 } : { path: to, content, dirty: true, mtime: Date.now(), rev: 1 });
@@ -186,7 +189,7 @@ export function renameFile(from: string, to: string): boolean {
     for (const f of [...files.values()]) {
       if (f.deleted || !f.path.startsWith(oldDir)) continue;
       const np = newDir + f.path.slice(oldDir.length);
-      if (f.baseSha) files.set(f.path, { ...f, deleted: true, dirty: true, rev: f.rev + 1 }); else files.delete(f.path);
+      if (inVault(f)) files.set(f.path, { ...f, deleted: true, dirty: true, rev: f.rev + 1 }); else files.delete(f.path);
       files.set(np, { path: np, content: f.content, dirty: true, mtime: f.mtime, rev: 1 });
       touched.push(f.path, np);
     }
@@ -218,20 +221,35 @@ export function applyRemote(changes: { path: string; content: string | null; sha
   rebuild();
 }
 
-/** After a push: these files now match the vault at `sha`, unless they changed again while it ran. */
+/** Before a push: remember what goes out, in case the reply never comes (the app closed or the connection
+    dropped after the vault took it). Saved at once, so it outlasts the app being closed. */
+export function markSent(out: { path: string; content: string }[]) {
+  const touched: string[] = [];
+  for (const o of out) {
+    const r = files.get(o.path);
+    if (!r || r.deleted) continue;
+    files.set(o.path, { ...r, sent: o.content });
+    touched.push(o.path);
+  }
+  if (touched.length) persist(touched);
+}
+
+/** After a push: these files now match the vault at `sha`, unless they changed again while it ran.
+    Without a `sha` (the new tree couldn't be read back) the next sync finds it; `sent` stays until then. */
 export function settle(done: { path: string; rev: number; content: string | null; sha?: string }[]) {
   const touched: string[] = [];
   for (const d of done) {
     const r = files.get(d.path);
     if (!r) continue;
+    const sent = d.content != null && !d.sha ? d.content : undefined;
     if (d.content == null) {
       // a removal reached the vault
       if (r.deleted && r.rev === d.rev) files.delete(d.path);
-      else files.set(d.path, { ...r, base: undefined, baseSha: undefined });
+      else files.set(d.path, { ...r, base: undefined, baseSha: undefined, sent: undefined });
     } else if (r.rev === d.rev) {
-      files.set(d.path, { ...r, base: d.content, baseSha: d.sha, dirty: false });
+      files.set(d.path, { ...r, base: d.content, baseSha: d.sha, dirty: false, sent });
     } else {
-      files.set(d.path, { ...r, base: d.content, baseSha: d.sha }); // edited meanwhile: stays dirty, merges from here
+      files.set(d.path, { ...r, base: d.content, baseSha: d.sha, sent }); // edited meanwhile: stays dirty, merges from here
     }
     touched.push(d.path);
   }

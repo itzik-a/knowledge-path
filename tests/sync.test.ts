@@ -14,6 +14,12 @@ class FakeGitHub {
   calls = 0;
   /** Simulate someone pushing between our read and our write, once. */
   raceOnce?: () => void;
+  /** Faults, once each: the commit never lands (no connection); it lands but the reply is lost (the app was
+      closed, or the connection dropped mid-push); it lands but reading its tree back fails. */
+  failCommitOnce = false;
+  loseReplyOnce = false;
+  failTreeAfterCommitOnce = false;
+  private failTreeOnce = false;
 
   private putTree(files: Map<string, string>) {
     const sha = sha1(JSON.stringify([...files].sort()));
@@ -45,11 +51,16 @@ class FakeGitHub {
         if (known && known === this.head) return "unchanged";
         return { commit: this.head!, tree: this.commits.get(this.head!)!.tree };
       },
-      tree: async (sha) => { this.calls++; return [...this.trees.get(sha)!].map(([path, s]) => ({ path, sha: s })); },
+      tree: async (sha) => {
+        this.calls++;
+        if (this.failTreeOnce) { this.failTreeOnce = false; throw new Error("Not Found"); }
+        return [...this.trees.get(sha)!].map(([path, s]) => ({ path, sha: s }));
+      },
       blob: async (sha) => { this.calls++; return this.blobs.get(sha)!; },
       commit: async (parent: Head, changes, message) => {
         this.calls++;
         if (this.raceOnce) { const r = this.raceOnce; this.raceOnce = undefined; r(); }
+        if (this.failCommitOnce) { this.failCommitOnce = false; throw new Error("Can't reach GitHub"); }
         if (parent.commit !== this.head) throw new Moved("moved");
         const cur = new Map(this.trees.get(parent.tree)!);
         for (const c of changes) {
@@ -60,6 +71,8 @@ class FakeGitHub {
         const commit = randomUUID();
         this.commits.set(commit, { tree, parent: parent.commit, message });
         this.head = commit;
+        if (this.loseReplyOnce) { this.loseReplyOnce = false; throw new Error("The network connection was lost"); }
+        if (this.failTreeAfterCommitOnce) { this.failTreeAfterCommitOnce = false; this.failTreeOnce = true; }
         return { commit, tree };
       },
     };
@@ -73,7 +86,7 @@ async function device(codec?: Codec): Promise<{ s: Store; local: LocalStore; sta
   const s = (await import("../src/state/store.ts")) as Store;
   s.memoryOnly();
   await s.init();
-  const local: LocalStore = { records: s.allRecords, get: s.getRecord, applyRemote: s.applyRemote, settle: s.settle, add: (p, c) => s.writeFile(p, c) };
+  const local: LocalStore = { records: s.allRecords, get: s.getRecord, applyRemote: s.applyRemote, settle: s.settle, sending: s.markSent, add: (p, c) => s.writeFile(p, c) };
   const d = {
     s, local, state: {} as SyncState,
     async sync(gh: FakeGitHub) { const r = await syncOnce(gh.remote(), local, d.state, { codec }); d.state = r.state; return r; },
@@ -258,6 +271,99 @@ describe("sync", () => {
     expect(a.s.readFile("Notes/Theirs.md")).toBe("theirs\n");
   });
 
+  describe("a push that landed but this device never heard back", () => {
+    const P = "Notes/Apps demo videos.md";
+
+    it("a new note: the next sync knows its own push, no conflict copy", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "L");
+      gh.loseReplyOnce = true;
+      await expect(a.sync(gh)).rejects.toThrow();
+      expect(gh.files().get(P)).toBe("L"); // it did reach the vault
+      a.s.writeFile(P, "[Language path](https://example.com/1)\n[Knowledge hub](https://example.com/2)\n");
+      const r = await a.sync(gh);
+      expect(r.conflicts).toEqual([]);
+      expect(r.pulled).toBe(0);
+      expect(gh.files().get(P)).toBe(a.s.readFile(P));
+      expect([...gh.files().keys()].filter((p) => p.includes("conflict"))).toEqual([]);
+      expect(dirtyCount(a.s)).toBe(0);
+    });
+
+    it("an edit to the same line: mine goes out, no conflict copy", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "one\n"); await a.sync(gh);
+      a.s.writeFile(P, "one two\n");
+      gh.loseReplyOnce = true;
+      await expect(a.sync(gh)).rejects.toThrow();
+      a.s.writeFile(P, "one two three\n");
+      const r = await a.sync(gh);
+      expect(r.conflicts).toEqual([]);
+      expect(gh.files().get(P)).toBe("one two three\n");
+      expect(dirtyCount(a.s)).toBe(0);
+    });
+
+    it("a real edit elsewhere on top of it still merges or clashes as before", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "one\n"); await a.sync(gh);
+      a.s.writeFile(P, "one two\n");
+      gh.loseReplyOnce = true;
+      await expect(a.sync(gh)).rejects.toThrow();
+      gh.push({ [P]: "one TWO\n" }); // another device changed my pushed line
+      a.s.writeFile(P, "one two three\n");
+      const r = await a.sync(gh);
+      expect(r.conflicts).toHaveLength(1);
+      expect(gh.files().get(P)).toBe("one TWO\n");
+      expect(gh.files().get(r.conflicts[0])).toBe("one two three\n");
+    });
+
+    it("removed afterwards: the removal reaches the vault", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "L");
+      gh.loseReplyOnce = true;
+      await expect(a.sync(gh)).rejects.toThrow();
+      a.s.removeFile(P);
+      const r = await a.sync(gh);
+      expect(r.pulled).toBe(0);
+      expect(gh.files().has(P)).toBe(false);
+      expect(a.s.getRecord(P)).toBeUndefined();
+      expect(dirtyCount(a.s)).toBe(0);
+    });
+
+    it("a push that never landed, then removed: nothing reaches the vault and nothing waits", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "L");
+      gh.failCommitOnce = true;
+      await expect(a.sync(gh)).rejects.toThrow();
+      a.s.removeFile(P);
+      await a.sync(gh);
+      expect(gh.files().has(P)).toBe(false);
+      expect(a.s.getRecord(P)).toBeUndefined();
+      expect(dirtyCount(a.s)).toBe(0);
+    });
+
+    it("reading the new tree back fails: the push still counts, and the next sync finds nothing to merge", async () => {
+      const a = await device(); await a.sync(gh);
+      a.s.writeFile(P, "L");
+      gh.failTreeAfterCommitOnce = true;
+      const r1 = await a.sync(gh);
+      expect(r1.pushed).toBe(1);
+      expect(dirtyCount(a.s)).toBe(0);
+      a.s.writeFile(P, "Language path\n");
+      const r2 = await a.sync(gh);
+      expect(r2.conflicts).toEqual([]);
+      expect(gh.files().get(P)).toBe("Language path\n");
+      expect(dirtyCount(a.s)).toBe(0);
+      // and it can still be removed
+      a.s.writeFile("Notes/Other.md", "x");
+      gh.failTreeAfterCommitOnce = true;
+      await a.sync(gh);
+      a.s.removeFile("Notes/Other.md");
+      await a.sync(gh);
+      expect(gh.files().has("Notes/Other.md")).toBe(false);
+      expect(dirtyCount(a.s)).toBe(0);
+    });
+  });
+
   it("two devices log the same habit before syncing: one file with both days, no conflict copy", async () => {
     const p = "Habits/Meditate.md";
     gh.push({ [p]: "---\nicon: 🧘\n---\n## Log\n\n- 2026-11-20\n" });
@@ -424,6 +530,20 @@ describe("private notes", () => {
     a.s.markDirty([SK]);
     await a.sync(gh);
     expect(gh.files().get(SK)).toBe(svg);
+  });
+
+  it("a locked note whose push landed unnoticed: no conflict copy", async () => {
+    const gh = new FakeGitHub();
+    const a = await device(await codecWith({ v: "pw-12345" })); await a.sync(gh);
+    a.s.writeFile(P, note); await a.sync(gh);
+    a.s.writeFile(P, note.replace("#secret", "#secret and"));
+    gh.loseReplyOnce = true;
+    await expect(a.sync(gh)).rejects.toThrow();
+    a.s.writeFile(P, note.replace("#secret", "#secret and more"));
+    const r = await a.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    const b = await device(await codecWith({ v: "pw-12345" })); await b.sync(gh);
+    expect(b.s.readFile(P)).toBe(note.replace("#secret", "#secret and more"));
   });
 
   it("a locked note's title travels encrypted and comes back exactly", async () => {
