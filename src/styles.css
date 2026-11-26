@@ -1285,3 +1285,60 @@ kbd {
 .kb-menu li[aria-selected="true"] button { background: var(--accent-soft); }
 .kb-menu-label { font-weight: 600; flex: none; }
 .kb-menu-detail { color: var(--muted); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Graph (#notes/graph, views/Graph.tsx + components/GraphCanvas.tsx) ---------- */
+.main:has(.graph-page) { max-width: none; }
+.graph-page { display: grid; gap: 14px; min-width: 0; }
+.graph-wrap {
+  position: relative; overflow: hidden; min-height: 340px;
+  height: calc(100dvh - 52px - var(--tabbar-h) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 136px);
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+:where(:root[data-theme="dark"]) .graph-wrap { box-shadow: inset 0 0 0 1px var(--line); }
+@media (min-width: 768px) { .graph-wrap { height: calc(100dvh - 190px); } }
+.graph-canvas { display: block; touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; }
+.graph-top { position: absolute; top: 10px; left: 10px; right: 10px; display: grid; gap: 8px; justify-items: start; pointer-events: none; }
+.graph-top > * { pointer-events: auto; }
+.graph-bar { display: flex; gap: 8px; width: 100%; max-width: 380px; }
+.graph-filter {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--glass); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.graph-filter:focus-visible { outline-offset: 0; }
+.graph-bar .icon-btn { background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px var(--line); }
+.graph-bar .icon-btn.on { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+.graph-local {
+  display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 3px 3px 3px 14px; border-radius: 999px;
+  background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px var(--line);
+}
+.graph-local > a.clamp1 { font-weight: 600; color: var(--ink); }
+.graph-local .seg { flex: none; }
+.graph-local .seg button { min-height: 32px; padding: 2px 12px; }
+.graph-count { padding: 0 6px; pointer-events: none; }
+.graph-zoom { position: absolute; right: 10px; bottom: 10px; display: grid; gap: 6px; }
+.graph-zoom .icon-btn { background: var(--raised); box-shadow: var(--shadow-chip); }
+.graph-sel {
+  position: absolute; left: 10px; bottom: 10px; right: 64px; max-width: 400px;
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px;
+  border: 0; border-radius: 14px; background: var(--raised); box-shadow: var(--shadow-lg); text-align: left;
+}
+.graph-sel .clamp1 { font-weight: 600; }
+.graph-sel .muted { flex: none; }
+.graph-sel-open { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent); font-weight: 600; font-size: .9rem; }
+.graph-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; pointer-events: none; }
+.graph-settings {
+  position: absolute; top: 64px; right: 10px; bottom: 10px; width: min(340px, calc(100% - 20px));
+  overflow-y: auto; overscroll-behavior: contain; align-content: start; box-shadow: var(--shadow-lg); background: var(--raised);
+}
+:where(:root[data-theme="dark"]) .graph-settings { box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--line); }
+.graph-group { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.graph-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: .95rem; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .88rem; padding-top: 4px; }
+.graph-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.graph-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.graph-dot.none { background: var(--muted); }
+.graph-dot.hollow { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.range-row { display: grid; gap: 2px; min-height: 52px; align-content: center; }
+.range-label { display: flex; justify-content: space-between; gap: 8px; font-size: .95rem; }
+.range-row input[type="range"] { width: 100%; height: 32px; margin: 0; accent-color: var(--accent); }

@@ -74,6 +74,10 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 16. **Books from the Rudolf Steiner Archive**: a saved rsarchive.org link (a GA overview, an edition's contents or any chapter) → **Make it a book**: the enricher fetches it (one page a second) into chapter notes in `Books/<Title (GA n)>/` (dates, places, parts, footnotes, paragraph numbers with Obsidian block ids, diagrams linked on the site) and the saved link keeps status, notes and highlights and lists the chapters; a chapter's page reads like the article reader, and a highlight goes to the book with a link to its paragraph. Footnotes in every note now render (Obsidian syntax).
     - 2026-11-25: **EPUB without a book**: "EPUB" on any rsarchive.org link (and on a book's page) asks the enricher for one; it's pushed to a temporary branch `epub/<id>`, never to main, the app saves it (share sheet on the iPhone, a download on the Mac) and deletes the branch. No EPUB is committed to the vault any more.
 
+17. **Graph view** (like Obsidian's): #notes/graph (a fourth Notes tab, and Graph in the sidebar) shows every file as a dot and every `[[link]]` as a line, frontmatter links included (`topics:`, a chapter's `book:`), with a subtopic linked to its parent topic. Laid out by forces (pull along links, push apart, pull to the middle); drag to pan, pinch or scroll to zoom, drag a dot to move it; names fade in as you zoom. With a mouse, hover lights up a dot and its neighbours and a click opens it; on a touch screen a tap lights it up and shows its name with Open. Filter by name; show or hide topics, saved links, journal, book chapters (off by default), habits / recipes / study paths, tags, links to notes not written yet, and notes with no links; colour by topic or by type; sliders for name fading, node size, link thickness and the four forces, per device. **Local graph**: a button on note and journal pages, "Show in graph" on saved links and topics: what's within 1–3 links of that file, with its own filters.
+
+Status 2026-11-26: 17 built. Checked: tests for the graph data (links in the body and frontmatter, filters, orphans, local depth, search) and the layout; the global and local graph at phone and desktop widths, light and dark (headless Chrome, the starter vault). Not yet: on a real iPhone and iPad (pinch, drag, tap to open) and with the full vault.
+
 Status 2026-11-24: 16 built. Checked: 174 tests (the scraper against saved rsarchive.org pages, the chapter format read back by the vault parser, footnotes and block ids in the renderer); the enricher on a scratch vault against the real site (GA 18 from its overview: 22 chapters; GA 233 from one chapter link: 9 chapters, 25 images, 23 footnotes; both EPUBs pass the structural check); the book page and a chapter at phone and desktop widths, light and dark (headless Chrome). Not yet: a real run in the vault's Actions, the EPUB download on an iPhone.
 
 Status 2026-11-23: 11–15 built (recipes, import, cook mode, shopping list, units). Checked: phone and iPad / desktop widths, light and dark, Hebrew recipes; 120+ tests (ingredient parsing in English and Hebrew, scaling, conversion, pasted text, JSON-LD, the Cooked log merge, the shopping list); the enricher against a real recipe page (BBC Good Food: ingredients, steps, times, photo, tags; a site that blocks robots fails with its reason). The vault's workflow runs on `Recipes/` pushes too (vault 8776d13). Not yet: cook mode's wake lock and timer sound on a real iPhone and iPad.
@@ -83,13 +87,12 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 ## 5. Follow-ups
 
 - Flashcards with spaced repetition (FSRS) from highlights.
-- Graph view of notes and topics.
 - Ask my notes (questions over the vault).
 - "Save to hub" from feed-path entries.
 - PDFs in the vault with a reader and highlights; images (`![[…]]` embeds) shown inline.
 - Kindle / Readwise highlight import.
 - A timeline view for History (resources and notes by period).
-- Note templates; a richer editor (live preview, slash commands, a mobile toolbar).
+- A richer editor: live preview (templates, slash commands and the keyboard bar shipped 2026-11-25).
 - Sketches, later: resize or recolour a lasso selection, a partial (pixel) eraser, Pencil double-tap to switch tools (not reachable from a web page), handwriting search.
 - Explore and summaries with my Anthropic key on the device (answers in seconds instead of a minute).
 

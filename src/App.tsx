@@ -9,7 +9,7 @@ import { HabitSheet } from "./components/HabitSheet";
 import { TimerStartSheet } from "./components/TimerStartSheet";
 import { AskSheet } from "./components/AskSheet";
 import { ShortcutsSheet } from "./components/ShortcutsSheet";
-import { IconCart, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { IconCart, IconGraph, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
@@ -106,6 +106,7 @@ export function App() {
   const tab = tabOf(route);
   /** the sidebar marks Habits, Recipes and the Inbox on their own, not the tab they belong to */
   const habitsOpen = route.view === "habits" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "habit");
+  const graphOpen = route.view === "notes" && route.sub === "graph";
   const recipesOpen = route.view === "recipes" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "recipe");
   const toBuy = ready ? shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body) : 0;
   const waiting = ready ? inbox(ix).length : 0;
@@ -131,8 +132,9 @@ export function App() {
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
+            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !graphOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
           ))}
+          <a href="#notes/graph" aria-current={graphOpen ? "page" : undefined}><IconGraph /><span>Graph</span></a>
           <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
           <a href="#recipes" aria-current={recipesOpen ? "page" : undefined}><IconRecipe /><span>Recipes</span></a>
           <a href="#shopping" aria-current={route.view === "shopping" ? "page" : undefined}><IconCart /><span>Shopping list</span>{toBuy > 0 && <span className="badge">{toBuy}</span>}</a>

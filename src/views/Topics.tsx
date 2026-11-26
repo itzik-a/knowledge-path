@@ -7,7 +7,7 @@ import { Explore } from "../components/Explore";
 import { IconEdit, IconMore, IconPlus } from "../components/Icons";
 import { NoteBody } from "../components/NoteBody";
 import { Menu, Switch, useSessionState } from "../components/ui";
-import { docHref, go, topicHref } from "../lib/route";
+import { docHref, go, graphHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { createNote, createPath } from "../state/actions";
 import { useIndex } from "../state/store";
@@ -126,6 +126,7 @@ function TopicPage({ t, ix }: { t: Topic; ix: Index }) {
             <Menu label="Topic options" icon={<IconMore />} items={[
               { label: "Edit topic", run: () => openSheet({ kind: "topic", id: t.id }) },
               { label: "Add a subtopic", run: () => openSheet({ kind: "topic", parent: t.id }) },
+              { label: "Show in graph", run: () => go(graphHref(t.path)) },
             ]} />
           </div>
         </div>

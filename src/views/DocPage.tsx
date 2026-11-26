@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch } from "../components/Icons";
+import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { OutlineButton } from "../components/editor/outline";
 import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
-import { back, docHref, tagHref, topicHref } from "../lib/route";
+import { back, docHref, go, graphHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
 import { readFile, useIndex } from "../state/store";
@@ -102,6 +102,13 @@ function PinButton({ d }: { d: Doc }) {
   );
 }
 
+/** This note's local graph (what links to it and what it links to). */
+function GraphButton({ path }: { path: string }) {
+  return (
+    <a className="icon-btn subtle" href={graphHref(path)} aria-label="Local graph" title="Local graph"><IconGraph /></a>
+  );
+}
+
 /** Draw a sketch and put it in this note (at the cursor while editing, else at the end). */
 function SketchButton({ note }: { note: string }) {
   return (
@@ -170,6 +177,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           <Menu label="More" icon={<IconMore />} items={[
             pinItem(d),
             inboxItem(d),
+            { label: "Show in graph", run: () => go(graphHref(d.path)) },
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
@@ -426,6 +434,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
           <div className="head-tools">
             {!d.sealed && <PrivateButton path={d.path} on={!!d.private} />}
             <PinButton d={d} />
+            <GraphButton path={d.path} />
             {!d.sealed && <OutlineButton path={d.path} body={d.body} editing={editing} />}
             {!d.sealed && <SketchButton note={d.path} />}
             {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
@@ -471,6 +480,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
           <div className="head-tools">
             {!d?.sealed && <PrivateButton path={path} on={!!d?.private} />}
             {d && <PinButton d={d} />}
+            {d && <GraphButton path={path} />}
             {!d?.sealed && <OutlineButton path={path} body={body} editing={editing} />}
             {!d?.sealed && <SketchButton note={path} />}
             {!d?.sealed && <EditToggle editing={editing} set={setEditing} write={!body.trim()} />}

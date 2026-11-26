@@ -1,5 +1,5 @@
 /* Hash routes:
-   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #notes/tags · #inbox · #habits · #recipes · #shopping · #tag/<tag>
+   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #notes/tags · #notes/graph[?of=<path>] · #inbox · #habits · #recipes · #shopping · #tag/<tag>
    #doc/<vault path> (a resource, note, journal entry, study path, habit or recipe)
    #capture?url=…&title=…&text=… (from the iOS Shortcut or the Mac bookmarklet) */
 export type View = "home" | "topics" | "library" | "notes" | "inbox" | "habits" | "recipes" | "shopping" | "tag" | "doc" | "capture";
@@ -21,6 +21,8 @@ const enc = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 export const docHref = (path: string) => `#doc/${enc(path)}`;
 export const topicHref = (id: string) => `#topics/${enc(id)}`;
 export const tagHref = (tag: string) => `#tag/${enc(tag)}`;
+/** The graph view; with a path, that file's local graph. */
+export const graphHref = (path?: string) => (path ? `#notes/graph?of=${encodeURIComponent(path)}` : "#notes/graph");
 export const go = (href: string) => { if (location.hash !== href) location.hash = href; };
 
 /* How deep into the app this history entry is (0 = where the app was opened), so Back never leaves the app. */

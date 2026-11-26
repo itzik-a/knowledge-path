@@ -156,3 +156,12 @@ export const IconMic = (p: P) => (
 export const IconOutline = (p: P) => (
   <svg {...base(p)}><path d="M5 6h14M8 10h11M11 14h8M8 18h11" /></svg>
 );
+export const IconGraph = (p: P) => (
+  <svg {...base(p)}><circle cx="6" cy="7" r="2.3" /><circle cx="17.5" cy="5.5" r="1.8" /><circle cx="13" cy="13" r="2.8" /><circle cx="5.5" cy="18" r="1.8" /><circle cx="18.5" cy="18.5" r="2" /><path d="M8 8.3l2.7 2.6M16.6 7.1l-2.3 3.4M11 15l-3.9 1.9M15.1 14.9l2 2.1" /></svg>
+);
+export const IconFit = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" /></svg>
+);
+export const IconSliders = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
+);

@@ -1,5 +1,5 @@
 /* #notes: notes by folder, newest first. #notes/journal: the journal, a month at a time.
-   #notes/tags: every tag with its count. #tag/<tag>: everything with a tag. */
+   #notes/tags: every tag with its count. #tag/<tag>: everything with a tag. #notes/graph: the graph (views/Graph.tsx). */
 import { useMemo, useState } from "react";
 import type { Doc } from "../../shared/index.ts";
 import { journalPath, todayISO } from "../../shared/vault.ts";
@@ -12,28 +12,29 @@ import { docHref, go, tagHref } from "../lib/route";
 import { createNote } from "../state/actions";
 import { setTagPinned, usePinnedTags } from "../state/tagpins";
 import { useIndex } from "../state/store";
+import { GraphPage } from "./Graph";
 
 export function Notes({ sub }: { sub?: string }) {
-  return sub === "journal" ? <Journal /> : sub === "tags" ? <Tags /> : <NoteList />;
+  return sub === "journal" ? <Journal /> : sub === "tags" ? <Tags /> : sub === "graph" ? <GraphPage /> : <NoteList />;
 }
 
-type NotesTab = "notes" | "journal" | "tags";
-const TAB_TITLE: Record<NotesTab, string> = { notes: "Notes", journal: "Journal", tags: "Tags" };
+type NotesTab = "notes" | "journal" | "tags" | "graph";
+const TAB_TITLE: Record<NotesTab, string> = { notes: "Notes", journal: "Journal", tags: "Tags", graph: "Graph" };
 
-function NotesHead({ tab, sel }: { tab: NotesTab; sel?: Selection }) {
+export function NotesHead({ tab, sel }: { tab: NotesTab; sel?: Selection }) {
   return (
     <>
       <div className="page-head row-head">
         <div><h1 className="display">{TAB_TITLE[tab]}</h1></div>
         <div className="head-actions">
           {sel && <SelectButton sel={sel} />}
-          {tab !== "tags" && !sel?.on && (tab === "notes"
+          {(tab === "notes" || tab === "journal") && !sel?.on && (tab === "notes"
             ? <button type="button" className="btn primary sm" onClick={() => go(docHref(createNote({ title: "Untitled" })))}><IconPlus /> Note</button>
             : <a className="btn primary sm" href={docHref(journalPath(todayISO()))}>Today</a>)}
         </div>
       </div>
-      <Seg<NotesTab> label="Notes, journal or tags" value={tab} onChange={(t) => go(t === "notes" ? "#notes" : `#notes/${t}`)}
-        options={[{ id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }, { id: "tags", label: "Tags" }]} />
+      <Seg<NotesTab> label="Notes, journal, tags or graph" value={tab} onChange={(t) => go(t === "notes" ? "#notes" : `#notes/${t}`)}
+        options={[{ id: "notes", label: "Notes" }, { id: "journal", label: "Journal" }, { id: "tags", label: "Tags" }, { id: "graph", label: "Graph" }]} />
     </>
   );
 }
