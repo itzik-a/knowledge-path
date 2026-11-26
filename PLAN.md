@@ -115,3 +115,34 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 - **Claude**: runs in GitHub Actions (vault secret `ANTHROPIC_API_KEY`), not in the browser. Haiku 5.5 for summaries and topic suggestions (~$0.001 a link); Opus 5.5 for Explore (rare, ~$0.10 an answer), with the API's server-side refusal fallback on. Without the key the enricher still fetches titles and article text. A key on the device may come later.
 - **Notes rendering**: markdown-it with raw HTML off (so nothing in a note can run script), single line breaks kept, each line's direction (Hebrew / English) from its own text.
 - **Capture on iPhone**: a Shortcut that writes the link straight into the vault (Safari can't make a Home Screen app a share target, and the installed app has its own storage).
+
+## 7. Mac app with Tauri (planned 2026-11-26, not built)
+
+A native Mac app around the same web app, for two things a web page can't do: **quick capture from anywhere** and **reminders that come even when the app isn't open**. The iPhone, the iPad and the browser keep the web app as it is; everything native is optional and checked for (`src/lib/native.ts`: real calls inside the Mac app, nothing elsewhere).
+
+**Why Tauri 2** (not Electron): a ~10 MB app instead of ~150 MB, and it draws with WebKit, the engine the iPhone and iPad already use, so there's no second engine to test. Its plugins cover what's needed: tray (menu bar), global shortcut, notifications, window state, single instance, autostart, clipboard. It needs the Rust toolchain (rustup) on the Mac.
+
+### How it fits together
+- **One app, two windows**: the main window (the whole app, hidden rather than quit when closed, so the app stays in the menu bar) and a small **capture window**. Only the main window holds the vault and syncs: the capture window sends what's typed to it as a Tauri event, so two copies of the store never write at once.
+- **Where the web app comes from**: either the live site (every push reaches the Mac at once, as on the iPhone; the native bridge allowed only for that origin) or the build bundled into the app (works offline from the first launch, but every web change means a new app build). Leaning to the live site, if milestone 20 shows it works offline (service worker inside the app); otherwise bundled, with Tauri's updater.
+- **Storage**: the app has its own IndexedDB, like a Home Screen app: the token and the passphrase are entered once. The token could live in the macOS Keychain instead of localStorage.
+- **Reminders are scheduled natively**: the web app works out what's coming up (whenever the vault changes) and hands the list to the native side (`set_reminders([{ id, at, title, body, open }])`); a Rust timer fires each one as a macOS notification at its time, and a click opens the app at `open` (a route such as `#review`). A web page's timers can't be trusted while the window is hidden (App Nap), a native timer can. To check in milestone 20: whether the notification plugin can schedule ahead on macOS (it may be mobile-only), which decides whether the native side keeps its own timer.
+
+### Milestones
+20. **The shell**: `src-tauri/` in this repo (config, icon from the app's icons, Rust entry), `npm run mac` (dev) and `npm run mac:build` (a .app / .dmg); the main window with the size and place kept; one instance only; a Mac menu (App, Edit with copy and paste, View, Window) with ⌘N new, ⌘K search, ⌘, settings; links to the web opening in the browser; ⌘W hides. Check everything the web app relies on in the app's WebKit: IndexedDB kept between launches, the sync, the pdf.js worker, WebAudio bells, file picking for PDFs, offline. Decide live site or bundled.
+21. **Menu bar and quick capture**: a menu bar icon with Quick capture, Today's journal, Flashcards (N due), a running fast's time, Open Knowledge Hub, Quit. A **global shortcut** (default ⌃⌥Space, changeable in Vault & settings → Mac app) opens the capture window over whatever app is in front: Link / Note like the + sheet, the link filled in from the clipboard when it holds a URL, topic and status, ↩ saves and closes, Esc closes, focus goes back to the app I was in. Optional, asked once: take the link from the front Safari or Chrome tab (AppleScript, macOS asks for Automation permission).
+22. **Reminders**: macOS notifications (permission asked the first time), each kind switched on in Vault & settings → Reminders (per device):
+    - **A fast reaching its length** (a timed habit's `started:` + `length:`), and halfway if wanted.
+    - **A habit not done yet** at a time I choose: an optional `remind: "20:30"` in the habit's frontmatter (synced, so it can reach the iPhone too one day), only on days it's still due, with Done in the notification if macOS allows actions.
+    - **Flashcards**: once a day at a chosen time, when cards are due ("12 cards to review").
+    - **Cook and session timers** ringing while the window is closed.
+    Clicking one opens the habit, #review or the timer. Nothing is sent anywhere: it's all worked out on the Mac.
+23. **Finishing**: launch at login (switch in settings), the app icon following the accent, a GitHub Actions job that builds the .dmg on a tag (Apple Silicon), install notes in the README, PLAN and CLAUDE.md updated. Unsigned for my own use (right-click → Open the first time); signing and notarising (an Apple Developer account, $99 a year) only if it's ever shared.
+
+### Open choices (to settle before or during 20)
+- Live site vs bundled build (above).
+- The capture shortcut (⌃⌥Space proposed; ⌘⇧Space and ⌥Space are often taken by Spotlight, Raycast or Alfred).
+- Habit reminder times in the habit file (synced, `remind:`) vs per device only.
+
+### Not in this plan
+A Share-menu extension (it needs a native Swift app extension) and the vault as a local folder shared with Obsidian (GitHub stays the sync), maybe later.
