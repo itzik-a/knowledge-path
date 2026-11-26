@@ -25,7 +25,9 @@ export type SheetReq =
   /** start a timed habit (a fast): choose how long */
   | { kind: "timer"; path: string }
   /** the session timer for a habit counted in minutes, full screen */
-  | { kind: "sit"; path: string };
+  | { kind: "sit"; path: string }
+  /** read a PDF (`path`: its saved link), full screen, at `page` */
+  | { kind: "pdf"; path: string; page?: number };
 
 let cur: SheetReq | null = null;
 const ls = new Set<() => void>();

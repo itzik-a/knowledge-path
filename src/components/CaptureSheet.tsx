@@ -14,7 +14,8 @@ import { openSheet } from "../lib/sheets";
 import { showToast } from "../lib/toast";
 import { createNote, createRecipe, createResource } from "../state/actions";
 import { TopicPicker, TYPE_LABEL } from "./bits";
-import { IconLock, IconUnlock } from "./Icons";
+import { IconLock, IconPdf, IconUnlock } from "./Icons";
+import { addPdf } from "../state/pdfs";
 import { Field, Seg, Select, Sheet, closeSheet } from "./ui";
 
 type Mode = "link" | "note" | "recipe";
@@ -71,6 +72,14 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
     return () => { live = false; clearTimeout(t); };
   }, [url, typeTouched, titleTouched]);
 
+  /** A PDF from Files or the Mac: kept here, sent to the vault, and given a page (a saved link) to read it from. */
+  async function pickPdf(f: File) {
+    if (f.type && f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) { setErr("That isn't a PDF."); return; }
+    const path = await addPdf(f, { topics, status });
+    closeSheet(form.current);
+    go(docHref(path));
+  }
+
   function save(e: FormEvent) {
     e.preventDefault();
     if (mode === "recipe") {
@@ -122,6 +131,13 @@ export function CaptureSheet({ init, onClose }: { init: CaptureInit; onClose: ()
               <input className="text-input" type="url" inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://…" data-autofocus={!startUrl || undefined}
                 value={url} onChange={(e) => { setUrl(e.target.value); setErr(""); }} />
             </Field>
+            <div className="pdf-pick">
+              <span className="muted small">or</span>
+              <label className="btn ghost sm">
+                <IconPdf /> Choose a PDF…
+                <input type="file" accept="application/pdf,.pdf" className="visually-hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickPdf(f); }} />
+              </label>
+            </div>
             <Field label="Title" hint={!title && url ? "Leave empty to use the page's own title." : undefined}>
               <input className="text-input" dir="auto" placeholder={url && isHttpUrl(url) ? titleFromUrl(url) : "e.g. Meditations"} value={title}
                 onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }} />

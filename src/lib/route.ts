@@ -1,9 +1,9 @@
 /* Hash routes:
-   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #notes/tags · #notes/graph[?of=<path>] · #inbox · #habits · #recipes · #shopping · #tag/<tag>
+   #home · #topics · #topics/<topic id> · #library · #notes · #notes/journal · #notes/tags · #notes/graph[?of=<path>] · #inbox · #habits · #recipes · #shopping · #review · #tag/<tag>
    #doc/<vault path> (a resource, note, journal entry, study path, habit or recipe)
    #capture?url=…&title=…&text=… (from the iOS Shortcut or the Mac bookmarklet) */
-export type View = "home" | "topics" | "library" | "notes" | "inbox" | "habits" | "recipes" | "shopping" | "tag" | "doc" | "capture";
-const VIEWS: View[] = ["home", "topics", "library", "notes", "inbox", "habits", "recipes", "shopping", "tag", "doc", "capture"];
+export type View = "home" | "topics" | "library" | "notes" | "inbox" | "habits" | "recipes" | "shopping" | "review" | "tag" | "doc" | "capture";
+const VIEWS: View[] = ["home", "topics", "library", "notes", "inbox", "habits", "recipes", "shopping", "review", "tag", "doc", "capture"];
 
 export interface Route { view: View; sub?: string; params: URLSearchParams }
 

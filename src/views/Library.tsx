@@ -9,8 +9,30 @@ import { Select, useSessionState } from "../components/ui";
 import { openSheet } from "../lib/sheets";
 import { inbox } from "../../shared/index.ts";
 import { useIndex } from "../state/store";
+import { linkPdf, unlinkedPdfs } from "../state/pdfs";
+import { docHref, go } from "../lib/route";
 
 type Sort = "added" | "title" | "author";
+
+/** PDFs in the vault with no page here (put there from Obsidian, say): one tap gives each a saved link. */
+function UnlinkedPdfs() {
+  useIndex();
+  const list = unlinkedPdfs();
+  if (!list.length) return null;
+  return (
+    <section className="card">
+      <h2>{list.length === 1 ? "A PDF in the vault has" : `${list.length} PDFs in the vault have`} no page here</h2>
+      <ul className="item-list">
+        {list.map((p) => (
+          <li key={p} className="row-between">
+            <span className="clamp1" dir="auto">{p.split("/").pop()}</span>
+            <button type="button" className="btn sm" onClick={() => go(docHref(linkPdf(p)))}>Add to the Library</button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export function Library() {
   const ix = useIndex();
@@ -52,6 +74,7 @@ export function Library() {
       {waiting > 0 && (
         <a className="card inbox-banner" href="#inbox"><IconInbox /> <span className="grow"><b>{waiting} in the Inbox</b> <span className="muted">waiting for a topic</span></span><span className="chev">›</span></a>
       )}
+      <UnlinkedPdfs />
       <section className="card filters">
         <label className="search">
           <IconSearch />

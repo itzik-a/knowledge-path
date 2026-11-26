@@ -8,6 +8,7 @@ import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
 import { IconCheck, IconClose, IconLock, IconPin, IconPlus, IconSearch } from "./Icons";
 import { RecipeRow } from "./recipes";
+import { clozeParts } from "../../shared/cards.ts";
 
 export const TYPE_LABEL: Record<ResourceType, string> = { article: "Article", video: "Video", book: "Book", podcast: "Podcast", paper: "Paper", course: "Course", site: "Website", other: "Other" };
 export const TYPE_EMOJI: Record<ResourceType, string> = { article: "📄", video: "▶️", book: "📕", podcast: "🎧", paper: "📑", course: "🎓", site: "🌐", other: "📎" };
@@ -187,4 +188,9 @@ export function Breadcrumb({ ix, id, self = false }: { ix: Index; id: string; se
       {shown.map((t) => <span key={t.id}> › <a href={topicHref(t.id)} dir="auto">{t.name}</a></span>)}
     </nav>
   );
+}
+
+/** A highlight's text, its ==cloze== words marked (they're hidden on its flashcard). */
+export function QuoteText({ q }: { q: string }) {
+  return <>{clozeParts(q).map((p, i) => (p.hidden ? <mark key={i}>{p.text}</mark> : p.text))}</>;
 }

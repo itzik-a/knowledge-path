@@ -18,6 +18,10 @@ const SKETCH_KEYS: { keys: string; what: string }[] = [
   { keys: "⌫", what: "Delete the lassoed strokes" },
   { keys: "Esc", what: "Let go of the selection" },
 ];
+const CARD_KEYS: { keys: string; what: string }[] = [
+  { keys: "Space or ↩", what: "Show the answer" },
+  { keys: "1 2 3 4", what: "Again, Hard, Good, Easy" },
+];
 const COOK_KEYS: { keys: string; what: string }[] = [
   { keys: "→ or Space", what: "Next step" },
   { keys: "←", what: "Previous step" },
@@ -61,6 +65,7 @@ export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
         ))}
       </section>
       <section className="dlg-section" aria-labelledby="k-sk"><h3 id="k-sk">Drawing</h3><KeyTable rows={SKETCH_KEYS} /></section>
+      <section className="dlg-section" aria-labelledby="k-cards"><h3 id="k-cards">Flashcards</h3><KeyTable rows={CARD_KEYS} /></section>
       <section className="dlg-section" aria-labelledby="k-cook"><h3 id="k-cook">Cook mode</h3><KeyTable rows={COOK_KEYS} /></section>
     </Sheet>
   );

@@ -165,3 +165,9 @@ export const IconFit = (p: P) => (
 export const IconSliders = (p: P) => (
   <svg {...base({ width: 20, height: 20, ...p })}><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
 );
+export const IconCards = (p: P) => (
+  <svg {...base({ width: 20, height: 20, ...p })}><rect x="3.5" y="7" width="13" height="13" rx="2" /><path d="M7.5 7V5.5a1.5 1.5 0 0 1 1.5-1.5h10a1.5 1.5 0 0 1 1.5 1.5v9.5A1.5 1.5 0 0 1 19 16.5h-2.5" /></svg>
+);
+export const IconPdf = (p: P) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M6 3.5h8.5L19 8v12.5H6Z" /><path d="M14 3.5V8.5h5" /><path d="M8.5 16.5h2a1.5 1.5 0 0 0 0-3h-2v5M14 13.5v5h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2Z" strokeWidth="1.4" /></svg>
+);

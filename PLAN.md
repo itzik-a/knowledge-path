@@ -78,6 +78,11 @@ Tabs: **Home · Topics · Library · Notes**, plus **+** (add a link or a note) 
 
 Status 2026-11-26: 17 built. Checked: tests for the graph data (links in the body and frontmatter, filters, orphans, local depth, search) and the layout; the global and local graph at phone and desktop widths, light and dark (headless Chrome, the starter vault). Not yet: on a real iPhone and iPad (pinch, drag, tap to open) and with the full vault.
 
+18. **Flashcards from highlights** (#review; Flashcards in the sidebar with a count due, a Home card): any highlight becomes a card with the card button beside it (on saved links, notes and books' highlights). Words marked `==like this==` are hidden (a cloze); without marks it's a recall card (where it's from, my comment and the passage's first words on the front). FSRS schedules them (ts-fsrs, 90% retention, as in Language Path): Show, then Again / Hard / Good / Easy with when each brings it back, keys Space and 1–4, Undo. The cards and schedules are app data, `.hub/cards.json`, one card a line, keyed by a hash of the highlight's text (so cloze marks and renames keep a card; editing the text moves it); two devices' reviews merge card by card in the sync.
+19. **PDFs in the vault, with a reader and highlights**: the + sheet's Link form takes a PDF ("Choose a PDF…"). The file goes to `PDFs/` in the vault (its own commit through the contents API) when it's 20 MB or less; a bigger one stays on the device that added it (`pdfLocal: true`). Its page is a saved link (`pdf: "[[PDFs/x.pdf]]"`), so status, topics, notes and highlights work as usual. Read opens a full-screen reader (pdf.js, loaded only then): pages drawn near the screen, zoom, where I was kept per device; select a passage → Highlight, saved with its page as an Obsidian link (`[[PDFs/x.pdf#page=12|p. 12]]`), marked on the page, and a "p. 12" button on the highlight opens it there. Another device downloads the PDF from the vault the first time and keeps it. Deleting the page takes the PDF along (Undo puts it back). PDFs put in the vault some other way (Obsidian) are offered in the Library to give them a page.
+
+Status 2026-11-26 (18–19): built. Checked: tests for the cards (keys, clozes, the file format, the card-by-card merge, the queue, a two-device sync of cards.json) and PDFs (links, names, selection clean-up, finding a highlight's characters on the page); in headless Chrome at phone and desktop widths, light and dark: making cards, a review (cloze hidden, shown, graded), the Home card, and the reader with a real PDF: pages drawn, text selectable and aligned, a new highlight saved and marked. Not yet: an upload to and download from the real vault, a long PDF, and selecting text on a real iPhone and iPad.
+
 Status 2026-11-24: 16 built. Checked: 174 tests (the scraper against saved rsarchive.org pages, the chapter format read back by the vault parser, footnotes and block ids in the renderer); the enricher on a scratch vault against the real site (GA 18 from its overview: 22 chapters; GA 233 from one chapter link: 9 chapters, 25 images, 23 footnotes; both EPUBs pass the structural check); the book page and a chapter at phone and desktop widths, light and dark (headless Chrome). Not yet: a real run in the vault's Actions, the EPUB download on an iPhone.
 
 Status 2026-11-23: 11–15 built (recipes, import, cook mode, shopping list, units). Checked: phone and iPad / desktop widths, light and dark, Hebrew recipes; 120+ tests (ingredient parsing in English and Hebrew, scaling, conversion, pasted text, JSON-LD, the Cooked log merge, the shopping list); the enricher against a real recipe page (BBC Good Food: ingredients, steps, times, photo, tags; a site that blocks robots fails with its reason). The vault's workflow runs on `Recipes/` pushes too (vault 8776d13). Not yet: cook mode's wake lock and timer sound on a real iPhone and iPad.
@@ -86,10 +91,9 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 
 ## 5. Follow-ups
 
-- Flashcards with spaced repetition (FSRS) from highlights.
 - Ask my notes (questions over the vault).
 - "Save to hub" from feed-path entries.
-- PDFs in the vault with a reader and highlights; images (`![[…]]` embeds) shown inline.
+- Images (`![[…]]` embeds) shown inline.
 - Kindle / Readwise highlight import.
 - A timeline view for History (resources and notes by period).
 - A richer editor: live preview (templates, slash commands and the keyboard bar shipped 2026-11-25).

@@ -9,9 +9,10 @@ import { startAppearance } from "./state/appearance";
 import { startAsks } from "./state/ask";
 import "./lib/theme";
 import "./styles.css";
+import { startPdfs } from "./state/pdfs";
 
 trackHistory();
-void init().then(async () => { startAppearance(); startAsks(); try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); });
+void init().then(async () => { startAppearance(); startAsks(); try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); startPdfs(); });
 // Fetch the editor's code once the app is idle, so editing works offline from the first launch.
 setTimeout(() => { void import("./components/Editor"); }, 4000);
 

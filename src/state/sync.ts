@@ -112,6 +112,61 @@ export async function fetchVaultFile(path: string, ref?: string): Promise<Blob> 
   return res.blob();
 }
 
+/** The bytes as base64, for the contents API. */
+async function blobToB64(b: Blob): Promise<string> {
+  const bytes = new Uint8Array(await b.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/** The blob sha of a file in the vault, or undefined if it isn't there. */
+async function vaultSha(cfg: Config, path: string): Promise<string | undefined> {
+  const known = lastOther[path];
+  if (known) return known;
+  try {
+    const r = await gh<{ sha: string }>(cfg, `${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(cfg.branch)}`);
+    return r.data.sha;
+  } catch (e) {
+    if (e instanceof GitHubError && e.status === 404) return undefined;
+    throw e;
+  }
+}
+
+/** Put a file the text sync doesn't carry (a PDF) in the vault, as its own commit (the contents API: up to
+    100 MB). Waits for a running sync, then has the next one read the new tree. */
+export async function putVaultFile(path: string, blob: Blob, message: string): Promise<void> {
+  const cfg = getConfig();
+  if (!cfg) throw new GitHubError("Connect the vault first (Vault & settings)", 0);
+  await whenIdle();
+  const content = await blobToB64(blob);
+  const sha = await vaultSha(cfg, path);
+  const r = await gh<{ content: { sha: string } }>(cfg, `${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "PUT", body: JSON.stringify({ message, content, branch: cfg.branch, ...(sha ? { sha } : {}) }),
+  });
+  setOther({ ...lastOther, [path]: r.data.content.sha });
+  void syncNow();
+}
+
+/** Take such a file out of the vault (gone already is fine). */
+export async function deleteVaultFile(path: string, message: string): Promise<void> {
+  const cfg = getConfig();
+  if (!cfg) return;
+  await whenIdle();
+  const sha = await vaultSha(cfg, path);
+  if (!sha) return;
+  try {
+    await gh(cfg, `${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`, {
+      method: "DELETE", body: JSON.stringify({ message, sha, branch: cfg.branch }),
+    });
+  } catch (e) {
+    if (!(e instanceof GitHubError) || e.status !== 404) throw e;
+  }
+  const { [path]: _gone, ...rest } = lastOther;
+  setOther(rest);
+  void syncNow();
+}
+
 /** Delete a branch of the vault repo (an epub/<id> branch once its EPUB is saved). Gone already is fine. */
 export async function deleteVaultBranch(branch: string): Promise<void> {
   const cfg = getConfig();
@@ -224,8 +279,11 @@ let running: Promise<void> | null = null;
 let again = false;
 let firstChange = 0;
 let pushTimer = 0;
+/** Files in the vault the text sync doesn't carry (PDFs, pictures): path → sha. Kept in IndexedDB, because a
+    sync that finds the vault unchanged doesn't read the file list again. */
 let lastOther: Record<string, string> = {};
 export const otherFiles = () => lastOther;
+function setOther(o: Record<string, string>) { lastOther = o; void setMeta("other", o); }
 const syncListeners = new Set<() => void>();
 /** Called after every sync that brought something new. */
 export function onSynced(l: () => void) { syncListeners.add(l); return () => { syncListeners.delete(l); }; }
@@ -244,7 +302,7 @@ export function syncNow(force = false): Promise<void> {
       const codec = makeCodec(getPassphrase, (p) => (locked ??= lockedSketches()).has(p));
       const r = await syncOnce(githubRemote(cfg), localStore, prev, { force, codec });
       await setMeta("sync", r.state);
-      if (Object.keys(r.other).length || force) lastOther = r.other;
+      if (Object.keys(r.other).length || force) setOther(r.other);
       status.last = Date.now();
       if (r.held.length) setStatus({ kind: "pending", text: "Needs passphrase", detail: `${r.held.length === 1 ? "A locked note waits" : `${r.held.length} locked notes wait`} for your passphrase on this device before they go to the vault (Locked notes, below).` });
       else setStatus({ kind: allRecords().some((x) => x.dirty) ? "pending" : "ok" });
@@ -276,6 +334,7 @@ function schedulePush() {
 }
 
 export function startSync() {
+  void getMeta<Record<string, string>>("other").then((o) => { if (o && !Object.keys(lastOther).length) { lastOther = o; syncListeners.forEach((l) => l()); } });
   onLocalChange(schedulePush);
   if (getConfig()) void syncNow();
   setInterval(() => { if (getConfig() && document.visibilityState === "visible" && !running) void syncNow(); }, 120_000);

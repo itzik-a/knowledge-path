@@ -9,7 +9,7 @@ import { HabitSheet } from "./components/HabitSheet";
 import { TimerStartSheet } from "./components/TimerStartSheet";
 import { AskSheet } from "./components/AskSheet";
 import { ShortcutsSheet } from "./components/ShortcutsSheet";
-import { IconCart, IconGraph, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { IconCards, IconCart, IconGraph, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
@@ -18,6 +18,7 @@ const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({
 const CookMode = lazy(() => import("./components/CookMode").then((m) => ({ default: m.CookMode })));
 const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ default: m.TimerDock })));
 const SitMode = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
+const PdfReader = lazy(() => import("./components/PdfReader").then((m) => ({ default: m.PdfReader })));
 const SitDock = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
 import { TopicSheet } from "./components/TopicSheet";
 import { docHref, readHash, tagHref, topicHref, type Route } from "./lib/route";
@@ -39,6 +40,7 @@ import { Shopping, shoppingLeft } from "./views/Shopping";
 import { ShoppingSheet } from "./components/ShoppingSheet";
 import { SHOPPING_PATH } from "../shared/shopping.ts";
 import { Notes, TagPage } from "./views/Notes";
+import { Review, useDueCount } from "./views/Review";
 import { Topics } from "./views/Topics";
 
 type Tab = "home" | "topics" | "library" | "notes";
@@ -57,7 +59,7 @@ function tabOf(r: Route): Tab {
   }
   if (r.view === "tag") return "notes";
   if (r.view === "inbox") return "library";
-  return r.view === "capture" || r.view === "habits" || r.view === "recipes" || r.view === "shopping" ? "home" : (r.view as Tab);
+  return r.view === "capture" || r.view === "habits" || r.view === "recipes" || r.view === "shopping" || r.view === "review" ? "home" : (r.view as Tab);
 }
 
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
@@ -110,6 +112,7 @@ export function App() {
   const recipesOpen = route.view === "recipes" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "recipe");
   const toBuy = ready ? shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body) : 0;
   const waiting = ready ? inbox(ix).length : 0;
+  const dueCards = useDueCount();
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const pinned = ready ? pinnedDocs(ix) : [];
   const pinnedTags = usePinnedTags();
@@ -132,9 +135,10 @@ export function App() {
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !graphOpen ? "page" : undefined}><Icon /><span>{label}</span></a>
+            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !graphOpen && route.view !== "review" ? "page" : undefined}><Icon /><span>{label}</span></a>
           ))}
           <a href="#notes/graph" aria-current={graphOpen ? "page" : undefined}><IconGraph /><span>Graph</span></a>
+          <a href="#review" aria-current={route.view === "review" ? "page" : undefined}><IconCards /><span>Flashcards</span>{dueCards > 0 && <span className="badge">{dueCards}</span>}</a>
           <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
           <a href="#recipes" aria-current={recipesOpen ? "page" : undefined}><IconRecipe /><span>Recipes</span></a>
           <a href="#shopping" aria-current={route.view === "shopping" ? "page" : undefined}><IconCart /><span>Shopping list</span>{toBuy > 0 && <span className="badge">{toBuy}</span>}</a>
@@ -194,6 +198,7 @@ export function App() {
           : route.view === "habits" ? <Habits />
           : route.view === "recipes" ? <Recipes />
           : route.view === "shopping" ? <Shopping />
+          : route.view === "review" ? <Review />
           : route.view === "tag" && route.sub ? <TagPage tag={route.sub} />
           : route.view === "doc" && route.sub ? <DocPage path={route.sub} />
           : <Home />}
@@ -217,6 +222,7 @@ export function App() {
       {sheet?.kind === "sit" && <Suspense fallback={null}><SitMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
       {sheet?.kind !== "sit" && hasSit && <Suspense fallback={null}><SitDock onOpen={(path) => openSheet({ kind: "sit", path })} /></Suspense>}
       {sheet?.kind !== "cook" && !hasSit && hasTimers && <Suspense fallback={null}><TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} /></Suspense>}
+      {sheet?.kind === "pdf" && <Suspense fallback={null}><PdfReader key={sheet.path} path={sheet.path} page={sheet.page} onClose={closeSheetReq} /></Suspense>}
       {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
 
       <nav className="tabbar" aria-label="Sections">

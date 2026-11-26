@@ -22,13 +22,42 @@ export interface FileRec {
   sent?: string;
 }
 
+/** A file the text sync doesn't carry (a PDF), kept here as it is. */
+export interface BlobRec {
+  path: string;
+  blob: Blob;
+  size: number;
+  /** in the vault already (sent from here, or downloaded from there) */
+  uploaded: boolean;
+  /** too big for the vault: only on this device */
+  local?: boolean;
+  added: number;
+}
+
 let dbp: Promise<IDBPDatabase> | null = null;
-const db = () => (dbp ??= openDB("knowledgePath", 1, {
-  upgrade(d) {
-    d.createObjectStore("files", { keyPath: "path" });
-    d.createObjectStore("meta");
+const db = () => (dbp ??= openDB("knowledgePath", 2, {
+  upgrade(d, old) {
+    if (old < 1) {
+      d.createObjectStore("files", { keyPath: "path" });
+      d.createObjectStore("meta");
+    }
+    if (old < 2) d.createObjectStore("blobs", { keyPath: "path" });
   },
 }));
+
+export async function getBlob(path: string): Promise<BlobRec | undefined> {
+  return (await db()).get("blobs", path) as Promise<BlobRec | undefined>;
+}
+export async function putBlob(r: BlobRec) {
+  await (await db()).put("blobs", r);
+}
+export async function deleteBlob(path: string) {
+  await (await db()).delete("blobs", path);
+}
+/** Every kept file's record, without reading the files themselves into memory more than needed. */
+export async function allBlobs(): Promise<BlobRec[]> {
+  return (await db()).getAll("blobs") as Promise<BlobRec[]>;
+}
 
 export async function loadAll(): Promise<FileRec[]> {
   return (await db()).getAll("files");
@@ -54,4 +83,5 @@ export async function clearAll() {
   const d = await db();
   await d.clear("files");
   await d.clear("meta");
+  await d.clear("blobs");
 }

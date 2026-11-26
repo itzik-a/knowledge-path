@@ -49,6 +49,7 @@ export const HOME_CARDS: HomeCardInfo[] = [
   { id: "journal", name: "Today's journal entry" },
   { id: "now", name: "In progress" },
   { id: "next", name: "Up next" },
+  { id: "cards", name: "Flashcards" },
   { id: "highlight", name: "From your highlights" },
   { id: "recent", name: "Recently saved" },
 ];

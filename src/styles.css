@@ -1342,3 +1342,72 @@ kbd {
 .range-row { display: grid; gap: 2px; min-height: 52px; align-content: center; }
 .range-label { display: flex; justify-content: space-between; gap: 8px; font-size: .95rem; }
 .range-row input[type="range"] { width: 100%; height: 32px; margin: 0; accent-color: var(--accent); }
+
+/* ---------- Flashcards (#review, views/Review.tsx) ---------- */
+.hl-row { display: flex; align-items: flex-start; gap: 4px; }
+.hl-row > .hl { flex: 1; min-width: 0; }
+.hl-row > .icon-btn { margin-top: 2px; }
+.flashcard { gap: 16px; padding: 20px; }
+.flashcard .card-head .link { max-width: 60%; }
+.fc-quote { margin: 0; padding: 4px 0; font-family: var(--font-display); font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap; unicode-bidi: plaintext; text-align: start; }
+.fc-quote mark { background: var(--accent-soft); color: var(--ink); border-radius: 4px; padding: 0 2px; }
+.cloze-blank { display: inline-block; min-width: 3em; border-bottom: 2px solid var(--accent); margin: 0 2px; white-space: pre; }
+.fc-front { display: grid; gap: 4px; padding: 6px 0; }
+.fc-cue { font-family: var(--font-display); font-size: 1.2rem; line-height: 1.5; }
+.fc-show { justify-self: stretch; }
+.fc-kbd { display: none; }
+@media (hover: hover) and (pointer: fine) { .fc-kbd { display: inline-block; opacity: .7; font-size: .7rem; } }
+.btn.primary .fc-kbd { background: transparent; color: inherit; box-shadow: inset 0 0 0 1px currentColor; }
+.fc-grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.fc-grade { justify-self: stretch; display: grid; justify-items: center; gap: 0; min-height: 60px; padding: 6px 4px; border-radius: 14px; white-space: normal; }
+.fc-grade .fc-when { font-size: .74rem; font-weight: 500; color: var(--muted); }
+.fc-grade.g3 { background: var(--accent-soft); color: var(--accent); }
+.fc-grade.g3 .fc-when { color: inherit; opacity: .8; }
+.review-done { gap: 8px; }
+.fc-group { display: grid; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.fc-group-head { font-weight: 650; color: var(--ink); }
+.fc-list { display: grid; }
+.fc-list li { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.fc-list .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .92rem; }
+.fc-due { flex: none; white-space: nowrap; }
+
+/* ---------- PDFs (components/PdfReader.tsx; the + sheet's PDF picker) ---------- */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.pdf-pick { display: flex; align-items: center; gap: 10px; margin-top: -4px; }
+.pdf-pick label { cursor: pointer; }
+.pdf-pick label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hl-page { flex: none; min-height: 36px; padding: 4px 10px; margin-top: 4px; }
+.pdf-dlg { background: var(--surface-2); }
+.pdf-dlg::backdrop { background: var(--surface-2); }
+.pdf-bar { background: var(--glass); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--glass-line); }
+.pdf-pageno { flex: none; font-variant-numeric: tabular-nums; }
+.pdf-scroll {
+  flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  display: grid; justify-content: center; align-content: start; gap: 14px;
+  padding: 14px 12px calc(90px + env(safe-area-inset-bottom));
+}
+.pdf-msg { padding: 40px 16px; text-align: center; max-width: 40ch; }
+.pdf-page-wrap { position: relative; }
+.pdf-page { position: relative; background: var(--paper); box-shadow: var(--shadow); border-radius: 2px; overflow: hidden; --scale-round-x: 1px; --scale-round-y: 1px; }
+.pdf-canvas { display: block; }
+.pdf-page-n { position: absolute; right: -2px; bottom: -18px; font-size: .7rem; color: var(--muted); }
+.pdf-hl-btn { z-index: 5; bottom: calc(24px + env(safe-area-inset-bottom)); }
+/* pdf.js's text layer (from pdfjs-dist/web/pdf_viewer.css): the page's words, invisible, over the canvas, so they can be selected */
+.pdf-page .textLayer {
+  position: absolute; inset: 0; overflow: clip; opacity: 1; line-height: 1; text-align: initial;
+  -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 0;
+  --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.pdf-page .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; -webkit-user-select: text; user-select: text; }
+.pdf-page .textLayer > :not(.markedContent), .pdf-page .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.pdf-page .textLayer .markedContent { display: contents; }
+.pdf-page .textLayer span[role="img"] { -webkit-user-select: none; user-select: none; cursor: default; }
+.pdf-page .textLayer ::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: transparent; }
+.pdf-page .textLayer br::selection { background: transparent; }
+.pdf-page .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; -webkit-user-select: none; user-select: none; }
+.pdf-page .textLayer.selecting .endOfContent { top: 0; }
+.pdf-page .textLayer mark.pdf-hl { position: static; color: transparent; background: color-mix(in srgb, var(--hl-ink) 45%, transparent); border-radius: 2px; }
+.hl blockquote mark, .hl-card blockquote mark { background: var(--accent-soft); color: inherit; border-radius: 4px; padding: 0 2px; }

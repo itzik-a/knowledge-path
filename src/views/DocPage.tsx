@@ -3,8 +3,8 @@ import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
-import { DocRow, Progress, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph } from "../components/Icons";
+import { DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
+import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { OutlineButton } from "../components/editor/outline";
@@ -14,7 +14,11 @@ import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, go, graphHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
-import { readFile, useIndex } from "../state/store";
+import { readFile, useIndex, useVault } from "../state/store";
+import { isCard, readCards, setCard } from "../state/cards";
+import { mb, usePdfState, type PdfState } from "../state/pdfs";
+import { pageOf, pdfOf } from "../../shared/pdfs.ts";
+import type { CardMap } from "../../shared/cards.ts";
 import { amountText, habitIcon } from "../components/habits";
 import { HabitPage } from "./Habits";
 import { RecipePage } from "./Recipes";
@@ -23,6 +27,7 @@ import { getPassphrase } from "../lib/passphrase";
 import { setPrivate } from "../state/privacy";
 import { bookOf, chaptersIn, isRsarchive, plainLinks, readingText, sectionsOf } from "../../shared/books.ts";
 import { EpubButton, EpubStatus } from "../components/Epub";
+import { useHeldSelection } from "../lib/selection";
 
 
 export function DocPage({ path }: { path: string }) {
@@ -162,6 +167,8 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
   const toRecipe = () => { const to = makeRecipe(d.path); if (to) { history.replaceState(history.state, "", docHref(to)); window.dispatchEvent(new HashChangeEvent("hashchange")); } };
   const book = bookOf(d.fm);
   const canBook = isRsarchive(r.url);
+  const pdf = pdfOf(d.fm);
+  const pdfState = usePdfState(pdf);
 
   return (
     <>
@@ -188,10 +195,12 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           ]} />
         </div>
         <div className="btn-row">
-          {r.url && <a className="btn primary sm" href={r.url} target="_blank" rel="noopener">Open <IconExternal /></a>}
+          {pdf && !(pdfState.kind === "missing" && d.fm.pdfLocal) && <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "pdf", path: d.path })}><IconRead /> Read</button>}
+          {r.url && <a className={`btn ${pdf ? "" : "primary "}sm`} href={r.url} target="_blank" rel="noopener">Open <IconExternal /></a>}
           {article && <button type="button" className="btn sm" aria-pressed={reading} onClick={() => setReading((x) => !x)}><IconRead /> {reading ? "Close reader" : "Read here"}</button>}
           <button type="button" className="btn ghost sm" onClick={() => setDetails(true)}><IconEdit /> Details</button>
         </div>
+        {pdf && <PdfStatus state={pdfState} fm={d.fm} />}
         {r.enrich === "pending" && r.url && <p className="muted small">Fetching the details: they arrive after the next sync (a minute or two).</p>}
         {r.enrich === "failed" && <p className="muted small">Couldn't read the page{r.enrichError ? ` (${r.enrichError})` : ""}. Add the details by hand.</p>}
         {canBook && !book.state && (
@@ -240,7 +249,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           empty="Nothing yet. What did you think?" />
       </section>
 
-      <Highlights path={d.path} hls={hls} />
+      <Highlights path={d.path} hls={hls} pdf={!!pdf} />
       <LinkedFrom ix={ix} path={d.path} skip={(x) => x.kind === "chapter" && !!book.folder && x.path.startsWith(book.folder + "/")} />
       <Tags d={d} />
       {details && <ResourceSheet path={d.path} onClose={() => setDetails(false)} />}
@@ -250,20 +259,15 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
 
 /** Select a passage, press Highlight: `onHighlight` gets it, with the block id (^p12) of the paragraph it starts in. */
 function useHighlighter(onHighlight: (quote: string, block?: string) => void) {
-  const [sel, setSel] = useState<{ text: string; block?: string } | null>(null);
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const on = () => {
-      const s = document.getSelection();
-      if (!s || s.isCollapsed || !box.current?.contains(s.anchorNode)) { setSel(null); return; }
-      const at = s.anchorNode instanceof Element ? s.anchorNode : s.anchorNode?.parentElement;
-      setSel({ text: s.toString().trim(), block: at?.closest("[data-block]")?.getAttribute("data-block") ?? undefined });
-    };
-    document.addEventListener("selectionchange", on);
-    return () => document.removeEventListener("selectionchange", on);
-  }, []);
-  const button = sel?.text ? (
-    <button type="button" className="btn primary hl-float" onPointerDown={(e) => e.preventDefault()} onClick={() => { onHighlight(sel.text.replace(/^\[\d[\w.]*\]\s*/, ""), sel.block); document.getSelection()?.removeAllRanges(); setSel(null); }}>
+  const { sel, buttonProps } = useHeldSelection(box, (s) => {
+    const text = s.toString().trim();
+    if (!text) return null;
+    const at = s.anchorNode instanceof Element ? s.anchorNode : s.anchorNode?.parentElement;
+    return { text, block: at?.closest("[data-block]")?.getAttribute("data-block") ?? undefined };
+  });
+  const button = sel ? (
+    <button type="button" className="btn primary hl-float" {...buttonProps((v) => onHighlight(v.text.replace(/^\[\d[\w.]*\]\s*/, ""), v.block))}>
       <IconQuote /> Highlight
     </button>
   ) : null;
@@ -358,7 +362,9 @@ function ChapterPage({ d, ix }: { d: Doc; ix: Index }) {
   );
 }
 
-function Highlights({ path, hls }: { path: string; hls: Highlight[] }) {
+function Highlights({ path, hls, pdf }: { path: string; hls: Highlight[]; pdf?: boolean }) {
+  useVault();
+  const cards = readCards();
   const [adding, setAdding] = useState(false);
   const [edit, setEdit] = useState<number | null>(null);
   return (
@@ -369,6 +375,7 @@ function Highlights({ path, hls }: { path: string; hls: Highlight[] }) {
       </div>
       {adding && <HighlightForm onSave={(q, c) => { addHighlight(path, q, c); setAdding(false); }} onCancel={() => setAdding(false)} />}
       {!hls.length && !adding && <p className="muted small">Quotes and passages worth keeping. They come back in the daily review on Home.</p>}
+      {hls.length > 0 && !adding && edit == null && <p className="muted small">Make any of them a flashcard with <IconCards width={15} height={15} className="inline-icon" />. Words marked <code>==like this==</code> are hidden on the card.</p>}
       <ul className="hl-list">
         {hls.map((h, i) => (
           <li key={`${h.start}-${h.quote.slice(0, 20)}`}>
@@ -376,15 +383,40 @@ function Highlights({ path, hls }: { path: string; hls: Highlight[] }) {
               <HighlightForm quote={h.quote} comment={h.comment} onSave={(q, c) => { editHighlight(path, h, q, c); setEdit(null); }} onCancel={() => setEdit(null)}
                 onRemove={async () => { if (!(await confirmAsk({ title: "Delete this highlight?", body: h.quote.length > 140 ? h.quote.slice(0, 140) + "…" : h.quote }))) return; editHighlight(path, h, null); setEdit(null); }} />
             ) : (
-              <button type="button" className="hl" onClick={() => { setEdit(i); setAdding(false); }}>
-                <blockquote dir="auto">{h.quote}</blockquote>
-                {h.comment && <p className="muted small" dir="auto">{plainLinks(h.comment)}</p>}
-              </button>
+              <div className="hl-row">
+                <button type="button" className="hl" onClick={() => { setEdit(i); setAdding(false); }}>
+                  <blockquote dir="auto"><QuoteText q={h.quote} /></blockquote>
+                  {h.comment && !(pdf && /^\[\[[^\]]+\.pdf#page=\d+\|p\. \d+\]\]$/i.test(h.comment.trim())) && <p className="muted small" dir="auto">{plainLinks(h.comment)}</p>}
+                </button>
+                {pdf && pageOf(h.comment) && <button type="button" className="btn ghost sm hl-page" onClick={() => openSheet({ kind: "pdf", path, page: pageOf(h.comment) })} aria-label={`Open the PDF at page ${pageOf(h.comment)}`}>p. {pageOf(h.comment)}</button>}
+                <CardToggle path={path} quote={h.quote} cards={cards} />
+              </div>
             )}
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Where a PDF is: on this device, in the vault, or only on the device that added it. */
+function PdfStatus({ state, fm }: { state: PdfState; fm: Record<string, unknown> }) {
+  const size = typeof fm.pdfSize === "number" ? ` · ${mb(fm.pdfSize)}` : "";
+  const text = state.kind === "loading" ? ""
+    : state.kind === "here" ? (state.rec.local ? `PDF${size} · only on this device: it's bigger than the vault takes` : state.rec.uploaded ? `PDF${size} · on this device and in the vault` : `PDF${size} · on this device: it goes to the vault when the app is connected and online`)
+    : state.kind === "vault" ? `PDF${size} · in the vault: downloaded the first time you read it here`
+    : fm.pdfLocal ? `PDF${size} · only on the device it was added on (too big for the vault)` : `PDF${size} · not in the vault yet: it goes once the device that added it is online and connected`;
+  return text ? <p className="muted small">{text}</p> : null;
+}
+
+/** Make a highlight a flashcard, or stop it being one. */
+function CardToggle({ path, quote, cards }: { path: string; quote: string; cards: CardMap }) {
+  const on = isCard(quote, cards);
+  const label = on ? "A flashcard: stop" : "Make it a flashcard";
+  return (
+    <button type="button" className={`icon-btn subtle${on ? " on" : ""}`} aria-pressed={on} aria-label={label} title={label} onClick={() => setCard(path, quote, !on)}>
+      <IconCards />
+    </button>
   );
 }
 

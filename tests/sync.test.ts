@@ -2,6 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED } from "../shared/seed.ts";
+import { parseCards, writeCards } from "../shared/cards.ts";
 import { merge3, Moved, syncOnce, type Codec, type Head, type LocalStore, type Remote, type SyncState } from "../src/lib/vaultsync.ts";
 
 const sha1 = (s: string) => createHash("sha1").update(s).digest("hex");
@@ -378,6 +379,20 @@ describe("sync", () => {
     expect(gh.files().get(p)).toBe(want);
     await a.sync(gh);
     expect(a.s.readFile(p)).toBe(want);
+  });
+
+  it("two devices review different cards before syncing: .hub/cards.json merges card by card", async () => {
+    const p = ".hub/cards.json";
+    const rec = (at: number, reps = 0) => ({ src: "Notes/A.md", added: "2026-11-26", at, ...(reps ? { srs: { due: at, stability: 1, difficulty: 5, elapsed_days: 0, scheduled_days: 1, learning_steps: 0, reps, lapses: 0, state: 2 as const } } : {}) });
+    gh.push({ [p]: writeCards({ a: rec(1), b: rec(1) }) });
+    const x = await device(); await x.sync(gh);
+    const y = await device(); await y.sync(gh);
+    x.s.writeFile(p, writeCards({ a: rec(5, 1), b: rec(1) }));
+    y.s.writeFile(p, writeCards({ a: rec(1), b: rec(6, 1), c: rec(6) }));
+    await x.sync(gh);
+    const r = await y.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    expect(parseCards(gh.files().get(p))).toEqual({ a: rec(5, 1), b: rec(6, 1), c: rec(6) });
   });
 
   it("an empty vault gets everything on this device", async () => {

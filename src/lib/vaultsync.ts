@@ -8,7 +8,7 @@
      vault changed, mine clean          → take the vault's
      vault changed, mine dirty          → three-way merge (base, mine, vault); if lines clash, the vault's copy
                                           keeps the name and mine is saved beside it as "… (conflict <date>).md"
-                                          (a sketch merges by strokes: what either side drew or erased)
+                                          (a sketch merges by strokes: what either side drew or erased; .hub/cards.json card by card)
      vault changed, I removed it        → the vault's edit wins (the file comes back)
      gone from the vault, mine clean    → remove here
      gone from the vault, mine dirty    → push mine again
@@ -26,6 +26,7 @@
    still dirty, e.g. a private note on a device without the passphrase). Everything in between, merges
    included, sees the plain text. */
 import { diff3Merge } from "node-diff3";
+import { isCardsPath, mergeCards } from "../../shared/cards.ts";
 import { mergeLogLines } from "../../shared/habits.ts";
 import { isSketchPath, mergeSketch } from "../../shared/sketch.ts";
 import { basename, dirname, isSynced, kindOf, todayISO } from "../../shared/vault.ts";
@@ -169,7 +170,7 @@ async function run(remote: Remote, local: LocalStore, prev: SyncState, opts: Opt
     if (r.deleted) { if (!mine) { apply.push({ path, content: theirs, sha }); pulled++; } continue; } // mine: the removal goes out
     if (r.content === theirs) { apply.push({ path, content: theirs, sha }); continue; }
     if (mine) { apply.push({ path, content: r.content, sha, base: theirs, dirty: true }); continue; } // my edits since go out
-    const merged = (isSketchPath(path) ? mergeSketch(r.base ?? "", r.content, theirs) : null)
+    const merged = (isSketchPath(path) ? mergeSketch(r.base ?? "", r.content, theirs) : isCardsPath(path) ? mergeCards(r.base ?? "", r.content, theirs) : null)
       ?? merge3(r.base ?? "", r.content, theirs, { logs: kindOf(path) === "habit" || kindOf(path) === "recipe" });
     if (merged != null) {
       apply.push({ path, content: merged, sha, base: theirs, dirty: merged !== theirs });

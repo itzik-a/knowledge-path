@@ -2,7 +2,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { pinnedDocs, type Doc } from "../../shared/index.ts";
 import { journalPath, parseHighlights, todayISO } from "../../shared/vault.ts";
-import { DocRow, ResourceRow } from "../components/bits";
+import { DocRow, QuoteText, ResourceRow } from "../components/bits";
 import { HabitCheck, HabitRow, AmountForm, TimerPanel, WeekStrip, habitIcon, habitMeta, statsOf, useNow } from "../components/habits";
 import { habitsOf } from "./Habits";
 import { recipesOf } from "./Recipes";
@@ -10,7 +10,7 @@ import { shoppingLeft } from "./Shopping";
 import { SHOPPING_PATH } from "../../shared/shopping.ts";
 import { RecipeRow } from "../components/recipes";
 import { addDays } from "../lib/dates";
-import { IconCart, IconChevronDown, IconHabit, IconPin, IconRecipe, IconJournal, IconQuote } from "../components/Icons";
+import { IconCards, IconCart, IconChevronDown, IconHabit, IconPin, IconRecipe, IconJournal, IconQuote } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { useLocalState } from "../components/ui";
 import { greeting, longDate } from "../lib/dates";
@@ -18,6 +18,8 @@ import { docHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { homeCards, useHomeLayout } from "../state/settings";
 import { useIndex } from "../state/store";
+import { useCards } from "../state/cards";
+import { useDueCount } from "./Review";
 
 /** The same highlight all day, a different one tomorrow. */
 function dailyPick<T>(list: T[], day: string): T | undefined {
@@ -73,6 +75,22 @@ function HabitCard({ d, fold }: { d: Doc; fold: Fold }) {
           <WeekStrip d={d} />
         </>
       )}
+    </HomeCard>
+  );
+}
+
+/** Flashcards to review today (only once there are cards). */
+function CardsCard({ fold }: { fold: Fold }) {
+  const all = useCards().length;
+  const due = useDueCount();
+  if (!all) return null;
+  return (
+    <HomeCard id="cards" fold={fold} title={<span className="habit-card-title"><IconCards width={18} height={18} /> Flashcards</span>} count={due || undefined}
+      link={<a className="link" href="#review">All</a>}>
+      <div className="habit-row">
+        <span className="item-meta grow">{due ? `${due} to review` : "All reviewed for now"} · {all} {all === 1 ? "card" : "cards"}</span>
+        {due > 0 && <a className="btn primary sm" href="#review">Review</a>}
+      </div>
     </HomeCard>
   );
 }
@@ -163,9 +181,10 @@ export function Home() {
         <ul className="item-list">{next.slice(0, 4).map((d) => <ResourceRow key={d.path} d={d} ix={ix} />)}</ul>
       </HomeCard>
     ),
+    cards: <CardsCard key="cards" fold={fold} />,
     highlight: hl && (
       <HomeCard id="highlight" fold={fold} className="hl-card" title={<span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>}>
-        <blockquote dir="auto">{hl.quote}</blockquote>
+        <blockquote dir="auto"><QuoteText q={hl.quote} /></blockquote>
         {hl.comment && <Markdown body={hl.comment} from={hl.d.path} className="muted small" />}
         <a className="link small" href={docHref(hl.d.path)} dir="auto">{hl.d.title}{hl.d.resource?.author ? `, ${hl.d.resource.author}` : ""}</a>
       </HomeCard>
