@@ -194,3 +194,21 @@ Trips/Lisbon 2026.md                 frontmatter: start, end, countries, cities,
 3. Do I have **old Takeout files** with location history from before 2024?
 4. **Planning** (28) too, or only documenting past trips?
 5. **Nominatim** (free) or **Google Places** (better names, a key) for place names?
+
+## 9. Roadmaps for a topic (planned 2026-11-27)
+
+A **roadmap** is a study path for a topic I want to start but have no route through yet: a few stages in order, each with a goal and an ordered checklist of resources, notes and tasks. It's a normal `Paths/` file whose resources are saved links with `suggested: true`, so it needs no new kind. Two ways to get one:
+
+### 1. Now: Claude writes it in a session
+I give the topic and answer a few questions: **why** I want it, **how deep**, **what I already know**, **time** a week, **formats** (books, lectures, podcasts, courses) and **language** (English, Hebrew). Claude researches on the web so every title and author is real, shows me the draft, and only after my OK writes it to the vault:
+```
+Paths/Philosophy roadmap.md          topics, description; intro, then a "## Stage 1 · Foundations (≈3 weeks)" section a stage:
+                                     a "Goal:" line, then - [ ] [[Resource]]: what to read, and - [ ] tasks (write a note…)
+Resources/<each resource>.md         suggested: true, status: saved; the enricher fills in the rest
+```
+Optionally subtopics and a topic overview note too. Philosophy is the first (a chronological roadmap, from the beginnings to today).
+
+**The path page needs one change for this**: today it shows every non-step line as one intro above a single flat list of steps, so the stage headings bunch up at the top. Stages should show in order with their own steps and progress ("Stage 2 of 5", 3 of 7 done).
+
+### 2. Later: a "Make a roadmap" button
+29. **Roadmaps in the app**: a **Roadmap** mode in a topic's Explore. A short sheet asks the questions above (answers remembered for the topic), the vault's Action asks Opus for the stages, reading my library so what I've saved or finished goes into the path instead of being suggested again. The draft comes back like an Explore answer; I tick what to keep, and it's written as the path and suggested resources. Then: the topic page shows the current stage, Home's In progress card shows the next step, Explore's "What to do next" follows the path, and finishing a stage can offer flashcards from its highlights. The Action gets Claude's **web search** tool for this, so titles are checked against real sources (today Explore only asks Claude not to invent them). About $0.20–0.50 a roadmap, more than a plain Explore.
