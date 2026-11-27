@@ -17,6 +17,7 @@ import { back } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { deleteDocs, patch, pinItem } from "../state/actions";
 import { useIndex } from "../state/store";
+import { SelectBar, SelectButton, useSelection } from "../components/Select";
 import { DocTags, DocTopics, LinkedFrom, TitleInput } from "./DocPage";
 
 export const recipesOf = (ix: Index) => [...ix.docs.values()].filter((d) => d.kind === "recipe");
@@ -46,6 +47,9 @@ export function Recipes() {
       : sort === "cooked" ? (b.cooking?.cooked.length ?? 0) - (a.cooking?.cooked.length ?? 0) || lastCooked(b).localeCompare(lastCooked(a)) || a.title.localeCompare(b.title)
       : String(b.fm.added ?? "").localeCompare(String(a.fm.added ?? "")) || b.mtime - a.mtime);
 
+  // select mode: only the recipes shown (search and tag) can be picked, so nothing out of sight is deleted
+  const sel = useSelection(shown.map((d) => d.path));
+
   return (
     <>
       <div className="page-head row-head">
@@ -53,7 +57,10 @@ export function Recipes() {
           <h1 className="display">Recipes</h1>
           {all.length > 0 && <p className="muted">{all.length} {all.length === 1 ? "recipe" : "recipes"}</p>}
         </div>
-        <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "recipe" } })}><IconPlus /> New recipe</button>
+        <div className="btn-row">
+          <SelectButton sel={sel} />
+          {!sel.on && <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "recipe" } })}><IconPlus /> New recipe</button>}
+        </div>
       </div>
 
       <a className="card journal-card" href="#shopping">
@@ -77,7 +84,7 @@ export function Recipes() {
             </div>
           )}
           {shown.length
-            ? <ul className="recipe-grid">{shown.map((d) => <RecipeCard key={d.path} d={d} />)}</ul>
+            ? <ul className="recipe-grid">{shown.map((d) => <RecipeCard key={d.path} d={d} sel={sel} />)}</ul>
             : <p className="muted card">Nothing matches{q ? ` “${q}”` : ""}{tag ? ` in #${tag}` : ""}.</p>}
         </>
       ) : (
@@ -88,6 +95,7 @@ export function Recipes() {
           <button type="button" className="btn primary" onClick={() => openSheet({ kind: "capture", init: { mode: "recipe" } })}><IconPlus /> New recipe</button>
         </section>
       )}
+      <SelectBar sel={sel} />
     </>
   );
 }

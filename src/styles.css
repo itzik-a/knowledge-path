@@ -1543,3 +1543,9 @@ kbd {
 .boundary { margin: 16px; display: grid; gap: 10px; justify-items: start; }
 .boundary.quiet { position: fixed; z-index: 60; left: 50%; bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: min(420px, calc(100vw - 32px));
   padding: 14px 16px; border-radius: var(--radius); background: var(--raised); box-shadow: var(--shadow-lg); }
+
+/* select mode on the Recipes grid (RecipeCard with sel) */
+button.recipe-card { position: relative; width: 100%; padding: 0; border: 0; font: inherit; text-align: start; cursor: pointer; }
+.recipe-card.picking .pick { position: absolute; top: 8px; inset-inline-start: 8px; background: var(--raised); }
+.recipe-card.picking .pick.on { background: var(--accent); }
+.recipe-card.picking[aria-checked="true"] { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }

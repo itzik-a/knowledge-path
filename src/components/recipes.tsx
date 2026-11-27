@@ -13,6 +13,7 @@ import { logCooked, setRating, unlogCooked } from "../state/actions";
 import { TopicChips } from "./bits";
 import { IconCheck, IconEdit, IconTrash } from "./Icons";
 import { Seg, Stepper, useSessionState } from "./ui";
+import type { Selection } from "./Select";
 
 export const RECIPE_EMOJI = "🍲";
 
@@ -47,19 +48,30 @@ export function RecipeRow({ d, ix, showTopics = true }: { d: Doc; ix: Index; sho
   );
 }
 
-export function RecipeCard({ d }: { d: Doc }) {
+/** A recipe in the grid; in select mode (`sel.on`) a tap picks it instead of opening it. */
+export function RecipeCard({ d, sel }: { d: Doc; sel?: Selection }) {
   const r = d.recipe!;
-  return (
-    <li>
-      <a className="recipe-card" href={docHref(d.path)}>
-        {r.image ? <img src={r.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="recipe-ph" aria-hidden="true">{RECIPE_EMOJI}</span>}
-        <span className="recipe-card-text">
-          <b dir="auto">{d.title}</b>
-          <span className="muted small" dir="auto">{r.enrich === "pending" ? "Fetching the recipe…" : recipeMeta(d) || (r.site ?? "Recipe")}</span>
-        </span>
-      </a>
-    </li>
+  const inner = (
+    <>
+      {r.image ? <img src={r.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="recipe-ph" aria-hidden="true">{RECIPE_EMOJI}</span>}
+      <span className="recipe-card-text">
+        <b dir="auto">{d.title}</b>
+        <span className="muted small" dir="auto">{r.enrich === "pending" ? "Fetching the recipe…" : recipeMeta(d) || (r.site ?? "Recipe")}</span>
+      </span>
+    </>
   );
+  if (sel?.on) {
+    const on = sel.has(d.path);
+    return (
+      <li>
+        <button type="button" className="recipe-card picking" role="checkbox" aria-checked={on} onClick={() => sel.toggle(d.path)}>
+          {inner}
+          <span className={`pick${on ? " on" : ""}`} aria-hidden="true">{on && <IconCheck width={13} height={13} />}</span>
+        </button>
+      </li>
+    );
+  }
+  return <li><a className="recipe-card" href={docHref(d.path)}>{inner}</a></li>;
 }
 
 // ── scale ─────────────────────────────────────────────────────
