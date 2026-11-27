@@ -11,7 +11,7 @@ import { HabitSheet } from "./components/HabitSheet";
 import { TimerStartSheet } from "./components/TimerStartSheet";
 import { AskSheet } from "./components/AskSheet";
 import { ShortcutsSheet } from "./components/ShortcutsSheet";
-import { IconCards, IconCart, IconGraph, IconHabit, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { IconCards, IconCart, IconGraph, IconHabit, IconPath, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
@@ -40,6 +40,7 @@ import { Home } from "./views/Home";
 import { Inbox } from "./views/Inbox";
 import { Library } from "./views/Library";
 import { Recipes } from "./views/Recipes";
+import { Paths } from "./views/Paths";
 import { Shopping, shoppingLeft } from "./views/Shopping";
 import { ShoppingSheet } from "./components/ShoppingSheet";
 import { SHOPPING_PATH } from "../shared/shopping.ts";
@@ -63,6 +64,7 @@ function tabOf(r: Route): Tab {
   }
   if (r.view === "tag") return "notes";
   if (r.view === "inbox") return "library";
+  if (r.view === "paths") return "topics";
   return r.view === "capture" || r.view === "habits" || r.view === "recipes" || r.view === "shopping" || r.view === "review" ? "home" : (r.view as Tab);
 }
 
@@ -117,6 +119,7 @@ export function App() {
   const habitsOpen = route.view === "habits" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "habit");
   const graphOpen = route.view === "notes" && route.sub === "graph";
   const recipesOpen = route.view === "recipes" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "recipe");
+  const pathsOpen = route.view === "paths" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "path");
   const toBuy = ready ? shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body) : 0;
   const waiting = ready ? inbox(ix).length : 0;
   const dueCards = useDueCount();
@@ -143,8 +146,9 @@ export function App() {
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !graphOpen && route.view !== "review" ? "page" : undefined}><Icon /><span>{label}</span></a>
+            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !pathsOpen && !graphOpen && route.view !== "review" ? "page" : undefined}><Icon /><span>{label}</span></a>
           ))}
+          <a href="#paths" aria-current={pathsOpen ? "page" : undefined}><IconPath /><span>Study paths</span></a>
           <a href="#notes/graph" aria-current={graphOpen ? "page" : undefined}><IconGraph /><span>Graph</span></a>
           <a href="#review" aria-current={route.view === "review" ? "page" : undefined}><IconCards /><span>Flashcards</span>{dueCards > 0 && <span className="badge">{dueCards}</span>}</a>
           <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
@@ -206,6 +210,7 @@ export function App() {
           : route.view === "inbox" ? <Inbox />
           : route.view === "habits" ? <Habits />
           : route.view === "recipes" ? <Recipes />
+          : route.view === "paths" ? <Paths />
           : route.view === "shopping" ? <Shopping />
           : route.view === "review" ? <Review />
           : route.view === "tag" && route.sub ? <TagPage tag={route.sub} />

@@ -71,13 +71,13 @@ function NoteList() {
       {pinned.length > 0 && (
         <section className="card">
           <h2 className="folder-name pin-head"><IconPin width={18} height={18} /> Pinned <span className="muted">{pinned.length}</span></h2>
-          <ul className="item-list pinned-list">{pinned.map((d) => <NoteRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
+          <ul className="item-list pinned-list">{pinned.map((d) => <DocRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
         </section>
       )}
       {folders.map(([f, docs]) => (
         <section key={f} className="card">
           <h2 className="folder-name">{f || "Vault"} <span className="muted">{docs.length}</span></h2>
-          <ul className="item-list">{docs.map((d) => <NoteRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
+          <ul className="item-list">{docs.map((d) => <DocRow key={d.path} d={d} ix={ix} sel={sel} />)}</ul>
         </section>
       ))}
       {!shown.length && <div className="card empty"><p className="muted">{notes.length ? "No note matches." : "No notes yet. Notes can be about anything; give them a topic to file them."}</p></div>}

@@ -587,7 +587,7 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
   const cur = stages.length ? currentStage(stages) : -1;
   return (
     <>
-      <Back fallback="#topics" />
+      <Back fallback="#paths" />
       <section className="card">
         <div className="note-head">
           <div className="grow">

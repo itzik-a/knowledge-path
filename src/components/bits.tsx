@@ -1,7 +1,7 @@
 /* Small pieces used across views: topic chips and picker, resource and note rows, status. */
 import { useMemo, useState, type ReactNode } from "react";
 import { ancestry, type Doc, type Index, type Topic } from "../../shared/index.ts";
-import type { ResourceType, Status } from "../../shared/vault.ts";
+import { currentStage, parseStages, parseSteps, type ResourceType, type Status } from "../../shared/vault.ts";
 import { shortDate, whenText } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
@@ -192,8 +192,43 @@ export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; 
   );
 }
 
+/** How far a study path is: steps done, and for a roadmap the stage to work on. */
+export function pathProgress(d: Doc) {
+  const steps = parseSteps(d.body);
+  const done = steps.filter((x) => x.done).length;
+  const { stages } = parseStages(d.body);
+  const cur = stages.length ? currentStage(stages) : -1;
+  return { done, total: steps.length, stages: stages.length, stage: cur >= 0 ? stages[cur].title || `Stage ${cur + 1}` : undefined };
+}
+
+/** A study path in a list: its progress (and a roadmap's current stage), its topics or "No topic", its date. */
+export function PathRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
+  const p = useMemo(() => pathProgress(d), [d]);
+  const finished = p.total > 0 && p.done === p.total;
+  const meta = finished ? `Done · all ${p.total} steps` : p.stage ? `Now: ${p.stage}` : `${p.done} of ${p.total} done`;
+  const when = rowDate(d, "Created");
+  const topicless = !(ix.topicsOf.get(d.path) ?? []).length;
+  return (
+    <li>
+      <RowShell path={d.path} sel={sel}>
+        <span className="thumb emoji" aria-hidden="true">🧭</span>
+        <span className="item-main">
+          <span className="item-title" dir="auto">{d.title}{d.pinned && <IconPin className="inline-icon pin-mark" role="img" aria-label="Pinned" aria-hidden={false} />}</span>
+          <span className="item-meta" dir="auto">{p.stages ? `Roadmap · ` : ""}{meta}{p.stage && !finished ? ` · ${p.done} of ${p.total}` : ""}</span>
+          {p.total > 0 && <span className="path-row-bar"><Progress value={Math.round((p.done / p.total) * 100)} /></span>}
+          <span className="item-tags">
+            {when && <span className="muted small">{when}</span>}
+            {showTopics && (topicless ? <span className="tag">No topic</span> : <TopicChips ix={ix} path={d.path} max={2} />)}
+          </span>
+        </span>
+      </RowShell>
+    </li>
+  );
+}
+
 export function DocRow({ d, ix, showTopics, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   if (d.kind === "recipe" && !sel?.on) return <RecipeRow d={d} ix={ix} showTopics={showTopics} />;
+  if (d.kind === "path") return <PathRow d={d} ix={ix} showTopics={showTopics} sel={sel} />;
   return d.kind === "resource" ? <ResourceRow d={d} ix={ix} showTopics={showTopics} sel={sel} /> : <NoteRow d={d} ix={ix} showTopics={showTopics} sel={sel} />;
 }
 

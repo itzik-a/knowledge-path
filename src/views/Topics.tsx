@@ -4,7 +4,7 @@ import { itemsIn, type Doc, type Index, type Topic } from "../../shared/index.ts
 import type { Status } from "../../shared/vault.ts";
 import { Breadcrumb, DocRow, STATUS_LABEL, topicColor } from "../components/bits";
 import { Explore } from "../components/Explore";
-import { IconEdit, IconMore, IconPlus } from "../components/Icons";
+import { IconEdit, IconMore, IconPath, IconPlus } from "../components/Icons";
 import { NoteBody } from "../components/NoteBody";
 import { Menu, Switch, useSessionState } from "../components/ui";
 import { docHref, go, graphHref, topicHref } from "../lib/route";
@@ -29,7 +29,10 @@ export function Topics({ sub }: { sub?: string }) {
     <>
       <div className="page-head row-head">
         <div><h1 className="display">Topics</h1><p className="muted">{ix.topics.size} topics</p></div>
-        <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "topic" })}><IconPlus /> Topic</button>
+        <div className="head-actions">
+          <a className="btn ghost sm" href="#paths"><IconPath /> Study paths</a>
+          <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "topic" })}><IconPlus /> Topic</button>
+        </div>
       </div>
       <div className="topic-grid">
         {top.map((t) => <TopicCard key={t.id} t={t} ix={ix} />)}

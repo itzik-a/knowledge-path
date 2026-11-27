@@ -1565,3 +1565,5 @@ button.recipe-card { position: relative; width: 100%; padding: 0; border: 0; fon
 .bulk-choice { text-align: start; padding: 12px 14px; min-height: 44px; border-radius: 10px; background: none; border: 0; color: var(--ink); font: inherit; cursor: pointer; }
 .bulk-choice:hover, .bulk-choice:focus-visible { background: var(--surface-2); outline: none; }
 .bulk-sub { margin: 18px 0 6px; font-size: .95rem; }
+.path-row-bar { display: block; margin: 6px 0 2px; }
+.path-row-bar .progress { max-width: 240px; height: 5px; }
