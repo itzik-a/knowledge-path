@@ -178,6 +178,9 @@ kbd {
   gap: 12px;
   min-width: 0;
 }
+/* a grid item is at least as wide as its content by default, so a wide table or toolbar would widen the card, its text and
+   the page past the screen; with this the card keeps its width and the wide thing scrolls (tables) or wraps */
+.card > *, .body-wrap > * { min-width: 0; }
 :where(:root[data-theme="dark"]) .card { box-shadow: inset 0 0 0 1px var(--line); }
 
 .tag {
@@ -721,6 +724,8 @@ a.chip { color: var(--ink); }
 .prose img { max-width: 100%; border-radius: 10px; }
 .prose table { border-collapse: collapse; font-size: .92rem; display: block; overflow-x: auto; }
 .prose th, .prose td { border: 1px solid var(--line); padding: 6px 10px; text-align: start; }
+/* words in a cell stay whole (not .prose's break-anywhere): a wide table scrolls sideways instead of splitting "120" */
+.prose :is(th, td) { overflow-wrap: normal; min-width: 4em; }
 .prose a { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 2px; }
 .prose a.wikilink { text-decoration: none; background: var(--accent-soft); border-radius: 5px; padding: 0 4px; font-weight: 550; }
 .prose a.wikilink.missing { background: transparent; color: var(--muted); text-decoration: underline dashed; }
@@ -738,8 +743,14 @@ a.chip { color: var(--ink); }
 .note-head { display: flex; align-items: flex-end; gap: 4px 12px; flex-wrap: wrap-reverse; } /* flex-end is the top when wrapping in reverse */
 /* a narrow card: the tools get a row of their own above the title rather than squeezing it */
 .note-head .grow { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; }
-.head-tools { display: flex; align-items: center; gap: 4px; flex: none; margin-inline-start: auto; }
+.head-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; flex: 0 1 auto; min-width: 0; margin-inline-start: auto; }
 .head-tools .btn { justify-self: auto; }
+/* an iPhone card is ~320 px wide and a note has up to 8 tools: no gaps between them (each still 44 px), and the Aa button
+   is in the top bar there already; if they still don't fit (a small phone) they wrap rather than widen the card */
+@media (max-width: 767px) {
+  .head-tools { gap: 0; margin-inline-end: -8px; } /* into the card's padding (the buttons are clear): 7 fit a 375 px phone */
+  .head-tools .aa-btn { display: none; }
+}
 .title-input {
   width: 100%; padding: 2px 0; margin: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink);
   font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2;
