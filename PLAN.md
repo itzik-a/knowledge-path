@@ -146,3 +146,51 @@ A native Mac app around the same web app, for two things a web page can't do: **
 
 ### Not in this plan
 A Share-menu extension (it needs a native Swift app extension) and the vault as a local folder shared with Obsidian (GitHub stays the sync), maybe later.
+
+## 8. Travel (planned 2026-11-27, not built)
+
+Documenting my trips: a note per trip with its days, the places I stopped and how I got between them, links to the photo albums, and the journal entries I wrote on the way, plus a map of everywhere I've been. The timeline comes from Google Maps where I have it.
+
+**Google Maps has no Timeline API**: since 2024–25 the Timeline is stored only on the phone. The way in is its export (iPhone: Google Maps → Settings → Personal content → Export Timeline data → `Timeline.json`), read by the app on the device. It has `semanticSegments` (visits: place ID, coordinates, arrival and departure; activities: walking / driving / flying with distance; `timelinePath` points), `rawSignals` and `userLocationProfile` (where home is). Old Google Takeout downloads (before 2024) have a different format, *Semantic Location History* (`placeVisit` / `activitySegment`, with place names).
+
+### The vault
+```
+Trips/Lisbon 2026.md                 frontmatter: start, end, countries, cities, cover (a URL), albums (URLs), with, topics, tags, rating
+                                     body: an intro, then "## Days": a "### 2026-05-03 · Lisbon" section a day with its stops
+                                     (- 09:40–11:15 [Jerónimos Monastery](geo:38.6979,-9.2068)), legs (- 🚶 2.1 km · 🚋 tram 15),
+                                     my writing and that day's album link
+.hub/travel/<trip>.json              the GPS track, simplified to a few hundred points
+```
+- `[name](geo:lat,lng)` is the inline format the Obsidian **Map View** plugin reads, so trips show on a map in Obsidian too; no syntax of our own.
+- **Photos stay where they are**: albums (the trip's and each day's) and the cover are links, never files in the vault.
+
+### Screens
+- **#travel**: a world map of the countries I've been to (hand-made SVG, like finance-path's charts), trips by year, totals (countries, nights away, km).
+- **A trip's page**: cover, dates and countries; a map of the stops and the track; a timeline for each day (stops with times, legs with their mode and km); albums; **every journal entry written during the trip**, found by date; the resources and topics it links to.
+- **Home**: a Travel card, with "On this day" ("A year ago: Lisbon, day 3").
+
+### Timeline import
+1. Export on the iPhone, then **Import Timeline** in Vault & settings. The file is read in the browser (a worker: it can be tens of MB) and **never uploaded or kept**.
+2. The app finds **likely trips**: at least a night far from home (`userLocationProfile`), and lists them ("3–9 May 2026 · Portugal · 31 stops · 412 km"). I tick the ones I want.
+3. Each becomes a trip note with its days, stops and legs filled in, or merges into a trip I wrote by hand. Only the trip's own days come in, and the stretch from home to the airport is cut off.
+4. **Place names**: the new export has coordinates and Google place IDs but no names. OpenStreetMap's Nominatim (free, ~1 lookup a second, a few dozen a trip) or Google's Places API by place ID (better names, needs a key and billing). Names can be fixed in the note.
+
+### Milestones (24–28; 20–23 are the Mac app above)
+24. **Trips**: `shared/trips.ts` (DOM- and Node-free, with tests), the `Trips/` kind and its page, trips written by hand, albums, the trip's journal entries, the #travel list and a Home card.
+25. **Maps**: the trip map (MapLibre GL with OpenFreeMap tiles, free and keyless, loaded on first use through `lazyPart`), the world map of countries, totals.
+26. **Timeline import**: both export formats, trip detection, the review sheet, writing the notes and tracks, place names.
+27. **Albums and covers**: the enricher reads an album link's preview image and title for the cover; per-day albums; "On this day".
+28. **Planning** (optional): upcoming trips with a packing checklist, and a wishlist of places on the map from saved links.
+
+### Ideas noted
+- **Privacy**: location history shows where I live and how I move every day. Defaults: only trip days imported, home trimmed, the raw file never stored, trips lockable like private notes, nothing about trips sent to Claude unless I ask. Maybe the track encrypted too (as finance-path would).
+- **Photo locations as a second source** (place and time in iPhone photos) could rebuild trips from before the Timeline. iOS Safari may strip location from photos picked in a web page: check on the iPhone; on the Mac it works, and it could be a Tauri feature.
+- **Google Photos**: since 2025-03-31 its Library API only reads what the app uploaded itself; other photos only through the Picker API (one by one, with a Google sign-in). So albums are links; picking a cover photo through the Picker could come later.
+- **Claude** (optional, costs tokens): a short write-up of a trip from its stops and journal, or "what to see near here", through the existing `/ask`.
+
+### Open questions (to answer before 24)
+1. Are my photos in **Google Photos, iCloud, or both**?
+2. **Encrypt the GPS track**, or are plain-Markdown stops enough?
+3. Do I have **old Takeout files** with location history from before 2024?
+4. **Planning** (28) too, or only documenting past trips?
+5. **Nominatim** (free) or **Google Places** (better names, a key) for place names?
