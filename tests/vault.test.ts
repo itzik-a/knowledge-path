@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIndex, inbox, itemsIn, parseDoc, pinnedDocs, resolve, type Doc } from "../shared/index.ts";
 import { SEED } from "../shared/seed.ts";
 import {
+  summariesAuto, wantsSummary,
   addHighlight, excerpt, extractLinks, extractTags, guessType, kindOf, parseHighlights, parseSteps, renameLinks, replaceHighlight,
   safeName, setBody, setFrontmatter, splitFrontmatter, strList, titleFromUrl, toggleStep, uniquePath,
 } from "../shared/vault.ts";
@@ -224,5 +225,26 @@ describe("/ask callouts", () => {
     expect(replaceWaiting(body, "x1", answerBlock("What is the main idea?", "Freedom.\n\n- one\n- two"))).toBe(
       "Intro\n\n> [!info] Claude: What is the main idea?\n> Freedom.\n>\n> - one\n> - two\n\nAfter\n");
     expect(replaceWaiting("Gone\n", "x1", "y")).toBeNull();
+  });
+});
+
+describe("Claude summaries of saved links", () => {
+  it("are on for every link unless the setting says ask", () => {
+    expect(summariesAuto({})).toBe(true);
+    expect(summariesAuto({ summaries: "ask" })).toBe(false);
+    expect(summariesAuto({ summaries: "auto" })).toBe(true);
+  });
+  it("go to Claude only when on or asked for, with a key, and never for rsarchive.org", () => {
+    const base = { claude: true, auto: true, asked: false, rsarchive: false };
+    expect(wantsSummary(base)).toBe(true);
+    expect(wantsSummary({ ...base, auto: false })).toBe(false);
+    expect(wantsSummary({ ...base, auto: false, asked: true })).toBe(true);
+    expect(wantsSummary({ ...base, claude: false, asked: true })).toBe(false);
+    expect(wantsSummary({ ...base, asked: true, rsarchive: true })).toBe(false);
+  });
+  it("read the Summarise request from the frontmatter", () => {
+    const d = parseDoc("Resources/A.md", "---\nurl: https://example.com\nsummarize: pending\n---\n");
+    expect(d.resource?.summarize).toBe("pending");
+    expect(parseDoc("Resources/B.md", "---\nurl: https://example.com\n---\n").resource?.summarize).toBeUndefined();
   });
 });

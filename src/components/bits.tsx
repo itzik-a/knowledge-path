@@ -133,6 +133,7 @@ export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Ind
             <span className="item-tags">
               <StatusPill status={r.status} />
               {r.enrich === "pending" && <span className="tag">Fetching details…</span>}
+              {r.enrich !== "pending" && r.summarize === "pending" && <span className="tag">Summarising…</span>}
               {showTopics && <TopicChips ix={ix} path={d.path} max={2} />}
             </span>
           )}

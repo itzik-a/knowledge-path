@@ -211,6 +211,8 @@ export interface Resource {
   suggested: boolean;
   enrich?: "pending" | "done" | "failed";
   enrichError?: string;
+  /** "Summarise" was tapped: the enricher asks Claude for a summary (and topics) on its next run */
+  summarize?: "pending";
   suggestedTopics: string[];
   provisional: boolean;
 }
@@ -238,6 +240,7 @@ export function resourceOf(fm: Record<string, unknown>): Resource {
     suggested: fm.suggested === true,
     enrich: fm.enrich === "pending" || fm.enrich === "done" || fm.enrich === "failed" ? fm.enrich : undefined,
     enrichError: str(fm.enrichError),
+    summarize: fm.summarize === "pending" ? "pending" : undefined,
     suggestedTopics: strList(fm.suggestedTopics).map(refTarget),
     provisional: fm.provisional === true,
   };
@@ -255,6 +258,15 @@ export function guessType(url: string): ResourceType | undefined {
   if (/(^|\.)coursera\.org$|(^|\.)edx\.org$|(^|\.)udemy\.com$|^ocw\.mit\.edu$/.test(h)) return "course";
   if (u.pathname === "/" || u.pathname === "") return "site";
   return "article";
+}
+
+/** Claude summaries of saved links (`summaries` in .hub/settings.json): for every new link (the default) or only
+    the ones I ask for ("ask": a link with `summarize: pending`). Read by the app and by the enricher. */
+export const summariesAuto = (settings: Record<string, unknown>) => settings.summaries !== "ask";
+
+/** Should the enricher ask Claude about this link? Never for rsarchive.org (its robots.txt asks for reference use only). */
+export function wantsSummary(o: { claude: boolean; auto: boolean; asked: boolean; rsarchive: boolean }): boolean {
+  return o.claude && !o.rsarchive && (o.auto || o.asked);
 }
 
 /** A readable placeholder title from a URL, until the enricher finds the real one. */

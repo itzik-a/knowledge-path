@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
 import { DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
-import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
+import { IconBook, IconCheck, IconSpark, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
 import { ReadingButton } from "../components/ReadingPanel";
@@ -14,7 +14,8 @@ import { Menu, Seg } from "../components/ui";
 import { addDays, longDate, medDate } from "../lib/dates";
 import { back, docHref, go, graphHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
-import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
+import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, requestSummary, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
+import { useSummariesAuto } from "../state/settings";
 import { readFile, useIndex, useVault } from "../state/store";
 import { isCard, readCards, setCard } from "../state/cards";
 import { mb, usePdfState, type PdfState } from "../state/pdfs";
@@ -168,6 +169,12 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
   const toRecipe = () => { const to = makeRecipe(d.path); if (to) { history.replaceState(history.state, "", docHref(to)); window.dispatchEvent(new HashChangeEvent("hashchange")); } };
   const book = bookOf(d.fm);
   const canBook = isRsarchive(r.url);
+  // Claude never reads rsarchive.org pages (its robots.txt); "Summarise" is for every other link
+  const canSummarise = !!r.url && !canBook && r.summarize !== "pending";
+  const autoSummaries = useSummariesAuto();
+  // a summary Claude wrote (`summarized:` date), not just the page's own description; links enriched before the
+  // setting existed had Claude summaries whenever they have one
+  const aiSummary = !!d.fm.summarized || (autoSummaries && !!r.summary);
   const pdf = pdfOf(d.fm);
   const pdfState = usePdfState(pdf);
 
@@ -189,6 +196,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             { label: "Edit details", run: () => setDetails(true) },
             r.url ? { label: "Copy link", run: () => void navigator.clipboard?.writeText(r.url!) } : null,
             r.url ? { label: "Fetch details again", run: () => patchResource(d.path, { enrich: "pending", enrichError: undefined }) } : null,
+            canSummarise ? { label: r.summary ? "Summarise again with Claude" : "Summarise with Claude", run: () => requestSummary(d.path) } : null,
             canBook ? { label: book.state === "ready" || book.state === "failed" ? "Fetch the book again" : "Make it a book", run: () => makeBook(d.path) } : null,
             canBook ? { label: "Download as EPUB", run: () => requestEpub(r.url!, d.title) } : null,
             canBook ? null : { label: "Make it a recipe", run: toRecipe },
@@ -200,10 +208,12 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           {r.url && <a className={`btn ${pdf ? "" : "primary "}sm`} href={r.url} target="_blank" rel="noopener">Open <IconExternal /></a>}
           {article && <button type="button" className="btn sm" aria-pressed={reading} onClick={() => setReading((x) => !x)}><IconRead /> {reading ? "Close reader" : "Read here"}</button>}
           <button type="button" className="btn ghost sm" onClick={() => setDetails(true)}><IconEdit /> Details</button>
+          {canSummarise && !autoSummaries && !aiSummary && <button type="button" className="btn ghost sm" onClick={() => requestSummary(d.path)}><IconSpark /> Summarise</button>}
         </div>
         {pdf && <PdfStatus state={pdfState} fm={d.fm} />}
         {r.enrich === "pending" && r.url && <p className="muted small">Fetching the details: they arrive after the next sync (a minute or two).</p>}
         {r.enrich === "failed" && <p className="muted small">Couldn't read the page{r.enrichError ? ` (${r.enrichError})` : ""}. Add the details by hand.</p>}
+        {r.summarize === "pending" && <p className="muted small">Claude is summarising it: the summary arrives after the next sync (a minute or two).</p>}
         {canBook && !book.state && (
           <div className="recipe-nudge">
             <span className="grow"><b>This is on the Rudolf Steiner Archive.</b> <span className="muted">Make it a book to read and highlight it here, chapter by chapter (the text goes in the vault), or just get the EPUB (nothing is kept).</span></span>

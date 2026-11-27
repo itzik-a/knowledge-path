@@ -10,7 +10,7 @@ import { allRecords, readFile, useIndex, useVault, writeFiles } from "../state/s
 import { DEFAULT_REPO, TOKEN_URL, checkRepo, connect, disconnect, getConfig, syncNow, useSyncStatus, type RepoCheck, type SyncStatus } from "../state/sync";
 import { IconExternal, IconGrip } from "./Icons";
 import { AccentPicker, ThemePicker } from "./ThemePicker";
-import { homeCards, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, useHomeLayout, useSinkChecked } from "../state/settings";
+import { homeCards, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, setSummariesAuto, useHomeLayout, useSinkChecked, useSummariesAuto } from "../state/settings";
 import { PrivateForm } from "./PrivateNotes";
 import { Sheet, Switch } from "./ui";
 
@@ -241,6 +241,7 @@ interface EnrichStatus { at?: string; enriched?: number; failed?: number; explor
 
 function EnricherSection() {
   useVault();
+  const autoSummaries = useSummariesAuto();
   const raw = readFile(".hub/status.json");
   let st: EnrichStatus | null = null;
   try { st = raw ? (JSON.parse(raw) as EnrichStatus) : null; } catch { st = null; }
@@ -250,8 +251,12 @@ function EnricherSection() {
       <h3 id="en-title">Filling in saved links</h3>
       <p className="muted small">
         After a sync, a GitHub Action in the vault fetches each new link's title, author, image and readable text, and asks Claude
-        (Haiku) for a two-line summary and the topics it fits. It also answers Explore.
+        (Haiku) for a two-line summary and the topics it fits, from the first 12,000 characters of the page. It also answers Explore and /ask.
       </p>
+      <label className="switch-row"><Switch on={autoSummaries} onChange={setSummariesAuto} label="Summarise every new link" /> Summarise every new link</label>
+      <p className="muted small">{autoSummaries
+        ? "Every saved link gets a Claude summary and suggested topics."
+        : "Links get their title and text only; tap Summarise on a link (or More → Summarise with Claude) when you want Claude's summary."}</p>
       {st ? (
         <p className="small">
           Last run {st.at ? ago(Date.parse(st.at)) : "—"}{st.enriched ? ` · filled in ${st.enriched}` : ""}{st.failed ? ` · ${st.failed} couldn't be read` : ""}

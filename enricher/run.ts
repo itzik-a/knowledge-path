@@ -2,7 +2,8 @@
      node enricher/run.ts --vault <vault dir> [--dry] [--no-claude]
    1. Resources with `enrich: pending` and a url: read the page (title, author, site, image, year, article
       text → .hub/articles/<name>.md); with ANTHROPIC_API_KEY, Claude Haiku writes a summary and suggests
-      topics. Captured links (`provisional: true`) are renamed to their title. Failures get `enrich: failed`.
+      topics: for every new link, or with `summaries: "ask"` in .hub/settings.json only for links with
+      `summarize: pending` (the app's Summarise button; such a link is read again even when it's done). Captured links (`provisional: true`) are renamed to their title. Failures get `enrich: failed`.
       A saved link whose page has a recipe gets `recipe: true` (the app offers to make it a recipe).
    1b. Recipes with `enrich: pending` and a `source`: the page's schema.org Recipe data (Claude Haiku reads the
       page when it has none) fills in an empty recipe, its servings, times, photo and tags; a recipe saved from a
@@ -26,7 +27,8 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promise
 import { join } from "node:path";
 import { buildIndex, itemsIn, parseDoc, type Doc } from "../shared/index.ts";
 import {
-  basename, explorePath, kindOf, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, uniquePath, type ExploreResult,
+  basename, explorePath, kindOf, guessType, HUB, isSynced, safeName, setBody, setFrontmatter, splitFrontmatter, summariesAuto, uniquePath, wantsSummary,
+  type ExploreResult,
 } from "../shared/vault.ts";
 import { fillRecipe } from "../shared/recipes.ts";
 import { Declined, ask, describe, explore, extractRecipe, spend } from "./claude.ts";
@@ -69,18 +71,26 @@ async function main() {
   console.log(`Vault: ${files.size} files, ${topics.length} topics. Claude: ${CLAUDE ? "on" : "off"}.`);
 
   // ── 1. saved links ──────────────────────────────────────────
-  const pending = [...index.docs.values()].filter((d) => d.kind === "resource" && d.fm.enrich === "pending").slice(0, MAX_PER_RUN);
+  // Claude summaries for every new link, or (summaries: "ask" in the app's settings) only for links I tapped Summarise on
+  let hubSettings: Record<string, unknown> = {};
+  try { hubSettings = JSON.parse(files.get(`${HUB}/settings.json`) ?? "{}") as Record<string, unknown>; } catch { /* defaults */ }
+  const AUTO = summariesAuto(hubSettings);
+  console.log(`Summaries: ${AUTO ? "every new link" : "only when asked"}.`);
+  const pending = [...index.docs.values()]
+    .filter((d) => d.kind === "resource" && (d.fm.enrich === "pending" || (d.fm.summarize === "pending" && CLAUDE)))
+    .slice(0, MAX_PER_RUN);
   let enriched = 0, failed = 0;
   const errors: string[] = [];
   await pool(pending, 4, async (d) => {
     const url = d.resource?.url;
     let text = files.get(d.path)!;
-    if (!url) { await save(d.path, setFrontmatter(text, { enrich: undefined })); return; }
+    if (!url) { await save(d.path, setFrontmatter(text, { enrich: undefined, summarize: undefined })); return; }
     try {
       const page = await readPage(url);
       let ai: Awaited<ReturnType<typeof describe>> | null = null;
       // rsarchive.org asks that its text not be used as AI input (robots.txt Content-Signal): no Claude for it
-      const askClaude = CLAUDE && !isRsarchive(url);
+      const asked = d.fm.summarize === "pending";
+      const askClaude = wantsSummary({ claude: CLAUDE, auto: AUTO, asked, rsarchive: isRsarchive(url) });
       if (askClaude && (page.text || page.title)) {
         try { ai = await describe(topics, { url, title: page.title, site: page.site, author: page.author, text: page.text || page.title || "" }); }
         catch (e) { if (!(e instanceof Declined)) throw e; console.warn(`  ${d.name}: ${(e as Error).message}`); }
@@ -106,13 +116,18 @@ async function main() {
         site: fm.site ?? page.site,
         year: fm.year ?? page.year,
         image: fm.image ?? page.image,
-        summary: fm.summary ?? ai?.summary ?? (isRsarchive(url) && GENERIC_SUMMARY.test(page.description ?? "") ? undefined : shortDescription(page.description)),
+        // a summary I asked for replaces the page's own description
+        summary: (asked ? ai?.summary : undefined) ?? fm.summary ?? ai?.summary ?? (isRsarchive(url) && GENERIC_SUMMARY.test(page.description ?? "") ? undefined : shortDescription(page.description)),
         suggestedTopics: !hasTopics && ai?.topics.length ? ai.topics.map((id) => `[[${id}]]`) : undefined,
         article: articlePath ?? fm.article,
         recipe: page.recipe ? true : fm.recipe,
         enrich: "done",
         enrichError: undefined,
         provisional: undefined,
+        // asked without a key: it stays asked until there is one
+        summarize: asked && !CLAUDE ? "pending" : undefined,
+        // when Claude wrote the summary (the app's Summarise button shows only for links without one)
+        summarized: ai?.summary ? new Date().toISOString().slice(0, 10) : fm.summarized,
       });
       if (path !== d.path) {
         console.log(`  rename ${d.path} → ${path}`);
@@ -127,7 +142,7 @@ async function main() {
       const msg = (e as Error).message.slice(0, 120);
       errors.push(`${d.name}: ${msg}`);
       console.warn(`  ✗ ${d.name}: ${msg}`);
-      await save(d.path, setFrontmatter(text, { enrich: "failed", enrichError: msg, provisional: undefined }));
+      await save(d.path, setFrontmatter(text, { enrich: "failed", enrichError: msg, provisional: undefined, summarize: undefined }));
     }
   });
 

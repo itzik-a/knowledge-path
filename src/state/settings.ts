@@ -1,9 +1,11 @@
 /* App settings for every device, synced as app data in `.hub/settings.json` (one key a line, so two devices' changes merge).
    Only values that differ from the default are written. Keys: `accent` (src/state/appearance.ts), `sinkChecked`
-   (false: ticked tasks stay where they are) and `home` ({ order, hidden }: Home's cards, src/views/Home.tsx). */
+   (false: ticked tasks stay where they are), `home` ({ order, hidden }: Home's cards, src/views/Home.tsx) and
+   `summaries` ("ask": Claude summarises a saved link only when I tap Summarise; read by the enricher too). */
 import { useSyncExternalStore } from "react";
 import { showToast } from "../lib/toast";
 import type { Index } from "../../shared/index.ts";
+import { summariesAuto } from "../../shared/vault.ts";
 import { readFile, subscribe, writeFile } from "./store";
 
 export const SETTINGS_PATH = ".hub/settings.json";
@@ -40,6 +42,11 @@ export const sinkCheckedOn = (s = readSettings()) => s.sinkChecked !== false;
 export const useSinkChecked = () => sinkCheckedOn(useSettings());
 export const setSinkChecked = (on: boolean) =>
   changeSetting("sinkChecked", on ? undefined : false, on ? "Ticked items move to the bottom" : "Ticked items stay in place");
+
+// Claude summaries of saved links: for every new link, or only when I ask (the enricher reads the same key)
+export const useSummariesAuto = () => summariesAuto(useSettings());
+export const setSummariesAuto = (auto: boolean) =>
+  changeSetting("summaries", auto ? undefined : "ask", auto ? "Every new link gets a summary" : "Links get a summary only when you ask");
 
 // Home's cards
 export const HOME_CARDS: HomeCardInfo[] = [

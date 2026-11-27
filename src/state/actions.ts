@@ -373,6 +373,14 @@ export function makeRecipe(path: string): string | undefined {
   return to;
 }
 
+/** Ask the enricher for a Claude summary (and topics) of a saved link, on its next run. */
+export function requestSummary(path: string) {
+  const c = readFile(path);
+  if (c == null) return;
+  patch(path, { summarize: "pending" });
+  showToast("Claude will summarise it: it arrives after the next sync", { label: "Undo", run: () => writeFile(path, c) });
+}
+
 // ── books (rsarchive.org) ─────────────────────────────────────
 /** Ask the enricher to fetch the book behind a saved rsarchive.org link (it arrives after a sync or two). */
 export function makeBook(path: string) {
