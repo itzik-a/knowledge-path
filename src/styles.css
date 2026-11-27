@@ -811,6 +811,16 @@ a.chip { color: var(--ink); }
 .step-main { display: grid; gap: 2px; min-width: 0; }
 .step-link { font-weight: 620; color: var(--ink); }
 .steps-list li.done .step-link, .steps-list li.done .step-main > span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--axis); }
+.path-progress a { color: var(--accent); font-weight: 600; }
+/* a roadmap: a path in stages (## headings) */
+.stages { display: grid; gap: 4px; }
+.stage { display: grid; gap: 6px; padding: 14px 0 4px 14px; border-left: 3px solid var(--line); scroll-margin-top: 72px; }
+.stage.current { border-left-color: var(--accent); }
+.stage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.stage-head h3 { margin: 0; font-size: 1.05rem; }
+.stage.done .stage-head h3 { color: var(--muted); }
+.stage-count { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.stage > .prose p { margin: 0; color: var(--muted); }
 
 /* topics */
 .crumbs a { color: var(--muted); }

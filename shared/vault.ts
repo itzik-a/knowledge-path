@@ -363,6 +363,32 @@ export function parseSteps(body: string): Step[] {
   return out;
 }
 
+export interface Stage { title: string; text: string; steps: Step[] }
+
+/** A study path in stages (a roadmap): each "## " heading starts a stage with its own text and steps; whatever comes
+   before the first heading is the intro. With no "## " heading that has steps under it, `stages` is empty and the path
+   is one flat list. */
+export function parseStages(body: string): { intro: string; stages: Stage[] } {
+  const steps = parseSteps(body);
+  const lines = body.split("\n");
+  const heads = lines.flatMap((l, i) => (/^## +\S/.test(l) ? [i] : []));
+  const textOf = (from: number, to: number) => lines.slice(from, to).filter((l) => !STEP_RE.exec(l)).join("\n").trim();
+  const stages = heads.map((h, k) => {
+    const end = heads[k + 1] ?? lines.length;
+    return { title: lines[h].replace(/^## +/, "").trim(), text: textOf(h + 1, end), steps: steps.filter((s) => s.line > h && s.line < end) };
+  });
+  if (!stages.some((s) => s.steps.length)) return { intro: textOf(0, lines.length), stages: [] };
+  const before = steps.filter((s) => s.line < heads[0]);
+  if (before.length) stages.unshift({ title: "", text: "", steps: before });
+  return { intro: textOf(0, heads[0]), stages };
+}
+
+/** The stage to work on: the first with a step not done (or the last stage when all are done). */
+export function currentStage(stages: Stage[]): number {
+  const i = stages.findIndex((s) => s.steps.some((x) => !x.done));
+  return i >= 0 ? i : stages.length - 1;
+}
+
 /** Tick or untick the checkbox on a body line. */
 /** Tick or untick the task on `line`. With `sink` (Apple Notes style), the item moves with its sub-items to where the
    unticked items end: a ticked one becomes the first ticked item, an unticked one the last unticked item. "Its list" is the run of task items at

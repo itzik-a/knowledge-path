@@ -2,7 +2,7 @@
 import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
-import { journalDate, journalPath, kindOf, parseHighlights, parseSteps, STATUSES, todayISO, type Highlight, type Status } from "../../shared/vault.ts";
+import { currentStage, journalDate, journalPath, kindOf, parseHighlights, parseStages, parseSteps, STATUSES, todayISO, type Highlight, type Status, type Step } from "../../shared/vault.ts";
 import { DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
 import { IconBook, IconCheck, IconSpark, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
@@ -581,14 +581,15 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
   const [editing, setEditing] = useEditing(steps.length <= 1 && !steps[0]?.text);
   const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
   const desc = typeof d.fm.description === "string" ? d.fm.description : undefined;
-  const intro = d.body.split("\n").filter((l) => !/^\s*[-*+] \[[ xX]\]/.test(l)).join("\n");
+  const { intro, stages } = parseStages(d.body);
+  const cur = stages.length ? currentStage(stages) : -1;
   return (
     <>
       <Back fallback="#topics" />
       <section className="card">
         <div className="note-head">
           <div className="grow">
-            <span className="eyebrow">Study path</span>
+            <span className="eyebrow">{stages.length ? "Roadmap" : "Study path"}</span>
             <TitleInput d={d} />
             {desc && <p className="muted" dir="auto">{desc}</p>}
           </div>
@@ -602,49 +603,75 @@ function PathPage({ d, ix }: { d: Doc; ix: Index }) {
         {steps.length > 0 && (
           <div className="path-progress">
             <Progress value={pct} />
-            <span className="muted small">{done} of {steps.length} done</span>
+            <span className="muted small">
+              {stages.length > 0 && done < steps.length && <><a href={`#stage-${cur}`} onClick={(e) => { e.preventDefault(); document.getElementById(`stage-${cur}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} dir="auto">Now: {stages[cur].title}</a> · </>}
+              {done} of {steps.length} done
+            </span>
           </div>
         )}
       </section>
       <section className="card">
         <div className="card-head">
-          <h2>Steps</h2>
+          <h2>{stages.length ? "Stages" : "Steps"}</h2>
           <EditToggle editing={editing} set={setEditing} />
         </div>
         {editing ? (
           <>
-            <p className="muted small">One step per line: <code>- [ ] [[Meditations]]: books 2–4</code>. Type <code>[[</code> to pick a resource or note.</p>
+            <p className="muted small">One step per line: <code>- [ ] [[Meditations]]: books 2–4</code>. Type <code>[[</code> to pick a resource or note. A <code>## Heading</code> starts a stage.</p>
             <NoteBody path={d.path} body={d.body} editing autoFocus />
           </>
         ) : (
           <>
-            {intro.trim() && <Markdown body={intro} from={d.path} />}
-            <ol className="steps-list">
-              {steps.map((s) => {
-                const target = s.link ? resolve(ix, s.link, d.path) : undefined;
-                const td = target ? ix.docs.get(target) : undefined;
-                const rest = s.text.replace(/\[\[[^\]]+\]\]:?\s*/, "").trim();
-                return (
-                  <li key={s.line} className={s.done ? "done" : undefined}>
-                    <input type="checkbox" className="task-box" checked={s.done} onChange={() => toggleStep(d.path, s.line)} aria-label={`Done: ${td?.title ?? s.text}`} />
-                    <div className="step-main">
-                      {td ? (
-                        <a href={docHref(td.path)} className="step-link" dir="auto">
-                          {td.resource && <span aria-hidden="true">{TYPE_EMOJI[td.resource.type]} </span>}{td.title}
-                          {td.resource && td.resource.status !== "saved" && <span className="muted small"> · {STATUS_LABEL[td.resource.status]}</span>}
-                        </a>
-                      ) : s.link ? <span dir="auto">{s.link}</span> : null}
-                      {(rest || !s.link) && <span className={s.link ? "muted small" : undefined} dir="auto">{s.link ? rest : s.text}</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+            {intro && <Markdown body={intro} from={d.path} />}
+            {stages.length ? (
+              <div className="stages">
+                {stages.map((st, i) => {
+                  const n = st.steps.filter((s) => s.done).length;
+                  const all = st.steps.length > 0 && n === st.steps.length;
+                  return (
+                    <section key={i} id={`stage-${i}`} className={`stage${i === cur && !all ? " current" : ""}${all ? " done" : ""}`}>
+                      <div className="stage-head">
+                        {st.title ? <h3 dir="auto">{st.title}</h3> : <span />}
+                        {st.steps.length > 0 && <span className="muted small stage-count">{all ? <><IconCheck width={12} height={12} /> Done</> : `${n} of ${st.steps.length}`}</span>}
+                      </div>
+                      {st.text && <Markdown body={st.text} from={d.path} />}
+                      {st.steps.length > 0 && <StepList d={d} ix={ix} steps={st.steps} />}
+                    </section>
+                  );
+                })}
+              </div>
+            ) : <StepList d={d} ix={ix} steps={steps} />}
           </>
         )}
       </section>
       <LinkedFrom ix={ix} path={d.path} />
     </>
+  );
+}
+
+function StepList({ d, ix, steps }: { d: Doc; ix: Index; steps: Step[] }) {
+  return (
+    <ol className="steps-list">
+      {steps.map((s) => {
+        const target = s.link ? resolve(ix, s.link, d.path) : undefined;
+        const td = target ? ix.docs.get(target) : undefined;
+        const rest = s.text.replace(/\[\[[^\]]+\]\]:?\s*/, "").trim();
+        return (
+          <li key={s.line} className={s.done ? "done" : undefined}>
+            <input type="checkbox" className="task-box" checked={s.done} onChange={() => toggleStep(d.path, s.line)} aria-label={`Done: ${td?.title ?? s.text}`} />
+            <div className="step-main">
+              {td ? (
+                <a href={docHref(td.path)} className="step-link" dir="auto">
+                  {td.resource && <span aria-hidden="true">{TYPE_EMOJI[td.resource.type]} </span>}{td.title}
+                  {td.resource && td.resource.status !== "saved" && <span className="muted small"> · {STATUS_LABEL[td.resource.status]}</span>}
+                </a>
+              ) : s.link ? <span dir="auto">{s.link}</span> : null}
+              {(rest || !s.link) && <span className={s.link ? "muted small" : undefined} dir="auto">{s.link ? rest : s.text}</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

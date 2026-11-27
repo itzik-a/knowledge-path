@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIndex, inbox, itemsIn, parseDoc, pinnedDocs, resolve, type Doc } from "../shared/index.ts";
 import { SEED } from "../shared/seed.ts";
 import {
-  summariesAuto, wantsSummary,
+  summariesAuto, wantsSummary, parseStages, currentStage,
   addHighlight, excerpt, extractLinks, extractTags, guessType, kindOf, parseHighlights, parseSteps, renameLinks, replaceHighlight,
   safeName, setBody, setFrontmatter, splitFrontmatter, strList, titleFromUrl, toggleStep, uniquePath,
 } from "../shared/vault.ts";
@@ -108,6 +108,31 @@ describe("study paths", () => {
     expect(s.map((x) => [x.done, x.link])).toEqual([[false, "Meditations"], [true, undefined]]);
     expect(parseSteps(toggleStep(b, 1))[0].done).toBe(true);
     expect(parseSteps(toggleStep(b, 2))[1].done).toBe(false);
+  });
+
+  it("reads a roadmap's stages in order, with their own text and steps", () => {
+    const b = "Read alongside [[X]].\n\n## Stage 0 · Start\n*Why?* · 1 week\n- [x] [[A]]\n- [x] B\n\n## Stage 1 · Next\n- [ ] [[C]]: ch. 1\n- [x] D\n";
+    const { intro, stages } = parseStages(b);
+    expect(intro).toBe("Read alongside [[X]].");
+    expect(stages.map((s) => [s.title, s.text, s.steps.map((x) => x.text)])).toEqual([
+      ["Stage 0 · Start", "*Why?* · 1 week", ["[[A]]", "B"]],
+      ["Stage 1 · Next", "", ["[[C]]: ch. 1", "D"]],
+    ]);
+    expect(stages[1].steps[0].line).toBe(8); // the body line toggleStep uses
+    expect(currentStage(stages)).toBe(1);
+    expect(currentStage(parseStages(toggleStep(b, 8)).stages)).toBe(1);
+    expect(currentStage(parseStages(toggleStep(toggleStep(b, 8), 4)).stages)).toBe(0);
+  });
+
+  it("a path without stage headings stays one list", () => {
+    const flat = parseStages("Intro\n- [ ] [[A]]\n- [ ] B\n");
+    expect(flat.stages).toEqual([]);
+    expect(flat.intro).toBe("Intro");
+    // headings with no steps under them aren't stages
+    expect(parseStages("- [ ] A\n\n## Notes\nsome text\n").stages).toEqual([]);
+    // steps before the first heading become an untitled first stage
+    const s = parseStages("- [ ] A\n## Stage 1\n- [ ] B\n").stages;
+    expect(s.map((x) => [x.title, x.steps.length])).toEqual([["", 1], ["Stage 1", 1]]);
   });
 });
 

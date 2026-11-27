@@ -206,9 +206,9 @@ Paths/Philosophy roadmap.md          topics, description; intro, then a "## Stag
                                      a "Goal:" line, then - [ ] [[Resource]]: what to read, and - [ ] tasks (write a note…)
 Resources/<each resource>.md         suggested: true, status: saved; the enricher fills in the rest
 ```
-Optionally subtopics and a topic overview note too. Philosophy is the first (a chronological roadmap, from the beginnings to today).
+Optionally subtopics and a topic overview note too. Philosophy is the first (2026-11-27): `Paths/Philosophy roadmap.md`, 9 stages in time order from the Presocratics to today, with `Notes/Philosophy timeline.md`, 44 suggested resources and era subtopics (Medieval, Early Modern, 19th-Century, Contemporary, Eastern).
 
-**The path page needs one change for this**: today it shows every non-step line as one intro above a single flat list of steps, so the stage headings bunch up at the top. Stages should show in order with their own steps and progress ("Stage 2 of 5", 3 of 7 done).
+**The path page shows stages** (done 2026-11-27): each `## ` section in order with its own steps and count ("3 of 7"), the current stage marked, and "Now: Stage N" in the header. A path without stage headings is one list as before.
 
 ### 2. Later: a "Make a roadmap" button
 29. **Roadmaps in the app**: a **Roadmap** mode in a topic's Explore. A short sheet asks the questions above (answers remembered for the topic), the vault's Action asks Opus for the stages, reading my library so what I've saved or finished goes into the path instead of being suggested again. The draft comes back like an Explore answer; I tick what to keep, and it's written as the path and suggested resources. Then: the topic page shows the current stage, Home's In progress card shows the next step, Explore's "What to do next" follows the path, and finishing a stage can offer flashcards from its highlights. The Action gets Claude's **web search** tool for this, so titles are checked against real sources (today Explore only asks Claude not to invent them). About $0.20–0.50 a roadmap, more than a plain Explore.
