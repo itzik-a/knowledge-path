@@ -1,5 +1,6 @@
 /* App icons for each accent (src/state/appearance.ts ACCENTS): public/icons/icon-<accent>.svg, then PNGs at 180 / 192 / 512
-   (full-bleed, the Home Screen rounds them) and public/manifest-<accent>.webmanifest. Plum is also the default icon.svg and
+   (full-bleed, the Home Screen rounds them) and public/manifest-<accent>.webmanifest. The installed app's icon is always
+   INSTALLED's (every manifest lists it; index.html's apple-touch-icon points at it). Plum is also the default icon.svg and
    icon-*.png. macOS only (qlmanage + sips). Run: node scripts/make-icons.ts */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -17,6 +18,9 @@ const ICONS: Record<string, { from: string; to: string; spark: string; theme: st
   // Bear-style: dark slate grey with a red spark
   graphite: { from: "#2F4F4F", to: "#2F4F4F", spark: "#F0605E", theme: "#C8393B" },
 };
+
+/** The icon the installed app gets, whatever the accent. */
+const INSTALLED = "graphite";
 
 const svg = (c: (typeof ICONS)[string], rounded: boolean) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
@@ -44,7 +48,7 @@ for (const [id, c] of Object.entries(ICONS)) {
   const png512 = `public/icons/icon-${id}-512.png`;
   renameSync(join(tmp, `${id}.svg.png`), png512);
   for (const s of [180, 192]) execFileSync("sips", ["-z", String(s), String(s), png512, "--out", `public/icons/icon-${id}-${s}.png`], { stdio: "ignore" });
-  const icons = [192, 512].map((s) => ({ src: `icons/icon-${id}-${s}.png`, sizes: `${s}x${s}`, type: "image/png", purpose: "any" }));
+  const icons = [192, 512].map((s) => ({ src: `icons/icon-${INSTALLED}-${s}.png`, sizes: `${s}x${s}`, type: "image/png", purpose: "any" }));
   icons.push({ ...icons[1], purpose: "maskable" });
   writeFileSync(`public/manifest-${id}.webmanifest`, JSON.stringify({ ...base, id: "./", theme_color: c.theme, icons }, null, 2) + "\n");
 }

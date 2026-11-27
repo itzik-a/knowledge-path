@@ -41,13 +41,12 @@ function apply(a: Accent) {
   subs.forEach((f) => f());
 }
 
-/** The tab icon, the Home Screen icon (iOS reads it only when the app is added) and the manifest follow the accent
-   (files from scripts/make-icons.ts). */
+/** The tab icon and the manifest (its theme colour) follow the accent (files from scripts/make-icons.ts). The installed app's
+   icon is always the Graphite (Bear) one, whatever the accent: index.html's apple-touch-icon and every manifest's icons. */
 export const iconOf = (a: Accent) => `./icons/icon-${a}.svg`;
 function setIcons(a: Accent) {
   const set = (sel: string, href: string) => { const l = document.querySelector<HTMLLinkElement>(sel); if (l && l.getAttribute("href") !== href) l.setAttribute("href", href); };
   set('link[rel="icon"]', iconOf(a));
-  set('link[rel="apple-touch-icon"]', `./icons/icon-${a}-180.png`);
   set('link[rel="manifest"]', `./manifest-${a}.webmanifest`);
 }
 
