@@ -2,7 +2,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ancestry, type Doc, type Index, type Topic } from "../../shared/index.ts";
 import type { ResourceType, Status } from "../../shared/vault.ts";
-import { medDate, shortDate, whenText } from "../lib/dates";
+import { shortDate, whenText } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
@@ -122,6 +122,7 @@ function RowShell({ path, sel, children }: { path: string; sel?: Selection; chil
 export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const r = d.resource!;
   const meta = [r.author, r.site && !r.author ? r.site : undefined, TYPE_LABEL[r.type]].filter(Boolean).join(" · ");
+  const when = rowDate(d, "Added");
   return (
     <li>
       <RowShell path={d.path} sel={sel}>
@@ -129,9 +130,10 @@ export function ResourceRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Ind
         <span className="item-main">
           <span className="item-title" dir="auto">{d.title}</span>
           <span className="item-meta" dir="auto">{meta}</span>
-          {(showTopics || r.status !== "saved") && (
+          {(showTopics || r.status !== "saved" || when) && (
             <span className="item-tags">
               <StatusPill status={r.status} />
+              {when && <span className="muted small">{when}</span>}
               {r.enrich === "pending" && <span className="tag">Fetching details…</span>}
               {r.enrich !== "pending" && r.summarize === "pending" && <span className="tag">Summarising…</span>}
               {showTopics && <TopicChips ix={ix} path={d.path} max={2} />}
@@ -148,6 +150,9 @@ export function docEmoji(d: Doc): string {
   if (d.kind === "resource") return TYPE_EMOJI[d.resource!.type];
   return d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : d.kind === "chapter" ? "📖" : "📝";
 }
+
+/** A row's date: "Updated today 22:39", else "Added 27 Nov 2026" / "Created 25 Nov 2026". */
+const rowDate = (d: Doc, made: string) => (d.updated ? `Updated ${whenText(d.updated)}` : d.created ? `${made} ${whenText(d.created)}` : undefined);
 
 /** "Created 23 Nov 2026 · Updated today 17:40" for a note or saved link (whichever it has). */
 export function DocDates({ d }: { d: Doc }) {
@@ -167,7 +172,7 @@ export const docLabel = (d: Doc) => (d.kind === "journal" && d.date ? shortDate(
 
 export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const label = docLabel(d);
-  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : d.updated ? `Updated ${whenText(d.updated)}` : d.created ? medDate(d.created) : undefined;
+  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : rowDate(d, "Created");
   return (
     <li>
       <RowShell path={d.path} sel={sel}>
