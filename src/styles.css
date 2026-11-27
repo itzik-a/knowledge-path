@@ -245,6 +245,8 @@ kbd {
     background: var(--surface);
   }
   .sidebar .brand { padding: 0 8px; }
+  /* Installed from Safari on the Mac: the window's close / minimise buttons sit over the top of the page */
+  @media (display-mode: standalone) and (pointer: fine) { .sidebar { padding-top: 40px; } }
   .side-nav { display: grid; gap: 2px; }
   .side-nav a {
     display: flex; align-items: center; gap: 12px;

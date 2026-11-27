@@ -14,8 +14,8 @@ const ICONS: Record<string, { from: string; to: string; spark: string; theme: st
   green: { from: "#45A045", to: "#1B4D1B", spark: "#fff", theme: "#2F7A2F" },
   amber: { from: "#D9841A", to: "#6E3B00", spark: "#fff", theme: "#9A5200" },
   indigo: { from: "#6C60E2", to: "#2C2480", spark: "#fff", theme: "#4B3FB8" },
-  // Bear-style: graphite with a red spark
-  graphite: { from: "#3A3B41", to: "#1C1D20", spark: "#F0605E", theme: "#C8393B" },
+  // Bear-style: dark slate grey with a red spark
+  graphite: { from: "#2F4F4F", to: "#2F4F4F", spark: "#F0605E", theme: "#C8393B" },
 };
 
 const svg = (c: (typeof ICONS)[string], rounded: boolean) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
