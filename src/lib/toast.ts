@@ -16,6 +16,9 @@ export function showToast(text: string, action?: ToastMsg["action"]) {
   timer = window.setTimeout(hideToast, action ? 6000 : 2500);
 }
 
+/** The toast showing now (tests). */
+export const currentToast = () => current;
+
 export function hideToast() {
   current = null;
   emit();
