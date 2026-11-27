@@ -12,8 +12,10 @@ import "./lib/theme";
 import "./lib/reading";
 import "./styles.css";
 import { startPdfs } from "./state/pdfs";
+import { startExternalLinks } from "./lib/externalLinks";
 
 trackHistory();
+startExternalLinks();
 void init().then(async () => { startAppearance(); startAsks(); try { await migrateLocked(); } catch (e) { console.error(e); } startSync(); startPdfs(); });
 // Fetch the editor's, cook mode's, the session timer's and the drawing sheet's code once the app is idle, so they
 // work offline from the first launch and still open in an app left running across a deploy (src/lib/lazy.ts).
