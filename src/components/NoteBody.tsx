@@ -4,11 +4,12 @@ import { registerEditor, registerGoto } from "../lib/insert";
 import { WordCount } from "./editor/outline";
 import { setBodyOf, toggleStep } from "../state/actions";
 import { exists, writeFile } from "../state/store";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyPart } from "../lib/lazy";
 import { Markdown } from "./Markdown";
 
 // CodeMirror is most of the app's code: load it the first time something is edited.
-const Editor = lazy(() => import("./Editor").then((m) => ({ default: m.Editor })));
+const Editor = lazyPart(() => import("./Editor").then((m) => ({ default: m.Editor })));
 
 /** The body without its "## Highlights" section (blank lines in its place, so line numbers still match). */
 export function withoutHighlights(body: string): string {

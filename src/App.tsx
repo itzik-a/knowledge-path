@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { Suspense, useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { lazyPart, reopenSheet } from "./lib/lazy";
+import { Boundary } from "./components/Boundary";
 import { inbox, pinnedDocs } from "../shared/index.ts";
 import { kindOf } from "../shared/vault.ts";
 import { docEmoji, docLabel, topicColor } from "./components/bits";
@@ -13,13 +15,14 @@ import { IconCards, IconCart, IconGraph, IconHabit, IconRecipe, IconHome, IconIn
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
-// the drawing sheet loads the first time a sketch is opened
-const SketchSheet = lazy(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
-const CookMode = lazy(() => import("./components/CookMode").then((m) => ({ default: m.CookMode })));
-const TimerDock = lazy(() => import("./components/CookMode").then((m) => ({ default: m.TimerDock })));
-const SitMode = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
-const PdfReader = lazy(() => import("./components/PdfReader").then((m) => ({ default: m.PdfReader })));
-const SitDock = lazy(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
+// loaded on first use (main.tsx fetches the small ones once the app is idle); lazyPart reloads onto a new
+// version when an app left open since an older one asks for a file the deploy removed (src/lib/lazy.ts)
+const SketchSheet = lazyPart(() => import("./components/SketchSheet").then((m) => ({ default: m.SketchSheet })));
+const CookMode = lazyPart(() => import("./components/CookMode").then((m) => ({ default: m.CookMode })));
+const TimerDock = lazyPart(() => import("./components/CookMode").then((m) => ({ default: m.TimerDock })));
+const SitMode = lazyPart(() => import("./components/SitMode").then((m) => ({ default: m.SitMode })));
+const PdfReader = lazyPart(() => import("./components/PdfReader").then((m) => ({ default: m.PdfReader })));
+const SitDock = lazyPart(() => import("./components/SitMode").then((m) => ({ default: m.SitDock })));
 import { TopicSheet } from "./components/TopicSheet";
 import { docHref, readHash, tagHref, topicHref, type Route } from "./lib/route";
 import { PrivateSheet } from "./components/PrivateNotes";
@@ -83,6 +86,9 @@ export function App() {
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
+
+  // after a reload onto a new version (src/lib/lazy.ts): open what was being opened
+  useEffect(() => { if (ready) reopenSheet(); }, [ready]);
 
   // #capture?url=…&title=…&text=… from the bookmarklet or a shared link
   useEffect(() => {
@@ -221,12 +227,20 @@ export function App() {
       {sheet?.kind === "ask" && <AskSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "timer" && <TimerStartSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
       {sheet?.kind === "shop" && <ShoppingSheet key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
-      {sheet?.kind === "cook" && <Suspense fallback={null}><CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
-      {sheet?.kind === "sit" && <Suspense fallback={null}><SitMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} /></Suspense>}
-      {sheet?.kind !== "sit" && hasSit && <Suspense fallback={null}><SitDock onOpen={(path) => openSheet({ kind: "sit", path })} /></Suspense>}
-      {sheet?.kind !== "cook" && !hasSit && hasTimers && <Suspense fallback={null}><TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} /></Suspense>}
-      {sheet?.kind === "pdf" && <Suspense fallback={null}><PdfReader key={sheet.path} path={sheet.path} page={sheet.page} onClose={closeSheetReq} /></Suspense>}
-      {sheet?.kind === "sketch" && <Suspense fallback={null}><SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} /></Suspense>}
+      <Boundary quiet onClose={closeSheetReq} key={sheet ? `${sheet.kind}:${"path" in sheet ? sheet.path ?? "" : ""}` : "none"}>
+        <Suspense fallback={null}>
+          {sheet?.kind === "cook" && <CookMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
+          {sheet?.kind === "sit" && <SitMode key={sheet.path} path={sheet.path} onClose={closeSheetReq} />}
+          {sheet?.kind === "pdf" && <PdfReader key={sheet.path} path={sheet.path} page={sheet.page} onClose={closeSheetReq} />}
+          {sheet?.kind === "sketch" && <SketchSheet key={sheet.path ?? "new"} path={sheet.path} note={sheet.note} onClose={closeSheetReq} />}
+        </Suspense>
+      </Boundary>
+      <Boundary quiet>
+        <Suspense fallback={null}>
+          {sheet?.kind !== "sit" && hasSit && <SitDock onOpen={(path) => openSheet({ kind: "sit", path })} />}
+          {sheet?.kind !== "cook" && !hasSit && hasTimers && <TimerDock onOpen={(path) => openSheet({ kind: "cook", path })} />}
+        </Suspense>
+      </Boundary>
 
       <nav className="tabbar" aria-label="Sections">
         {TABS.map(({ id, label, Icon }) => (

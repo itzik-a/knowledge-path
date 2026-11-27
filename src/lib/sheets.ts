@@ -33,4 +33,5 @@ let cur: SheetReq | null = null;
 const ls = new Set<() => void>();
 export function openSheet(r: SheetReq) { cur = r; ls.forEach((l) => l()); }
 export function closeSheetReq() { cur = null; ls.forEach((l) => l()); }
+export const currentSheet = () => cur;
 export function useSheet() { return useSyncExternalStore((l) => { ls.add(l); return () => { ls.delete(l); }; }, () => cur); }

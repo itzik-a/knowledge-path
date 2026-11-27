@@ -1538,3 +1538,8 @@ kbd {
 .video-play { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-lg); }
 .video-play svg { width: 28px; height: 28px; margin-left: 3px; }
 .video-still:active .video-play { transform: scale(.94); }
+
+/* components/Boundary.tsx: something failed to load */
+.boundary { margin: 16px; display: grid; gap: 10px; justify-items: start; }
+.boundary.quiet { position: fixed; z-index: 60; left: 50%; bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px; border-radius: var(--radius); background: var(--raised); box-shadow: var(--shadow-lg); }
