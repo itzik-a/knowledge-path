@@ -16,6 +16,8 @@ import { back, docHref, go, graphHref, tagHref, topicHref } from "../lib/route";
 import { openSheet } from "../lib/sheets";
 import { addChapterHighlight, addHighlight, deleteDocs, editHighlight, inboxItem, makeBook, makeRecipe, pinItem, requestEpub, requestSummary, patchResource, retitle, setPinned, setStatus, setTopics, toggleStep } from "../state/actions";
 import { useSummariesAuto } from "../state/settings";
+import { videoOf } from "../../shared/video.ts";
+import { VideoCard } from "../components/VideoCard";
 import { readFile, useIndex, useVault } from "../state/store";
 import { isCard, readCards, setCard } from "../state/cards";
 import { mb, usePdfState, type PdfState } from "../state/pdfs";
@@ -169,6 +171,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
   const toRecipe = () => { const to = makeRecipe(d.path); if (to) { history.replaceState(history.state, "", docHref(to)); window.dispatchEvent(new HashChangeEvent("hashchange")); } };
   const book = bookOf(d.fm);
   const canBook = isRsarchive(r.url);
+  const video = videoOf(r.url);
   // Claude never reads rsarchive.org pages (its robots.txt); "Summarise" is for every other link
   const canSummarise = !!r.url && !canBook && r.summarize !== "pending";
   const autoSummaries = useSummariesAuto();
@@ -183,7 +186,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
       <Back fallback="#library" />
       <section className="card res-head">
         <div className="res-top">
-          {r.image ? <img className="res-image" src={r.image} alt="" referrerPolicy="no-referrer" /> : <span className="res-emoji" aria-hidden="true">{TYPE_EMOJI[r.type]}</span>}
+          {r.image && !video ? <img className="res-image" src={r.image} alt="" referrerPolicy="no-referrer" /> : <span className="res-emoji" aria-hidden="true">{TYPE_EMOJI[r.type]}</span>}
           <div className="res-title">
             <span className="eyebrow">{TYPE_LABEL[r.type]}{r.site ? ` · ${r.site}` : ""}</span>
             <h1 className="display" dir="auto">{d.title}</h1>
@@ -240,6 +243,8 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
           <Topics ix={ix} d={d} />
         </div>
       </section>
+
+      {video && <VideoCard video={video} image={r.image} title={d.title} />}
 
       {r.summary && (
         <section className="card">

@@ -1527,3 +1527,14 @@ kbd {
 .read-foot .text-btn:disabled { color: var(--muted); opacity: .6; }
 .reader-tools { display: flex; align-items: center; gap: 4px; }
 .reader-tip { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* a video on a saved link's page (components/VideoCard.tsx) */
+.video-card { padding: 0; overflow: hidden; }
+.video-frame { position: relative; aspect-ratio: 16 / 9; background: var(--surface-2); }
+.video-card.vertical .video-frame { aspect-ratio: 9 / 16; width: min(100%, calc(75vh * 9 / 16)); justify-self: center; }
+.video-frame iframe, .video-still { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-still { padding: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.video-still img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.video-play { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-lg); }
+.video-play svg { width: 28px; height: 28px; margin-left: 3px; }
+.video-still:active .video-play { transform: scale(.94); }
