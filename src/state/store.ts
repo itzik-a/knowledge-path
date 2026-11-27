@@ -4,7 +4,8 @@
 import { useSyncExternalStore } from "react";
 import { buildIndex, parseDoc, type Doc, type Index } from "../../shared/index.ts";
 import { SEED } from "../../shared/seed.ts";
-import { basename, dirname, isSynced, renameLinks } from "../../shared/vault.ts";
+import { basename, dirname, isSynced, renameLinks, touchUpdated, withUpdated } from "../../shared/vault.ts";
+import { stampOf } from "../../shared/habits.ts";
 import { loadAll, saveFiles, type FileRec } from "./db";
 
 export type { FileRec };
@@ -103,9 +104,17 @@ const inVault = (r: FileRec) => !!r.baseSha || r.sent != null;
 
 let lazyTimer = 0;
 /** Create or change a file. `lazy` (typing in the editor): the index catches up a moment later. */
+/** The local time as an `updated:` stamp. */
+const nowStamp = () => stampOf(new Date());
+let stamping = true;
+/** Tests: write files exactly as given, without `updated:` stamps. */
+export function noStamps() { stamping = false; }
+const stamped = (path: string, before: string | undefined, after: string, now: string) => (stamping ? withUpdated(path, before, after, now) : after);
+
 export function writeFile(path: string, content: string, opts: { lazy?: boolean } = {}) {
   const r = files.get(path);
   if (r && !r.deleted && r.content === content) return;
+  content = stamped(path, r && !r.deleted ? r.content : undefined, content, nowStamp());
   const now = Date.now();
   files.set(path, r
     ? { ...r, content, deleted: undefined, dirty: true, mtime: now, rev: r.rev + 1 }
@@ -121,9 +130,12 @@ export function writeFile(path: string, content: string, opts: { lazy?: boolean 
 export function writeFiles(changes: { path: string; content: string }[]) {
   const now = Date.now();
   const touched: string[] = [];
-  for (const { path, content } of changes) {
+  const stamp = nowStamp();
+  for (const change of changes) {
+    const { path } = change;
     const r = files.get(path);
-    if (r && !r.deleted && r.content === content) continue;
+    if (r && !r.deleted && r.content === change.content) continue;
+    const content = stamped(path, r && !r.deleted ? r.content : undefined, change.content, stamp);
     files.set(path, r ? { ...r, content, deleted: undefined, dirty: true, mtime: now, rev: r.rev + 1 } : { path, content, dirty: true, mtime: now, rev: 1 });
     touched.push(path);
   }
@@ -168,7 +180,7 @@ export function removeFiles(paths: string[]): () => void {
 export function renameFile(from: string, to: string): boolean {
   const r = files.get(from);
   if (!r || r.deleted || from === to || (exists(to) && from.toLowerCase() !== to.toLowerCase())) return false;
-  const content = r.content;
+  const content = !stamping || from.startsWith("Topics/") ? r.content : touchUpdated(to, r.content, nowStamp());
   const oldName = basename(from), newName = basename(to);
   // remove the old path (kept as a removal if it was synced)
   if (inVault(r)) files.set(from, { ...r, deleted: true, dirty: true, rev: r.rev + 1 });

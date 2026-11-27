@@ -42,7 +42,20 @@ export interface Doc {
   pinned?: boolean;
   /** when it was pinned ("" for `pinned: true`), for the order */
   pinnedAt?: string;
+  /** the day it was made: `created:` (notes), else `added:` (saved links, recipes), "YYYY-MM-DD" */
+  created?: string;
+  /** `updated:`, the last change made in the app, local time "YYYY-MM-DDTHH:MM" */
+  updated?: string;
 }
+
+const dayOf = (v: unknown): string | undefined => {
+  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : undefined;
+};
+
+/** Newest change first: `updated:`, else the day it was made, else when it changed on this device. */
+export const byRecentlyUpdated = (a: Doc, b: Doc) =>
+  (b.updated ?? b.created ?? "").localeCompare(a.updated ?? a.created ?? "") || b.mtime - a.mtime || a.title.localeCompare(b.title);
 
 export interface Topic {
   id: string;
@@ -83,6 +96,7 @@ export function parseDoc(path: string, content: string, mtime = 0): Doc {
     path, kind, name, fm, body, mtime, date,
     private: fm.private === true || undefined, sealed: sealed || undefined,
     ...pinOf(kind, fm.pinned),
+    created: dayOf(fm.created) ?? dayOf(fm.added), updated: parseStamp(fm.updated) ?? dayOf(fm.updated),
     // a locked note's file name is neutral: its title is in its frontmatter (or its first line, or just "Locked note")
     title: fmTitle ?? (isLockedName(name) ? firstLine(body) || "Locked note" : name === "Untitled" ? firstLine(body) || name : name),
     links: kind === "hub" ? [] : extractLinks(body),

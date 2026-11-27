@@ -1559,3 +1559,4 @@ button.recipe-card { position: relative; width: 100%; padding: 0; border: 0; fon
 .recipe-card.picking .pick { position: absolute; top: 8px; inset-inline-start: 8px; background: var(--raised); }
 .recipe-card.picking .pick.on { background: var(--accent); }
 .recipe-card.picking[aria-checked="true"] { box-shadow: 0 0 0 3px var(--accent), var(--shadow); }
+.doc-dates { margin: 2px 0 0; }

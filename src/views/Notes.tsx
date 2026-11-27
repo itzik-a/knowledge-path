@@ -1,7 +1,7 @@
 /* #notes: notes by folder, newest first. #notes/journal: the journal, a month at a time.
    #notes/tags: every tag with its count. #tag/<tag>: everything with a tag. #notes/graph: the graph (views/Graph.tsx). */
 import { useMemo, useState } from "react";
-import type { Doc } from "../../shared/index.ts";
+import { byRecentlyUpdated, type Doc } from "../../shared/index.ts";
 import { journalPath, todayISO } from "../../shared/vault.ts";
 import { DocRow, NoteRow } from "../components/bits";
 import { IconBack, IconClose, IconNext, IconPin, IconPlus, IconSearch } from "../components/Icons";
@@ -42,7 +42,7 @@ export function NotesHead({ tab, sel }: { tab: NotesTab; sel?: Selection }) {
 function NoteList() {
   const ix = useIndex();
   const [q, setQ] = useState("");
-  const notes = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "note" || d.kind === "path").sort((a, b) => b.mtime - a.mtime || a.title.localeCompare(b.title)), [ix]);
+  const notes = useMemo(() => [...ix.docs.values()].filter((d) => d.kind === "note" || d.kind === "path").sort(byRecentlyUpdated), [ix]);
   const s = q.trim().toLowerCase();
   const shown = s ? notes.filter((d) => d.title.toLowerCase().includes(s) || d.body.toLowerCase().includes(s)) : notes;
   // pinned notes in their own group at the top (the most recently pinned first), not again in their folder

@@ -29,7 +29,7 @@ import { diff3Merge } from "node-diff3";
 import { isCardsPath, mergeCards } from "../../shared/cards.ts";
 import { mergeLogLines } from "../../shared/habits.ts";
 import { isSketchPath, mergeSketch } from "../../shared/sketch.ts";
-import { basename, dirname, isSynced, kindOf, todayISO } from "../../shared/vault.ts";
+import { basename, dirname, isSynced, kindOf, setFrontmatter, splitUpdated, todayISO } from "../../shared/vault.ts";
 import type { FileRec } from "../state/db";
 
 export interface Head { commit: string; tree: string }
@@ -80,6 +80,12 @@ export interface SyncResult {
 export function merge3(base: string, mine: string, theirs: string, opts: { logs?: boolean } = {}): string | null {
   if (mine === theirs || theirs === base) return mine;
   if (mine === base) return theirs;
+  // both sides edited a note: their `updated:` stamps always clash, so merge without them and keep the later one
+  const st = splitUpdated(mine, theirs);
+  if (st) {
+    const m = merge3(st.strip(base), st.strip(mine), st.strip(theirs), opts);
+    return m == null ? null : setFrontmatter(m, { updated: st.later });
+  }
   const split = (s: string) => s.split("\n");
   const regions = diff3Merge(split(mine), split(base), split(theirs), { excludeFalseConflicts: true });
   const out: string[] = [];

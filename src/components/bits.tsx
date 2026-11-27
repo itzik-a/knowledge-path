@@ -2,7 +2,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ancestry, type Doc, type Index, type Topic } from "../../shared/index.ts";
 import type { ResourceType, Status } from "../../shared/vault.ts";
-import { medDate, shortDate } from "../lib/dates";
+import { medDate, shortDate, whenText } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
 import type { Selection } from "./Select";
@@ -149,12 +149,25 @@ export function docEmoji(d: Doc): string {
   return d.kind === "journal" ? "📓" : d.kind === "path" ? "🧭" : d.kind === "habit" ? d.habit?.icon ?? "🔁" : d.kind === "recipe" ? "🍲" : d.kind === "chapter" ? "📖" : "📝";
 }
 
+/** "Created 23 Nov 2026 · Updated today 17:40" for a note or saved link (whichever it has). */
+export function DocDates({ d }: { d: Doc }) {
+  const upd = d.updated;
+  if (!d.created && !upd) return null;
+  return (
+    <p className="muted small doc-dates">
+      {d.created && <span>Created {whenText(d.created)}</span>}
+      {d.created && upd && " · "}
+      {upd && <span>Updated {whenText(upd, { time: true })}</span>}
+    </p>
+  );
+}
+
 /** An item's name in a short list: a journal day by its date. */
 export const docLabel = (d: Doc) => (d.kind === "journal" && d.date ? shortDate(d.date) : d.title);
 
 export function NoteRow({ d, ix, showTopics = true, sel }: { d: Doc; ix: Index; showTopics?: boolean; sel?: Selection }) {
   const label = docLabel(d);
-  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : typeof d.fm.created === "string" ? medDate(d.fm.created) : undefined;
+  const when = d.kind === "journal" ? "Journal" : d.kind === "path" ? "Study path" : d.kind === "habit" ? "Habit" : d.kind === "recipe" ? "Recipe" : d.updated ? `Updated ${whenText(d.updated)}` : d.created ? medDate(d.created) : undefined;
   return (
     <li>
       <RowShell path={d.path} sel={sel}>

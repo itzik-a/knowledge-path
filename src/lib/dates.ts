@@ -28,3 +28,12 @@ export function greeting(d = new Date()): string {
   const h = d.getHours();
   return h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
+
+/** A stamp ("2026-11-27T17:40") or a day, said briefly: "today 17:40", "yesterday 09:05", "21 Nov 2026" (with `time`: "21 Nov 2026, 17:40"). */
+export function whenText(v: string, opts: { time?: boolean } = {}): string {
+  const day = v.slice(0, 10), time = v.length > 10 ? v.slice(11, 16) : "";
+  const today = iso(new Date());
+  if (day === today) return time ? `today ${time}` : "today";
+  if (day === addDays(today, -1)) return time ? `yesterday ${time}` : "yesterday";
+  return opts.time && time ? `${medDate(day)}, ${time}` : medDate(day);
+}

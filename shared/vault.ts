@@ -81,6 +81,48 @@ export function setFrontmatter(text: string, patch: Record<string, unknown>): st
   return `---\n${yaml}\n---\n${body}`;
 }
 
+// ── Created and updated ───────────────────────────────────────
+
+/** Kinds whose files carry an `updated:` stamp (local time, "2026-11-27T17:40"), set by the app when their text changes.
+    Created is `created:` (notes) or `added:` (saved links), a date. */
+const STAMPED = new Set(["note", "resource"]);
+/** Keys whose change alone isn't an update. */
+const QUIET = ["updated", "pinned", "inbox"];
+
+/** The file as it should be written: with `updated: now` when this changes a note's or saved link's text (not only
+    its pin or Inbox flag). A new file, a file whose stamp the caller changed itself (Undo puts the old one back) and
+    a file with broken frontmatter are left as they are. */
+export function withUpdated(path: string, before: string | undefined, after: string, now: string): string {
+  if (before === undefined || before === after || !STAMPED.has(kindOf(path))) return after;
+  const a = splitFrontmatter(before), b = splitFrontmatter(after);
+  if (b.raw != null && b.raw.trim() && !Object.keys(b.fm).length) return after;
+  if (String(a.fm.updated ?? "") !== String(b.fm.updated ?? "")) return after;
+  const core = (x: Split) => { const fm = { ...x.fm }; for (const k of QUIET) delete fm[k]; return JSON.stringify(fm) + "\n" + x.body; };
+  if (core(a) === core(b)) return after;
+  return setFrontmatter(after, { updated: now });
+}
+
+/** The file with `updated: now`, when it's a kind that carries the stamp (a renamed note). */
+export function touchUpdated(path: string, text: string, now: string): string {
+  if (!STAMPED.has(kindOf(path))) return text;
+  const x = splitFrontmatter(text);
+  if (x.raw != null && x.raw.trim() && !Object.keys(x.fm).length) return text;
+  return setFrontmatter(text, { updated: now });
+}
+
+/** Two copies of a file whose `updated:` stamps differ, merged by the caller with the stamps left out: the text
+    without its stamp, and the later stamp to put back. Undefined unless both have one and they differ. */
+export function splitUpdated(mine: string, theirs: string): { strip: (s: string) => string; later: string } | undefined {
+  const um = splitFrontmatter(mine).fm.updated, ut = splitFrontmatter(theirs).fm.updated;
+  if (um == null || ut == null || String(um) === String(ut)) return undefined;
+  const strip = (s: string) => {
+    const m = FM_RE.exec(s);
+    if (!m) return s;
+    return m[0].replace(/^updated:.*\r?\n/m, "") + s.slice(m[0].length);
+  };
+  return { strip, later: String(um) > String(ut) ? String(um) : String(ut) };
+}
+
 /** Replace the body (everything after the frontmatter). */
 export function setBody(text: string, body: string): string {
   const m = FM_RE.exec(text);

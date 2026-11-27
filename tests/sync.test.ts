@@ -86,6 +86,7 @@ async function device(codec?: Codec): Promise<{ s: Store; local: LocalStore; sta
   vi.resetModules();
   const s = (await import("../src/state/store.ts")) as Store;
   s.memoryOnly();
+  s.noStamps(); // byte-for-byte expectations; stamps are tested in vault.test.ts and merge3 below
   await s.init();
   const local: LocalStore = { records: s.allRecords, get: s.getRecord, applyRemote: s.applyRemote, settle: s.settle, sending: s.markSent, add: (p, c) => s.writeFile(p, c) };
   const d = {
@@ -98,6 +99,19 @@ async function device(codec?: Codec): Promise<{ s: Store; local: LocalStore; sta
 const dirtyCount = (s: Store) => s.allRecords().filter((r) => r.dirty).length;
 
 describe("merge3", () => {
+  it("merges two edits of a note whose updated stamps clash, keeping the later stamp", () => {
+    const base = "---\ncreated: 2026-11-20\nupdated: 2026-11-21T10:00\n---\nOne\nTwo\nThree\n";
+    const mine = "---\ncreated: 2026-11-20\nupdated: 2026-11-27T09:15\n---\nOne!\nTwo\nThree\n";
+    const theirs = "---\ncreated: 2026-11-20\nupdated: 2026-11-27T11:40\n---\nOne\nTwo\nThree!\n";
+    expect(merge3(base, mine, theirs)).toBe("---\ncreated: 2026-11-20\nupdated: 2026-11-27T11:40\n---\nOne!\nTwo\nThree!\n");
+    // the same line changed on both sides is still a conflict
+    expect(merge3(base, mine, theirs.replace("One\n", "One?\n"))).toBeNull();
+    // one side stamped for the first time, the other already had one
+    const noStamp = "---\ncreated: 2026-11-20\n---\nOne\nTwo\nThree\n";
+    expect(merge3(noStamp, mine, noStamp.replace("Three", "Three!").replace("created: 2026-11-20", "created: 2026-11-20\nupdated: 2026-11-26T08:00")))
+      .toBe("---\ncreated: 2026-11-20\nupdated: 2026-11-27T09:15\n---\nOne!\nTwo\nThree!\n");
+  });
+
   it("merges changes to different lines, refuses clashing ones", () => {
     expect(merge3("a\nb\nc", "A\nb\nc", "a\nb\nC")).toBe("A\nb\nC");
     expect(merge3("a\nb\nc", "X\nb\nc", "Y\nb\nc")).toBeNull();

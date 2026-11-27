@@ -1,6 +1,6 @@
 /* #library: every resource, filtered by status, type and topic, sorted by when it was added, title or author. */
 import { useMemo, useState } from "react";
-import { subtree } from "../../shared/index.ts";
+import { byRecentlyUpdated, subtree } from "../../shared/index.ts";
 import { RESOURCE_TYPES, STATUSES, type ResourceType, type Status } from "../../shared/vault.ts";
 import { ResourceRow, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL } from "../components/bits";
 import { IconClose, IconInbox, IconPlus, IconSearch } from "../components/Icons";
@@ -12,7 +12,7 @@ import { useIndex } from "../state/store";
 import { linkPdf, unlinkedPdfs } from "../state/pdfs";
 import { docHref, go } from "../lib/route";
 
-type Sort = "added" | "title" | "author";
+type Sort = "added" | "updated" | "title" | "author";
 
 /** PDFs in the vault with no page here (put there from Obsidian, say): one tap gives each a saved link. */
 function UnlinkedPdfs() {
@@ -52,7 +52,8 @@ export function Library() {
       .filter((d) => !inTopic || (ix.topicsOf.get(d.path) ?? []).some((id) => inTopic.has(id)))
       .filter((d) => !s || d.title.toLowerCase().includes(s) || (d.resource!.author ?? "").toLowerCase().includes(s))
       .sort((a, b) =>
-        sort === "title" ? a.title.localeCompare(b.title)
+        sort === "updated" ? byRecentlyUpdated(a, b)
+        : sort === "title" ? a.title.localeCompare(b.title)
         : sort === "author" ? (a.resource!.author ?? "~").localeCompare(b.resource!.author ?? "~") || a.title.localeCompare(b.title)
         : (b.resource!.added ?? "").localeCompare(a.resource!.added ?? "") || b.mtime - a.mtime || a.title.localeCompare(b.title));
   }, [all, status, type, inTopic, ix, q, sort]);
@@ -94,7 +95,7 @@ export function Library() {
         </div>
         <div className="form-row">
           <Select<string> value={topic} onChange={setTopic} label="Topic" options={[{ id: "", label: "Every topic" }, ...ix.topicOrder.map((id) => { const t = ix.topics.get(id)!; return { id, label: `${"  ".repeat(t.depth)}${t.name}` }; })]} />
-          <Select<Sort> value={sort} onChange={setSort} label="Sort" options={[{ id: "added", label: "Newest first" }, { id: "title", label: "By title" }, { id: "author", label: "By author" }]} />
+          <Select<Sort> value={sort} onChange={setSort} label="Sort" options={[{ id: "added", label: "Newest first" }, { id: "updated", label: "Recently updated" }, { id: "title", label: "By title" }, { id: "author", label: "By author" }]} />
         </div>
       </section>
       {list.length ? (

@@ -3,7 +3,7 @@ import { confirmAsk } from "../lib/confirm";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { resolve, topicIdOf, type Doc, type Index } from "../../shared/index.ts";
 import { currentStage, journalDate, journalPath, kindOf, parseHighlights, parseStages, parseSteps, STATUSES, todayISO, type Highlight, type Status, type Step } from "../../shared/vault.ts";
-import { DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
+import { DocDates, DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, TopicPicker } from "../components/bits";
 import { IconBook, IconCheck, IconSpark, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
@@ -191,6 +191,7 @@ function ResourcePage({ d, ix }: { d: Doc; ix: Index }) {
             <span className="eyebrow">{TYPE_LABEL[r.type]}{r.site ? ` · ${r.site}` : ""}</span>
             <h1 className="display" dir="auto">{d.title}</h1>
             {(r.author || r.year) && <p className="muted" dir="auto">{[r.author, r.year].filter(Boolean).join(" · ")}</p>}
+            <DocDates d={d} />
           </div>
           <Menu label="More" icon={<IconMore />} items={[
             pinItem(d),
@@ -482,8 +483,9 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
       <section className="card note-card-main">
         <div className="note-head">
           <div className="grow">
-            <span className="eyebrow">{folder || "Vault"}{typeof d.fm.created === "string" ? ` · ${medDate(d.fm.created)}` : ""}{d.private && <PrivateBadge />}</span>
+            <span className="eyebrow">{folder || "Vault"}{d.private && <PrivateBadge />}</span>
             <TitleInput d={d} />
+            <DocDates d={d} />
           </div>
           <div className="head-tools">
             {!d.sealed && <PrivateButton path={d.path} on={!!d.private} />}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIndex, inbox, itemsIn, parseDoc, pinnedDocs, resolve, type Doc } from "../shared/index.ts";
 import { SEED } from "../shared/seed.ts";
 import {
-  summariesAuto, wantsSummary, parseStages, currentStage,
+  summariesAuto, wantsSummary, parseStages, currentStage, withUpdated, touchUpdated,
   addHighlight, excerpt, extractLinks, extractTags, guessType, kindOf, parseHighlights, parseSteps, renameLinks, replaceHighlight,
   safeName, setBody, setFrontmatter, splitFrontmatter, strList, titleFromUrl, toggleStep, uniquePath,
 } from "../shared/vault.ts";
@@ -271,5 +271,38 @@ describe("Claude summaries of saved links", () => {
     const d = parseDoc("Resources/A.md", "---\nurl: https://example.com\nsummarize: pending\n---\n");
     expect(d.resource?.summarize).toBe("pending");
     expect(parseDoc("Resources/B.md", "---\nurl: https://example.com\n---\n").resource?.summarize).toBeUndefined();
+  });
+});
+
+describe("created and updated", () => {
+  const NOW = "2026-11-27T17:40";
+  const note = "---\ntopics: [ \"[[Piano]]\" ]\ncreated: 2026-11-23\n---\nPieces\n";
+  it("stamps a note or saved link when its text or properties change", () => {
+    expect(withUpdated("Notes/A.md", note, note.replace("Pieces", "Pieces!"), NOW)).toBe("---\ntopics: [ \"[[Piano]]\" ]\ncreated: 2026-11-23\nupdated: 2026-11-27T17:40\n---\nPieces!\n");
+    const link = "---\ntype: book\nstatus: saved\nadded: 2026-11-27\n---\n";
+    expect(withUpdated("Resources/B.md", link, link.replace("saved", "done"), NOW)).toContain("updated: 2026-11-27T17:40");
+    // a note without frontmatter gets one
+    expect(withUpdated("Notes/C.md", "Hi", "Hi there", NOW)).toBe("---\nupdated: 2026-11-27T17:40\n---\nHi there");
+  });
+  it("leaves new files, pins, other kinds, broken YAML and a stamp the caller set alone", () => {
+    expect(withUpdated("Notes/A.md", undefined, note, NOW)).toBe(note);
+    const pinned = note.replace("created: 2026-11-23", "created: 2026-11-23\npinned: 2026-11-27T10:00");
+    expect(withUpdated("Notes/A.md", note, pinned, NOW)).toBe(pinned);
+    expect(withUpdated("Habits/Run.md", "x", "y", NOW)).toBe("y");
+    expect(withUpdated("Journal/2026/2026-11-27.md", "x", "y", NOW)).toBe("y");
+    expect(withUpdated("Topics/History.md", "x", "y", NOW)).toBe("y");
+    const broken = "---\na: [\n---\nText\n";
+    expect(withUpdated("Notes/A.md", broken, broken + "more", NOW)).toBe(broken + "more");
+    const stamped = note.replace("created: 2026-11-23", "created: 2026-11-23\nupdated: 2026-11-25T08:00");
+    const undone = note.replace("created: 2026-11-23", "created: 2026-11-23\nupdated: 2026-11-24T08:00").replace("Pieces", "Old");
+    expect(withUpdated("Notes/A.md", stamped, undone, NOW)).toBe(undone);
+  });
+  it("stamps a renamed note, and indexes created and updated", () => {
+    expect(touchUpdated("Notes/A.md", note, NOW)).toContain("updated: 2026-11-27T17:40");
+    expect(touchUpdated("Paths/P.md", "x", NOW)).toBe("x");
+    const d = parseDoc("Notes/A.md", withUpdated("Notes/A.md", note, note + "x", NOW));
+    expect([d.created, d.updated]).toEqual(["2026-11-23", NOW]);
+    const r = parseDoc("Resources/B.md", "---\nadded: 2026-11-20\nupdated: 2026-11-26\n---\n");
+    expect([r.created, r.updated]).toEqual(["2026-11-20", "2026-11-26"]);
   });
 });
