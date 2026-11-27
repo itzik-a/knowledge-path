@@ -27,6 +27,7 @@ import { closeSheetReq, openSheet, useSheet } from "./lib/sheets";
 import { useTimers } from "./lib/timers";
 import { useSit } from "./state/sit";
 import { useVault } from "./state/store";
+import { ReadingButton } from "./components/ReadingPanel";
 import { iconOf, useAccent } from "./state/appearance";
 import { usePinnedTags } from "./state/tagpins";
 import { syncNow } from "./state/sync";
@@ -132,6 +133,7 @@ export function App() {
         <div className="side-actions">
           <button type="button" className="btn primary sm grow" onClick={() => openSheet({ kind: "capture", init: {} })}><IconPlus /> Add</button>
           <button type="button" className="icon-btn" onClick={() => openSheet({ kind: "search" })} aria-label="Search (⌘K)" title="Search (⌘K)"><IconSearch /></button>
+          <ReadingButton className="icon-btn" />
         </div>
         <nav className="side-nav" aria-label="Sections">
           {TABS.map(({ id, label, Icon }) => (
@@ -185,6 +187,7 @@ export function App() {
         </a>
         <div className="top-actions">
           <DataPill onOpen={() => openSheet({ kind: "data" })} />
+          <ReadingButton />
           <button type="button" className="icon-btn subtle" onClick={() => openSheet({ kind: "search" })} aria-label="Search"><IconSearch width={20} height={20} /></button>
         </div>
       </header>

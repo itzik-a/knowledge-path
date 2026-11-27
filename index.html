@@ -23,10 +23,21 @@
     document.querySelector('link[rel="manifest"]').href = "./manifest-" + a + ".webmanifest";
     if (a === "graphite") document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) { m.content = m.dataset.for === "dark" ? "#1C1D20" : "#F7F7F8"; });
   }
+  /* the Aa panel's choices (src/lib/reading.ts) */
+  var r; try { r = JSON.parse(localStorage.getItem("knowledgePath.reading") || "{}") || {}; } catch (e) { r = {}; }
+  var ds = document.documentElement.dataset, SIZES = [14, 15, 16, 17, 18, 20, 22];
+  if (/^(newyork|iowan|rounded)$/.test(r.font)) ds.font = r.font;
+  if (SIZES[r.size] && r.size !== 2) ds.size = String(SIZES[r.size]);
+  if (/^(tight|relaxed)$/.test(r.spacing)) ds.spacing = r.spacing;
+  if (r.align === "justify") ds.align = r.align;
+  if (/^(narrow|wide|full)$/.test(r.width)) ds.width = r.width;
   var t; try { t = localStorage.getItem("knowledgePath.theme"); } catch (e) {}
-  if (t !== "light" && t !== "dark") return void (document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  if (t !== "light" && t !== "sepia" && t !== "dark") return void (document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.dataset.theme = t;
-  document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) { m.media = m.dataset.for === t ? "all" : "not all"; });
+  document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) {
+    if (t === "sepia") m.content = "#F2E8CF";
+    m.media = m.dataset.for === (t === "sepia" ? "light" : t) ? "all" : "not all";
+  });
 })();
 </script>
 <title>Knowledge Hub</title>

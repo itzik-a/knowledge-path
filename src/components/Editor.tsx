@@ -13,6 +13,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder as ph } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import { useReading } from "../lib/reading";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getIndex } from "../state/store";
 import { slashSource } from "./editor/slash";
@@ -35,9 +36,9 @@ const style = HighlightStyle.define([
 ]);
 
 const theme = EditorView.theme({
-  "&": { color: "var(--ink)", backgroundColor: "transparent", fontSize: "16px" },
+  "&": { color: "var(--ink)", backgroundColor: "transparent", fontSize: "var(--editor-size)" }, // the Aa panel's size (styles.css)
   "&.cm-focused": { outline: "none" },
-  ".cm-content": { fontFamily: "var(--font)", lineHeight: "1.6", padding: "4px 0", caretColor: "var(--accent)" },
+  ".cm-content": { fontFamily: "var(--read-font)", lineHeight: "calc(1.6 + var(--read-lh))", padding: "4px 0", caretColor: "var(--accent)" },
   ".cm-line": { padding: "0" },
   ".cm-cursor": { borderLeftColor: "var(--accent)", borderLeftWidth: "2px" },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "var(--accent-soft) !important" },
@@ -174,6 +175,10 @@ export function Editor({ value, onChange, placeholder, autoFocus, onBlur, label,
     return () => { onInsertReady?.(null); onGotoReady?.(null); v.destroy(); view.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // the Aa panel changed the font, size or spacing: measure the lines again
+  const reading = useReading();
+  useEffect(() => { view.current?.requestMeasure(); }, [reading]);
 
   useEffect(() => {
     const v = view.current;

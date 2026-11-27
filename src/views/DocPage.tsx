@@ -7,6 +7,7 @@ import { DocRow, Progress, QuoteText, STATUS_LABEL, TYPE_EMOJI, TYPE_LABEL, Topi
 import { IconBook, IconCheck, IconRecipe, IconBack, IconEdit, IconExternal, IconLock, IconMore, IconPin, IconUnlock, IconNext, IconQuote, IconRead, IconSketch, IconGraph, IconCards } from "../components/Icons";
 import { Markdown } from "../components/Markdown";
 import { NoteBody } from "../components/NoteBody";
+import { ReadingButton } from "../components/ReadingPanel";
 import { OutlineButton } from "../components/editor/outline";
 import { ResourceSheet } from "../components/ResourceSheet";
 import { Menu, Seg } from "../components/ui";
@@ -281,7 +282,10 @@ function Reader({ text, url, from, onHighlight }: { text: string; url?: string; 
     <section className="card reader">
       <div className="card-head">
         <h2>Reader</h2>
-        {url && <a className="link small" href={url} target="_blank" rel="noopener">Original <IconExternal /></a>}
+        <span className="reader-tools">
+          {url && <a className="link small" href={url} target="_blank" rel="noopener">Original <IconExternal /></a>}
+          <ReadingButton />
+        </span>
       </div>
       <p className="muted small">Select a passage to save it as a highlight.</p>
       <div ref={box}><Markdown body={text} from={from} className="reader-text" /></div>
@@ -350,7 +354,10 @@ function ChapterPage({ d, ix }: { d: Doc; ix: Index }) {
         </div>
       </section>
       <section className="card reader">
-        <p className="muted small">Select a passage to keep it with the book's highlights.</p>
+        <div className="reader-tip">
+          <p className="muted small">Select a passage to keep it with the book's highlights.</p>
+          <ReadingButton />
+        </div>
         <div ref={box}><Markdown body={readingText(d.body)} from={d.path} className="reader-text" /></div>
         {button}
       </section>
@@ -469,6 +476,7 @@ function NotePage({ d, ix }: { d: Doc; ix: Index }) {
             <GraphButton path={d.path} />
             {!d.sealed && <OutlineButton path={d.path} body={d.body} editing={editing} />}
             {!d.sealed && <SketchButton note={d.path} />}
+            {!d.sealed && <ReadingButton />}
             {!d.sealed && <EditToggle editing={editing} set={setEditing} />}
             <Menu label="More" icon={<IconMore />} items={[
               inboxItem(d),
@@ -515,6 +523,7 @@ function JournalPage({ path, d, ix }: { path: string; d?: Doc; ix: Index }) {
             {d && <GraphButton path={path} />}
             {!d?.sealed && <OutlineButton path={path} body={body} editing={editing} />}
             {!d?.sealed && <SketchButton note={path} />}
+            {!d?.sealed && <ReadingButton />}
             {!d?.sealed && <EditToggle editing={editing} set={setEditing} write={!body.trim()} />}
             {d && <Menu label="More" icon={<IconMore />} items={[{ label: "Delete this entry", danger: true, run: () => void deleteDocs([path], `the entry for ${longDate(date)}`) }]} />}
           </div>

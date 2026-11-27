@@ -46,9 +46,10 @@ export function DataSheet({ onClose, section }: { onClose: () => void; section?:
       <section className="dlg-section" aria-labelledby="theme-title">
         <h3 id="theme-title">Appearance</h3>
         <ThemePicker />
-        <p className="muted small">System follows this device's light or dark setting. Each device keeps its own choice.</p>
+        <p className="muted small">System follows this device's light or dark setting; Sepia is warm paper, easy on the eyes at night. Each device keeps its own choice.</p>
         <AccentPicker />
         <p className="muted small">The accent colour is the same on every device (it syncs with the vault).</p>
+        <p className="muted small">The font, text size, line spacing and page width are in the <b>Aa</b> button, beside search.</p>
       </section>
       <NotesSection />
       <HomeSection />

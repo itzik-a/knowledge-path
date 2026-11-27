@@ -8,6 +8,7 @@ import { migrateLocked } from "./state/privacy";
 import { startAppearance } from "./state/appearance";
 import { startAsks } from "./state/ask";
 import "./lib/theme";
+import "./lib/reading";
 import "./styles.css";
 import { startPdfs } from "./state/pdfs";
 

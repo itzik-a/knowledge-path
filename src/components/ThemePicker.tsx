@@ -1,15 +1,15 @@
-/* System / Light / Dark for this device (src/lib/theme.ts), and the accent for every device (src/state/appearance.ts). */
+/* System / Light / Sepia / Dark for this device (src/lib/theme.ts), and the accent for every device (src/state/appearance.ts). */
 import { setTheme, useTheme, type Theme } from "../lib/theme";
 import { ACCENTS, setAccent, useAccent } from "../state/appearance";
 import { IconCheck } from "./Icons";
 
-const OPTIONS: { id: Theme; label: string }[] = [{ id: "system", label: "System" }, { id: "light", label: "Light" }, { id: "dark", label: "Dark" }];
+export const THEMES: { id: Theme; label: string }[] = [{ id: "system", label: "System" }, { id: "light", label: "Light" }, { id: "sepia", label: "Sepia" }, { id: "dark", label: "Dark" }];
 
 export function ThemePicker() {
   const theme = useTheme();
   return (
     <div className="seg theme-seg" role="group" aria-label="Theme">
-      {OPTIONS.map((o) => (
+      {THEMES.map((o) => (
         <button key={o.id} type="button" aria-pressed={theme === o.id} onClick={() => setTheme(o.id)}>{o.label}</button>
       ))}
     </div>
