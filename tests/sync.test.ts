@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED } from "../shared/seed.ts";
 import { parseCards, writeCards } from "../shared/cards.ts";
+import { parseFeedSettings, parseMarks, seedFeedSettings, serializeMarks, serializeSettings } from "../shared/feed.ts";
 import { merge3, Moved, syncOnce, type Codec, type Head, type LocalStore, type Remote, type SyncState } from "../src/lib/vaultsync.ts";
 
 const sha1 = (s: string) => createHash("sha1").update(s).digest("hex");
@@ -407,6 +408,28 @@ describe("sync", () => {
     const r = await y.sync(gh);
     expect(r.conflicts).toEqual([]);
     expect(parseCards(gh.files().get(p))).toEqual({ a: rec(5, 1), b: rec(6, 1), c: rec(6) });
+  });
+
+  it("two devices review the feed and edit its sources before syncing: settings and marks merge item by item", async () => {
+    const sp = ".hub/feed/settings.json", mp = ".hub/feed/marks.json";
+    const now = Date.now();
+    const base = seedFeedSettings();
+    gh.push({ [sp]: serializeSettings(base), [mp]: serializeMarks({ e0: { s: "kept", at: now - 100 } }, now) });
+    const x = await device(); await x.sync(gh);
+    const y = await device(); await y.sync(gh);
+    const xs = structuredClone(base); xs.sources[0] = { ...xs.sources[0], enabled: false, updatedAt: now - 5 };
+    const ys = structuredClone(base); ys.topics.push({ id: "ai", name: "AI", description: "AI", minScore: 60, enabled: true, updatedAt: now - 4 });
+    x.s.writeFile(sp, serializeSettings(xs));
+    y.s.writeFile(sp, serializeSettings(ys));
+    x.s.writeFile(mp, serializeMarks({ e0: { s: "kept", at: now - 100 }, e1: { s: "dismissed", at: now - 3 } }, now));
+    y.s.writeFile(mp, serializeMarks({ e0: { s: "kept", at: now - 100 }, e2: { s: "kept", path: "Resources/B.md", at: now - 2 } }, now));
+    await x.sync(gh);
+    const r = await y.sync(gh);
+    expect(r.conflicts).toEqual([]);
+    const s = parseFeedSettings(gh.files().get(sp));
+    expect(s.sources.find((t) => t.id === base.sources[0].id)!.enabled).toBe(false);
+    expect(s.topics.some((t) => t.id === "ai")).toBe(true);
+    expect(Object.keys(parseMarks(gh.files().get(mp))).sort()).toEqual(["e0", "e1", "e2"]);
   });
 
   it("an empty vault gets everything on this device", async () => {

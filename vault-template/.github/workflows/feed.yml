@@ -1,0 +1,51 @@
+name: Feed
+
+# Reads, scores and summarizes the feed with the collector in the (public) knowledge-path repo (feed/run.ts), when
+# asked: the app's Run now writes .hub/requests/feed-<id>.json and its push starts this; or Run workflow by hand.
+# Automatic runs are a separate workflow (feed-schedule.yml) that the app writes into this folder while they're on.
+# The feed goes to this repo's `feed` branch, replaced on every run (no history), never to main: nothing from it is
+# part of the vault until it's kept in the Inbox. Claude needs the ANTHROPIC_API_KEY repository secret.
+on:
+  push:
+    branches: [main]
+    paths: [".hub/requests/feed-*.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: feed
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # A push that only removed answered requests has nothing to do: stop before installing anything.
+      - name: Anything asked for?
+        id: gate
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || ls .hub/requests/feed-*.json >/dev/null 2>&1; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "No Run now request in the vault."; fi
+        env:
+          EVENT: ${{ github.event_name }}
+      - if: steps.gate.outputs.go
+        uses: actions/checkout@v7
+        with:
+          repository: itzik-a/knowledge-path
+          path: .app
+      - if: steps.gate.outputs.go
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .app/.nvmrc
+          cache: npm
+          cache-dependency-path: .app/package-lock.json
+      - if: steps.gate.outputs.go
+        run: npm ci --prefix .app --no-audit --no-fund
+      - if: steps.gate.outputs.go
+        name: Read, score and summarize the feed
+        run: node .app/feed/run.ts --vault . ${{ github.event_name == 'workflow_dispatch' && '--manual' || '--request' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

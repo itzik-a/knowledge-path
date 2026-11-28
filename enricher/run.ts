@@ -36,6 +36,7 @@ import type { AskRequest } from "../shared/ask.ts";
 import type { Imported } from "./recipe.ts";
 import { readPage, shortDescription } from "./extract.ts";
 import { pool } from "./net.ts";
+import { isFeedRequestPath } from "../shared/feed.ts";
 
 const args = process.argv.slice(2);
 const VAULT = args.includes("--vault") ? args[args.indexOf("--vault") + 1] : ".";
@@ -90,7 +91,8 @@ async function main() {
       let ai: Awaited<ReturnType<typeof describe>> | null = null;
       // rsarchive.org asks that its text not be used as AI input (robots.txt Content-Signal): no Claude for it
       const asked = d.fm.summarize === "pending";
-      const askClaude = wantsSummary({ claude: CLAUDE, auto: AUTO, asked, rsarchive: isRsarchive(url) });
+      // a link that came with its summary (kept from the feed) isn't summarized again unless asked
+      const askClaude = wantsSummary({ claude: CLAUDE, auto: AUTO && !d.fm.summary, asked, rsarchive: isRsarchive(url) });
       if (askClaude && (page.text || page.title)) {
         try { ai = await describe(topics, { url, title: page.title, site: page.site, author: page.author, text: page.text || page.title || "" }); }
         catch (e) { if (!(e instanceof Declined)) throw e; console.warn(`  ${d.name}: ${(e as Error).message}`); }
@@ -256,6 +258,13 @@ async function main() {
     let req: { kind?: string; topic?: string; ask?: string; at?: string; waiting?: string; error?: string };
     try { req = JSON.parse(files.get(r)!); } catch { req = {}; }
     const done = async () => { files.delete(r); if (!DRY) await rm(join(VAULT, r), { force: true }); };
+    // the feed's Run now: answered by the Feed workflow (feed/run.ts) on the feed branch; the app removes it once it
+    // sees the answer, and one left behind (the app closed) goes after a week
+    if (req.kind === "feed" || isFeedRequestPath(r)) {
+      const at = Number((req as { at?: unknown }).at);
+      if (!(at > 0) || Date.now() - at > MAX_AGE_DAYS * 86_400_000) await done();
+      continue;
+    }
     if (req.kind === "epub") {
       const e = req as unknown as EpubRequest;
       const old = e.at && Date.now() - Date.parse(e.at) > MAX_AGE_DAYS * 86_400_000;

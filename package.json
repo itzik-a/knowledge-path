@@ -9,11 +9,13 @@
   "scripts": {
     "start": "unset npm_config_prefix; . \"${NVM_DIR:-$HOME/.nvm}/nvm.sh\" --no-use && nvm use && vite --host",
     "dev": "vite --host",
-    "build": "tsc --noEmit && tsc --noEmit -p enricher && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p enricher && tsc --noEmit -p feed && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p enricher",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p enricher && tsc --noEmit -p feed",
     "test": "vitest run",
-    "enrich": "node enricher/run.ts"
+    "enrich": "node enricher/run.ts",
+    "feed": "node feed/run.ts",
+    "feed:dry": "node feed/run.ts --dry"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",

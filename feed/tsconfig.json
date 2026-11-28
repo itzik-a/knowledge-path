@@ -1,0 +1,4 @@
+{
+  "extends": "../enricher/tsconfig.json",
+  "include": ["./**/*.ts", "../shared/**/*.ts"]
+}

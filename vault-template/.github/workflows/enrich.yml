@@ -7,7 +7,7 @@ name: Enrich
 on:
   push:
     branches: [main]
-    paths: ["Resources/**", "Recipes/**", ".hub/requests/**"]
+    paths: ["Resources/**", "Recipes/**", ".hub/requests/**", "!.hub/requests/feed-*"] # the feed's Run now has its own workflow (feed.yml)
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
