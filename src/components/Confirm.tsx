@@ -1,6 +1,7 @@
 /* The confirm modal (src/lib/confirm.ts). Cancel has the focus, so Enter never deletes by accident. */
 import { useEffect, useRef } from "react";
 import { answerConfirm, useConfirm } from "../lib/confirm";
+import { backdropClose } from "../lib/backdrop";
 
 export function ConfirmDialog() {
   const req = useConfirm();
@@ -23,7 +24,7 @@ function Modal({ title, body, ok = "Delete", danger = true }: { title: string; b
   }, []);
   return (
     <dialog ref={ref} className="dlg confirm" aria-labelledby="confirm-title" aria-describedby={body ? "confirm-body" : undefined}
-      onClose={() => answerConfirm(yes.current)} onClick={(e) => { if (e.target === ref.current) close(false); }}>
+      onClose={() => answerConfirm(yes.current)} {...backdropClose(ref, () => close(false))}>
       <div className="dlg-body">
         <h2 id="confirm-title" dir="auto">{title}</h2>
         {body && <p id="confirm-body" className="muted" dir="auto">{body}</p>}

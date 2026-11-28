@@ -6,6 +6,7 @@ import { useIndex } from "../state/store";
 import { topicColor, TYPE_EMOJI } from "./bits";
 import { IconSearch } from "./Icons";
 import { shortDate } from "../lib/dates";
+import { backdropClose } from "../lib/backdrop";
 
 interface Hit { key: string; href: string; icon: ReactNode; title: string; sub?: string }
 
@@ -51,7 +52,7 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <dialog ref={ref} className="dlg search-dlg" aria-label="Search" onClose={onClose} onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}>
+    <dialog ref={ref} className="dlg search-dlg" aria-label="Search" onClose={onClose} {...backdropClose(ref)}>
       <div className="search-dlg-body">
         <label className="search big">
           <IconSearch />
