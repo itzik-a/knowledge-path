@@ -62,6 +62,8 @@ export function setTopics(path: string, ids: string[]) {
 export interface NewResource {
   title: string; url?: string; type: ResourceType; author?: string; topics: string[]; status?: Status;
   notes?: string; image?: string; site?: string; provisional?: boolean;
+  /** a summary it comes with (a kept feed entry's); the enricher then doesn't ask Claude for one */
+  summary?: string;
 }
 
 export function createResource(r: NewResource): string {
@@ -69,7 +71,7 @@ export function createResource(r: NewResource): string {
   const fm: Record<string, unknown> = {
     title: safeName(r.title) !== r.title.trim() ? r.title.trim() : undefined,
     type: r.type, author: r.author, url: r.url, site: r.site, image: r.image,
-    topics: r.topics.map(topicLink), status: r.status ?? "saved", added: todayISO(),
+    topics: r.topics.map(topicLink), status: r.status ?? "saved", added: todayISO(), summary: r.summary?.trim() || undefined,
     enrich: r.url ? "pending" : undefined,
     provisional: r.provisional || undefined,
   };

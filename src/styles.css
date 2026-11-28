@@ -1604,3 +1604,83 @@ button.recipe-card { position: relative; width: 100%; padding: 0; border: 0; fon
 .bulk-sub { margin: 18px 0 6px; font-size: .95rem; }
 .path-row-bar { display: block; margin: 6px 0 2px; }
 .path-row-bar .progress { max-width: 240px; height: 5px; }
+
+/* ---------- Feed (Inbox → Feed, its settings, Home's card) ---------- */
+.inbox-tabs { margin: 2px 4px 4px; }
+.inbox-tabs a { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 6px 16px; border-radius: 999px; color: var(--muted); font-weight: 600; font-size: .9rem; }
+.inbox-tabs a[aria-current="page"] { background: var(--raised); color: var(--ink); box-shadow: var(--shadow-chip); }
+.inbox-sub { padding: 0 4px; }
+.feed-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 0 4px; }
+.feed-bar > p { min-width: 0; }
+.feed-running { display: inline-flex; align-items: center; gap: 6px; }
+.feed-filters { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0 4px; }
+.feed-filters .chip .muted { font-weight: 500; }
+.feed-day { display: grid; gap: 10px; }
+.feed-day-head { padding: 6px 4px 0; }
+.entry { padding: 0; gap: 0; overflow: hidden; }
+.entry.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.entry-toggle { display: grid; gap: 6px; width: 100%; padding: 14px 16px 8px; text-align: left; border: 0; background: transparent; color: inherit; }
+.entry-toggle:focus-visible { outline-offset: -2px; border-radius: var(--radius); }
+.entry-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: .8rem; line-height: 1.3; }
+.entry-src { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--ink); }
+.score { display: inline-flex; padding: 1px 8px; border-radius: 999px; font-size: .74rem; font-weight: 650; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.score.mid { background: var(--accent-soft); color: var(--accent); }
+.score.hi { background: var(--accent); color: var(--on-accent); }
+.entry-body { display: flex; gap: 12px; align-items: flex-start; }
+.entry-text { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.entry-title { font-family: var(--font-display); font-weight: 650; font-size: 1.06rem; line-height: 1.3; letter-spacing: -0.012em; text-wrap: pretty; }
+.entry-tldr { color: var(--ink); opacity: .82; font-size: .94rem; line-height: 1.45; }
+.entry-thumb { width: 76px; height: 76px; flex: none; object-fit: cover; border-radius: 10px; background: var(--surface-2); }
+.entry-more { display: grid; gap: 14px; padding: 4px 16px 6px; animation: fade .15s ease-out; }
+.entry .bullets { gap: 6px; padding-inline-start: 18px; }
+.entry .bullets li { padding-inline-start: 2px; line-height: 1.45; }
+.entry .bullets li::marker { color: var(--accent); }
+.entry .why { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--accent-soft); }
+.entry-sources { display: grid; gap: 4px; }
+.entry-sources ul { display: grid; }
+.entry-sources li { display: grid; gap: 1px; padding: 8px 0; border-top: 1px solid var(--line); }
+.entry-sources li:first-child { border-top: 0; }
+.entry-sources a { display: grid; gap: 1px; color: var(--ink); }
+.entry-sources .src-name { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; color: var(--accent); font-size: .9rem; }
+.entry-sources .src-title { font-size: .92rem; line-height: 1.35; overflow-wrap: anywhere; }
+.entry-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 12px 12px 16px; }
+.entry-votes { display: inline-flex; gap: 2px; margin-left: auto; }
+.entry-votes .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
+.feed-pick { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 7px; box-shadow: inset 0 0 0 1.5px var(--muted); color: var(--on-accent); }
+.feed-pick.on { background: var(--accent); box-shadow: none; }
+.feed-select-bar { justify-content: space-between; padding-left: 16px; }
+.feed-select-bar > .muted { flex: 1; min-width: 0; }
+.keep-title { line-height: 1.35; }
+.keep-list { display: grid; gap: 4px; padding-inline-start: 18px; list-style: disc; font-size: .94rem; }
+.feed-peek { display: grid; gap: 6px; }
+.feed-peek a { color: var(--ink); font-weight: 550; line-height: 1.35; }
+/* settings */
+.feed-settings-group { display: grid; gap: 10px; }
+.feed-settings-group > .card-head, .feed-settings-group > p { padding: 0 4px; }
+.feed-topic.off > :not(.card-head) { opacity: .55; }
+.feed-topic-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.run-list { display: grid; }
+.run-list li { display: grid; gap: 1px; padding: 8px 0; border-top: 1px solid var(--line); }
+.run-list li:first-child { border-top: 0; }
+.filtered-list { display: grid; }
+.filtered-list li { display: grid; gap: 1px; padding: 7px 0; border-top: 1px solid var(--line); }
+.filtered-list a { color: var(--ink); line-height: 1.35; }
+.add-source { display: grid; gap: 8px; }
+.add-source-row { display: flex; gap: 8px; }
+.add-source-row .text-input { flex: 1; min-width: 0; }
+.source-group { display: grid; gap: 6px; }
+.source-group > .eyebrow { padding: 0 4px; }
+.source-list { display: grid; padding: 2px 14px; }
+.source-row { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
+.source-row:first-child { border-top: 0; }
+.source-row.off .source-main { opacity: .55; }
+.source-main { flex: 1; min-width: 0; display: grid; gap: 1px; padding: 12px 0; border: 0; background: none; text-align: left; color: inherit; }
+.source-main > span { overflow-wrap: anywhere; }
+.source-name { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; }
+.mini-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.auto-times { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.auto-times > .field-label { flex-basis: 100%; }
+.auto-time { display: inline-flex; align-items: center; gap: 2px; }
+.auto-time .text-input { width: auto; min-width: 7.5em; }
+.note-line { padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.feed-bar .head-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin-left: auto; }

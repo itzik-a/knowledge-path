@@ -171,3 +171,15 @@ export const IconCards = (p: P) => (
 export const IconPdf = (p: P) => (
   <svg {...base({ width: 18, height: 18, ...p })}><path d="M6 3.5h8.5L19 8v12.5H6Z" /><path d="M14 3.5V8.5h5" /><path d="M8.5 16.5h2a1.5 1.5 0 0 0 0-3h-2v5M14 13.5v5h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2Z" strokeWidth="1.4" /></svg>
 );
+export const IconThumbUp = (p: P) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M7 11v9H4.5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1H7Zm0 0 4-7a2 2 0 0 1 2 2v4h5.2a2 2 0 0 1 2 2.4l-1.2 6A2 2 0 0 1 17 20H7" /></svg>
+);
+export const IconThumbDown = (p: P) => (
+  <svg {...base({ width: 18, height: 18, ...p })}><path d="M17 13V4h2.5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H17Zm0 0-4 7a2 2 0 0 1-2-2v-4H5.8a2 2 0 0 1-2-2.4l1.2-6A2 2 0 0 1 7 4h10" /></svg>
+);
+export const IconVideo = (p: P) => (
+  <svg {...base({ width: 14, height: 14, ...p })}><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10.5 21 8v8l-5-2.5" /></svg>
+);
+export const IconRefresh = (p: P) => (
+  <svg {...base(p)}><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
+);

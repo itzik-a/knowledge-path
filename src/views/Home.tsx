@@ -20,6 +20,7 @@ import { homeCards, useHomeLayout } from "../state/settings";
 import { useIndex } from "../state/store";
 import { useCards } from "../state/cards";
 import { useDueCount } from "./Review";
+import { useWaiting } from "../state/feed";
 
 /** The same highlight all day, a different one tomorrow. */
 function dailyPick<T>(list: T[], day: string): T | undefined {
@@ -131,6 +132,7 @@ export function Home() {
   }, [recipes, today]);
   const againOld = again.some((d) => d.cooking?.cooked.length);
   const toBuy = shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body);
+  const feedWaiting = useWaiting();
 
   const cards: Record<string, ReactNode> = {
     pinned: pinned.length > 0 && (
@@ -182,6 +184,14 @@ export function Home() {
       </HomeCard>
     ),
     cards: <CardsCard key="cards" fold={fold} />,
+    feed: feedWaiting.length > 0 && (
+      <HomeCard id="feed" fold={fold} count={feedWaiting.length} title="Feed to review" link={<a className="link" href="#inbox/feed">Review</a>}>
+        <ul className="feed-peek">
+          {feedWaiting.slice(0, 3).map((e) => <li key={e.id} dir="auto"><a href="#inbox/feed">{e.title}</a></li>)}
+        </ul>
+        {feedWaiting.length > 3 && <a className="link small" href="#inbox/feed">and {feedWaiting.length - 3} more</a>}
+      </HomeCard>
+    ),
     highlight: hl && (
       <HomeCard id="highlight" fold={fold} className="hl-card" title={<span className="eyebrow"><IconQuote width={14} height={14} /> From your highlights</span>}>
         <blockquote dir="auto"><QuoteText q={hl.quote} /></blockquote>

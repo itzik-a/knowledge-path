@@ -134,4 +134,4 @@ export async function summarize(topic: Topic | undefined, docs: SummaryDoc[]): P
 }
 
 /** Haiku 5.5 list prices, for the run log's cost line. */
-export const costUsd = (u: { in: number; out: number }) => (u.in * 0.1 + u.out * 0.5) / 1_000_000;
+export { costUsd } from "../shared/feed.ts";

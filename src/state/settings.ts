@@ -51,6 +51,7 @@ export const setSummariesAuto = (auto: boolean) =>
 // Home's cards
 export const HOME_CARDS: HomeCardInfo[] = [
   { id: "pinned", name: "Pinned" },
+  { id: "feed", name: "Feed to review" },
   { id: "habits", name: "Habits" },
   { id: "recipes", name: "Recipes" },
   { id: "journal", name: "Today's journal entry" },

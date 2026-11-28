@@ -8,6 +8,7 @@ import { SelectBar, SelectButton, useSelection } from "../components/Select";
 import { Select, useSessionState } from "../components/ui";
 import { openSheet } from "../lib/sheets";
 import { inbox } from "../../shared/index.ts";
+import { useWaiting } from "../state/feed";
 import { useIndex } from "../state/store";
 import { linkPdf, unlinkedPdfs } from "../state/pdfs";
 import { docHref, go } from "../lib/route";
@@ -61,6 +62,7 @@ export function Library() {
   const types = RESOURCE_TYPES.filter((t) => all.some((d) => d.resource!.type === t));
   const counts = Object.fromEntries(STATUSES.map((s) => [s, all.filter((d) => d.resource!.status === s).length])) as Record<Status, number>;
   const waiting = inbox(ix).length;
+  const feed = useWaiting().length;
   const sel = useSelection(list.map((d) => d.path));
 
   return (
@@ -74,6 +76,9 @@ export function Library() {
       </div>
       {waiting > 0 && (
         <a className="card inbox-banner" href="#inbox"><IconInbox /> <span className="grow"><b>{waiting} in the Inbox</b> <span className="muted">waiting for a topic</span></span><span className="chev">›</span></a>
+      )}
+      {feed > 0 && (
+        <a className="card inbox-banner" href="#inbox/feed"><IconInbox /> <span className="grow"><b>{feed} from the feed</b> <span className="muted">to review</span></span><span className="chev">›</span></a>
       )}
       <UnlinkedPdfs />
       <section className="card filters">

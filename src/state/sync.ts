@@ -135,6 +135,53 @@ async function vaultSha(cfg: Config, path: string): Promise<string | undefined> 
 
 /** Put a file the text sync doesn't carry (a PDF) in the vault, as its own commit (the contents API: up to
     100 MB). Waits for a running sync, then has the next one read the new tree. */
+/** A text file on another branch of the vault repo (the feed's `feed` branch), sent with the ETag it last came with:
+    `null` when it hasn't changed (a 304, which doesn't count against GitHub's rate limit), `undefined` when the file
+    or the branch isn't there. */
+export async function fetchBranchText(path: string, branch: string, etag?: string): Promise<{ text: string; etag?: string } | null | undefined> {
+  const cfg = getConfig();
+  if (!cfg) return undefined;
+  const url = `${API}${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(branch)}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github.raw+json", "X-GitHub-Api-Version": "2022-11-28", ...(etag ? { "If-None-Match": etag } : {}) },
+      cache: "no-store",
+    });
+  } catch {
+    throw new GitHubError("Can't reach GitHub", 0);
+  }
+  if (res.status === 304) return null;
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new GitHubError(`GitHub error ${res.status}`, res.status);
+  return { text: await res.text(), etag: res.headers.get("etag") ?? undefined };
+}
+
+/** A file outside the text sync, as text (the feed's schedule workflow); undefined when it isn't there. */
+export async function readVaultText(path: string): Promise<string | undefined> {
+  const cfg = getConfig();
+  if (!cfg) return undefined;
+  const r = await fetchBranchText(path, cfg.branch);
+  return r ? r.text : undefined;
+}
+
+/** Write (or, with null, delete) a workflow file in the vault: the feed's schedule. Its sha is always fetched fresh
+    (another device may have rewritten it). Needs the token's Workflows permission: GitHub answers 403 or 404 without. */
+export async function setWorkflowFile(path: string, text: string | null, message: string): Promise<void> {
+  const cfg = getConfig();
+  if (!cfg) throw new GitHubError("Connect the vault first (Vault & settings)", 0);
+  const url = `${repoPath(cfg)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
+  let sha: string | undefined;
+  try { sha = (await gh<{ sha: string }>(cfg, `${url}?ref=${encodeURIComponent(cfg.branch)}`)).data.sha; }
+  catch (e) { if (!(e instanceof GitHubError) || e.status !== 404) throw e; }
+  if (text == null) {
+    if (sha) await gh(cfg, url, { method: "DELETE", body: JSON.stringify({ message, sha, branch: cfg.branch }) });
+    return;
+  }
+  const content = await blobToB64(new Blob([text]));
+  await gh(cfg, url, { method: "PUT", body: JSON.stringify({ message, content, branch: cfg.branch, ...(sha ? { sha } : {}) }) });
+}
+
 export async function putVaultFile(path: string, blob: Blob, message: string): Promise<void> {
   const cfg = getConfig();
   if (!cfg) throw new GitHubError("Connect the vault first (Vault & settings)", 0);

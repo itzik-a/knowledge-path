@@ -347,6 +347,9 @@ export function mergeFeedMarks(_base: string, mine: string, theirs: string, now 
   return serializeMarks(out, now);
 }
 
+/** A run's cost at Claude Haiku's list price, in US dollars (the collector logs it; Settings shows the recent total). */
+export const costUsd = (u: { in: number; out: number }) => (u.in * 0.1 + u.out * 0.5) / 1_000_000;
+
 // ── the review queue ────────────────────────────────────────────
 
 /** Entries still waiting for a decision (not kept or dismissed), newest first. */

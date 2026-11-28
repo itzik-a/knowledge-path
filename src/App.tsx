@@ -48,6 +48,7 @@ import { SHOPPING_PATH } from "../shared/shopping.ts";
 import { Notes, TagPage } from "./views/Notes";
 import { Review, useDueCount } from "./views/Review";
 import { Topics } from "./views/Topics";
+import { useWaiting } from "./state/feed";
 
 type Tab = "home" | "topics" | "library" | "notes";
 const TABS: { id: Tab; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
@@ -122,7 +123,8 @@ export function App() {
   const recipesOpen = route.view === "recipes" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "recipe");
   const pathsOpen = route.view === "paths" || (route.view === "doc" && !!route.sub && kindOf(route.sub) === "path");
   const toBuy = ready ? shoppingLeft(ix.docs.get(SHOPPING_PATH)?.body) : 0;
-  const waiting = ready ? inbox(ix).length : 0;
+  const feedWaiting = useWaiting().length;
+  const waiting = (ready ? inbox(ix).length : 0) + feedWaiting;
   const dueCards = useDueCount();
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const pinned = ready ? pinnedDocs(ix) : [];
@@ -207,7 +209,7 @@ export function App() {
           : route.view === "topics" ? <Topics sub={route.sub} />
           : route.view === "library" ? <Library />
           : route.view === "notes" ? <Notes sub={route.sub} />
-          : route.view === "inbox" ? <Inbox />
+          : route.view === "inbox" ? <Inbox sub={route.sub} />
           : route.view === "habits" ? <Habits />
           : route.view === "recipes" ? <Recipes />
           : route.view === "paths" ? <Paths />
