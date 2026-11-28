@@ -92,7 +92,7 @@ Status 2026-11-21: 1–8 built. Checked: phone and desktop widths, light and dar
 ## 5. Follow-ups
 
 - Ask my notes (questions over the vault).
-- "Save to hub" from feed-path entries.
+- ~~"Save to hub" from feed-path entries.~~ Done differently: Feed Path was merged in (§10), and Keep saves an entry.
 - Images (`![[…]]` embeds) shown inline.
 - Kindle / Readwise highlight import.
 - A timeline view for History (resources and notes by period).
@@ -212,3 +212,20 @@ Optionally subtopics and a topic overview note too. Philosophy is the first (202
 
 ### 2. Later: a "Make a roadmap" button
 29. **Roadmaps in the app**: a **Roadmap** mode in a topic's Explore. A short sheet asks the questions above (answers remembered for the topic), the vault's Action asks Opus for the stages, reading my library so what I've saved or finished goes into the path instead of being suggested again. The draft comes back like an Explore answer; I tick what to keep, and it's written as the path and suggested resources. Then: the topic page shows the current stage, Home's In progress card shows the next step, Explore's "What to do next" follows the path, and finishing a stage can offer flashcards from its highlights. The Action gets Claude's **web search** tool for this, so titles are checked against real sources (today Explore only asks Claude not to invent them). About $0.20–0.50 a roadmap, more than a plain Explore.
+
+## 10. Feed (merged from Feed Path, 2026-11-28)
+
+Feed Path's collector and review moved here and its repo was archived. What shipped (c8214ed … a101460): the Inbox splits into **To file** and **Feed**; nothing from the feed is in the knowledge base until it's kept (Keep = a saved link with the summary, under the topics picked; no topic → To file); Dismiss, 👍 / 👎, select mode; the feed lives on the vault's `feed` branch (one parentless commit, replaced each run, so main's history holds only my actions); **Run now** (a request file the vault's Feed workflow answers; one at a time, Running… on the button); **automatic runs off by default**, and turning them on writes `.github/workflows/feed-schedule.yml` from the summary times and the 3-hourly reading; the feed's Claude cost per month beside the links' in Vault & settings. How filtering works: Claude Haiku scores each new headline + 300-character excerpt 0–100 against every feed topic's description; a new story passes when any enabled topic reaches its threshold, the rest go to Filtered out (2 days).
+
+### Follow-ups
+
+30. **Learn from my votes** (asked for 2026-11-28, so it isn't lost). 👍 / 👎 are already saved per entry (`v` in `.hub/feed/marks.json`) but scoring ignores them. Plan:
+    - When I vote, keep the entry's headline, source and top feed topic in the mark too (`t`, `src`, `topic`), so the example outlives the entry (feed.json drops entries after `keepDays`).
+    - The collector reads the marks from the vault checkout and gives triage the latest votes as examples: up to ~20 👍 and ~20 👎 from the last 60 days, newest first, as two short lists ("more like these" / "less like these", headline + source + topic) after the topic descriptions, with a line saying they show my taste within a topic and don't change what the topics are. About 1–2k more input tokens per triage call (a fraction of a cent).
+    - Maybe also count Keep as a mild 👍 and Dismiss as a mild 👎 (many more of them than votes); decide after seeing votes alone.
+    - A switch in Feed settings, "Learn from my votes", on by default once built; Filtered out and each entry's scores show whether votes moved things.
+    - Check it the way prompt changes are checked: run with `--local` on a copy of the marks and compare the scores and Filtered out with and without the examples before relying on it.
+31. **Telegram morning digest** (skipped for now): only from scheduled summary runs, never Run now; bot token and chat id as vault secrets; the entries that passed, each linking to the Feed tab.
+32. **Re-summarize a growing story**: when an important entry gains new sources, refresh its summary.
+33. **More source types**: podcasts (RSS + transcript), Reddit, newsletters by email, pages without RSS (watched for changes).
+
