@@ -57,7 +57,7 @@ export function Recipes() {
           <h1 className="display">Recipes</h1>
           {all.length > 0 && <p className="muted">{all.length} {all.length === 1 ? "recipe" : "recipes"}</p>}
         </div>
-        <div className="btn-row">
+        <div className="head-actions">
           <SelectButton sel={sel} />
           {!sel.on && <button type="button" className="btn primary sm" onClick={() => openSheet({ kind: "capture", init: { mode: "recipe" } })}><IconPlus /> New recipe</button>}
         </div>
