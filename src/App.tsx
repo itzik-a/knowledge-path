@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { Fragment, Suspense, useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { lazyPart, reopenSheet } from "./lib/lazy";
 import { Boundary } from "./components/Boundary";
 import { inbox, pinnedDocs } from "../shared/index.ts";
@@ -6,12 +6,13 @@ import { kindOf } from "../shared/vault.ts";
 import { docEmoji, docLabel, topicColor } from "./components/bits";
 import { CaptureSheet } from "./components/CaptureSheet";
 import { ConfirmDialog } from "./components/Confirm";
+import { useLocalState } from "./components/ui";
 import { DataPill, DataSheet } from "./components/DataSheet";
 import { HabitSheet } from "./components/HabitSheet";
 import { TimerStartSheet } from "./components/TimerStartSheet";
 import { AskSheet } from "./components/AskSheet";
 import { ShortcutsSheet } from "./components/ShortcutsSheet";
-import { IconCards, IconCart, IconGraph, IconHabit, IconPath, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
+import { IconCards, IconCart, IconChevronDown, IconGraph, IconHabit, IconPath, IconRecipe, IconHome, IconInbox, IconLibrary, IconNotes, IconPlus, IconSearch, IconTopics } from "./components/Icons";
 import { SearchDialog } from "./components/SearchDialog";
 import { Toast } from "./components/Toast";
 
@@ -126,6 +127,9 @@ export function App() {
   const top = ix.topicOrder.map((id) => ix.topics.get(id)!).filter((t) => !t.parent);
   const pinned = ready ? pinnedDocs(ix) : [];
   const pinnedTags = usePinnedTags();
+  // the sections the user folded or unfolded, away from how each starts (More starts folded, the rest open)
+  const [sideFlipped, setSideFlipped] = useLocalState<string[]>("knowledgePath.sideFolded", []);
+  const sideFold: SideFold = { flipped: sideFlipped, toggle: (id) => setSideFlipped((c) => c.includes(id) ? c.filter((x) => x !== id) : [...c, id]) };
   const onCaptureClose = () => {
     closeSheetReq();
     // opened by the bookmarklet in its own little window: send it and close
@@ -144,48 +148,44 @@ export function App() {
           <button type="button" className="icon-btn" onClick={() => openSheet({ kind: "search" })} aria-label="Search (⌘K)" title="Search (⌘K)"><IconSearch /></button>
           <ReadingButton className="icon-btn" />
         </div>
-        <nav className="side-nav" aria-label="Sections">
-          {TABS.map(({ id, label, Icon }) => (
-            <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !pathsOpen && !graphOpen && route.view !== "review" ? "page" : undefined}><Icon /><span>{label}</span></a>
-          ))}
-          <a href="#paths" aria-current={pathsOpen ? "page" : undefined}><IconPath /><span>Study paths</span></a>
-          <a href="#notes/graph" aria-current={graphOpen ? "page" : undefined}><IconGraph /><span>Graph</span></a>
-          <a href="#review" aria-current={route.view === "review" ? "page" : undefined}><IconCards /><span>Flashcards</span>{dueCards > 0 && <span className="badge">{dueCards}</span>}</a>
-          <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a>
-          <a href="#recipes" aria-current={recipesOpen ? "page" : undefined}><IconRecipe /><span>Recipes</span></a>
-          <a href="#shopping" aria-current={route.view === "shopping" ? "page" : undefined}><IconCart /><span>Shopping list</span>{toBuy > 0 && <span className="badge">{toBuy}</span>}</a>
-          <a href="#inbox" aria-current={route.view === "inbox" ? "page" : undefined}><IconInbox /><span>Inbox</span>{waiting > 0 && <span className="badge">{waiting}</span>}</a>
-        </nav>
         <div className="side-scroll">
-          {pinned.length > 0 && (
-            <nav className="side-topics" aria-label="Pinned">
-              <span className="eyebrow">Pinned</span>
+          <nav className="side-nav" aria-label="Sections">
+            {TABS.map(({ id, label, Icon }) => (
+              <a key={id} href={`#${id}`} aria-current={tab === id && route.view !== "inbox" && route.view !== "shopping" && !habitsOpen && !recipesOpen && !pathsOpen && !graphOpen && route.view !== "review" ? "page" : undefined}><Icon /><span>{label}</span></a>
+            ))}
+            <a href="#paths" aria-current={pathsOpen ? "page" : undefined}><IconPath /><span>Study paths</span></a>
+            <a href="#inbox" aria-current={route.view === "inbox" ? "page" : undefined}><IconInbox /><span>Inbox</span>{waiting > 0 && <span className="badge">{waiting}</span>}</a>
+          </nav>
+          <SideSection id="more" title="More" className="side-nav" fold={sideFold} closedFirst
+            items={[
+              { key: "graph", on: graphOpen, link: <a href="#notes/graph" aria-current={graphOpen ? "page" : undefined}><IconGraph /><span>Graph</span></a> },
+              { key: "review", on: route.view === "review", count: dueCards, link: <a href="#review" aria-current={route.view === "review" ? "page" : undefined}><IconCards /><span>Flashcards</span>{dueCards > 0 && <span className="badge">{dueCards}</span>}</a> },
+              { key: "habits", on: habitsOpen, link: <a href="#habits" aria-current={habitsOpen ? "page" : undefined}><IconHabit /><span>Habits</span></a> },
+              { key: "recipes", on: recipesOpen, link: <a href="#recipes" aria-current={recipesOpen ? "page" : undefined}><IconRecipe /><span>Recipes</span></a> },
+              { key: "shopping", on: route.view === "shopping", link: <a href="#shopping" aria-current={route.view === "shopping" ? "page" : undefined}><IconCart /><span>Shopping list</span>{toBuy > 0 && <span className="badge">{toBuy}</span>}</a> },
+            ]} />
+          {(pinned.length > 0 || pinnedTags.length > 0) && (
+            <SideSection id="pinned" title="Pinned" count={pinned.length + pinnedTags.length} fold={sideFold}>
               {pinned.map((d) => (
                 <a key={d.path} href={docHref(d.path)} aria-current={route.view === "doc" && route.sub === d.path ? "page" : undefined}>
                   <span className="side-emoji" aria-hidden="true">{docEmoji(d)}</span><span className="clamp1" dir="auto">{docLabel(d)}</span>
                 </a>
               ))}
-            </nav>
-          )}
-          {pinnedTags.length > 0 && (
-            <nav className="side-topics" aria-label="Pinned tags">
-              <span className="eyebrow">Pinned tags</span>
               {pinnedTags.map((tag) => (
-                <a key={tag} href={tagHref(tag)} aria-current={route.view === "tag" && route.sub === tag ? "page" : undefined}>
+                <a key={"#" + tag} href={tagHref(tag)} aria-current={route.view === "tag" && route.sub === tag ? "page" : undefined}>
                   <span className="side-emoji muted" aria-hidden="true">#</span><span className="clamp1 grow" dir="auto">{tag}</span>
                   <span className="side-count">{ix.tags.get(tag)?.length ?? 0}</span>
                 </a>
               ))}
-            </nav>
+            </SideSection>
           )}
-          <nav className="side-topics" aria-label="Topics">
-            <span className="eyebrow">Topics</span>
+          <SideSection id="topics" title="Topics" count={top.length} fold={sideFold}>
             {top.map((t) => (
               <a key={t.id} href={topicHref(t.id)} aria-current={route.view === "topics" && (route.sub === t.id || route.sub?.startsWith(t.id + "/")) ? "page" : undefined}>
                 <span className="swatch sm" style={{ background: topicColor(t) }} /><span dir="auto">{t.name}</span>
               </a>
             ))}
-          </nav>
+          </SideSection>
         </div>
         <div className="side-foot"><DataPill onOpen={() => openSheet({ kind: "data" })} /></div>
       </aside>
@@ -253,5 +253,25 @@ export function App() {
         ))}
       </nav>
     </div>
+  );
+}
+
+interface SideFold { flipped: string[]; toggle: (id: string) => void }
+interface SideItem { key: string; link: ReactNode; on?: boolean; count?: number }
+
+/** A sidebar section (More, Pinned, Topics) that folds away from its heading; which ones are folded is per device.
+   Folded, it shows its count, or with `items` the ones that matter now: the page you're on and any with a count. */
+function SideSection({ id, title, count, fold, closedFirst, className = "side-topics", items, children }: {
+  id: string; title: string; count?: number; fold: SideFold; closedFirst?: boolean; className?: string; items?: SideItem[]; children?: ReactNode;
+}) {
+  const open = fold.flipped.includes(id) === !!closedFirst;
+  const peek = items?.filter((i) => i.on || (i.count ?? 0) > 0) ?? [];
+  return (
+    <nav className={`${className}${open ? "" : " folded"}`} aria-label={title}>
+      <button type="button" className="side-head eyebrow" aria-expanded={open} onClick={() => fold.toggle(id)}>
+        <IconChevronDown className="fold-chev" width={14} height={14} /> {title}{!open && count != null && <span className="side-count">{count}</span>}
+      </button>
+      {open ? <>{items?.map((i) => <Fragment key={i.key}>{i.link}</Fragment>)}{children}</> : peek.map((i) => <Fragment key={i.key}>{i.link}</Fragment>)}
+    </nav>
   );
 }
