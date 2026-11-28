@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isExternal } from "../src/lib/externalLinks";
+import { chromeUrl, isExternal } from "../src/lib/externalLinks";
 
 const base = "https://itzik-a.github.io/knowledge-path/#doc/Notes/x.md";
 
@@ -13,5 +13,12 @@ describe("isExternal", () => {
     expect(isExternal("https://itzik-a.github.io/knowledge-path/#notes", base)).toBe(false);
     expect(isExternal("mailto:a@b.c", base)).toBe(false);
     expect(isExternal("blob:https://itzik-a.github.io/1", base)).toBe(false);
+  });
+});
+
+describe("chromeUrl", () => {
+  it("opens the same page in Chrome on iOS", () => {
+    expect(chromeUrl("https://example.com/a?b=1#c")).toBe("googlechromes://example.com/a?b=1#c");
+    expect(chromeUrl("http://example.com/")).toBe("googlechrome://example.com/");
   });
 });
