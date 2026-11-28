@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chromeUrl, isExternal, macChromeUrl } from "../src/lib/externalLinks";
+import { chromeUrl, isExternal } from "../src/lib/externalLinks";
 
 const base = "https://itzik-a.github.io/knowledge-path/#doc/Notes/x.md";
 
@@ -23,8 +23,3 @@ describe("chromeUrl", () => {
   });
 });
 
-describe("macChromeUrl", () => {
-  it("puts Chrome's scheme in front of the whole address", () => {
-    expect(macChromeUrl("https://example.com/a?b=1#c")).toBe("google-chrome://https://example.com/a?b=1#c");
-  });
-});
