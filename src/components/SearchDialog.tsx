@@ -46,6 +46,8 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(hits.length - 1, s + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(0, s - 1)); }
     else if (e.key === "Enter") { e.preventDefault(); open(hits[sel]); }
+    // A search field takes Esc for itself (clearing it), so the dialog never sees it: close here.
+    else if (e.key === "Escape") { e.preventDefault(); ref.current?.close(); }
   }
 
   return (
