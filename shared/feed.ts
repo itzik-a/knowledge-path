@@ -178,6 +178,8 @@ export interface FeedFile {
   runs: RunInfo[];
   /** Run now requests answered: request id → when, how many new entries, or what went wrong */
   requests: Record<string, { at: number; added: number; error?: string }>;
+  /** what Claude cost per month ("YYYY-MM", Israel time), the last three months: runs keeps only 20 */
+  spend?: Record<string, number>;
 }
 
 /** A new item read from a source, before Claude has looked at it. */
@@ -297,6 +299,7 @@ export function normalizeFeed(raw: unknown): FeedFile {
   return {
     v: 1, updatedAt: x.updatedAt ?? 0, lastRead: x.lastRead, waiting: x.waiting,
     entries: arr(x.entries), filtered: arr(x.filtered), health: obj(x.health), runs: arr(x.runs), requests: obj(x.requests),
+    spend: obj(x.spend),
   };
 }
 export const parseFeed = (text: string | null | undefined) => normalizeFeed(json(text));
@@ -349,6 +352,19 @@ export function mergeFeedMarks(_base: string, mine: string, theirs: string, now 
 
 /** A run's cost at Claude Haiku's list price, in US dollars (the collector logs it; Settings shows the recent total). */
 export const costUsd = (u: { in: number; out: number }) => (u.in * 0.1 + u.out * 0.5) / 1_000_000;
+
+/** "YYYY-MM" in Israel. */
+export const monthKey = (t: number) => localParts(t).date.slice(0, 7);
+
+/** Add a run's cost to its month, keeping the last three months. */
+export function addSpend(feed: FeedFile, at: number, usd: number) {
+  const m = monthKey(at);
+  const spend = { ...feed.spend, [m]: Math.round(((feed.spend?.[m] ?? 0) + usd) * 1e6) / 1e6 };
+  feed.spend = Object.fromEntries(Object.entries(spend).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 3));
+}
+
+/** What the feed's Claude calls cost this month (Israel time). */
+export const spentThisMonth = (feed: Pick<FeedFile, "spend"> | null | undefined, now = Date.now()) => feed?.spend?.[monthKey(now)] ?? 0;
 
 // ── the review queue ────────────────────────────────────────────
 

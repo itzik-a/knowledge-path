@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  cronLines, keptNotes, localParts, mergeFeedMarks, mergeFeedSettings, nextSummary, parseFeedSettings, parseMarks,
+  addSpend, cronLines, keptNotes, localParts, spentThisMonth, mergeFeedMarks, mergeFeedSettings, nextSummary, parseFeedSettings, parseMarks,
   scheduleWorkflow, seedFeedSettings, serializeMarks, serializeSettings, slotDue, waitingEntries, type Entry, type FeedFile,
 } from "../shared/feed.ts";
 
@@ -110,6 +110,21 @@ describe("marks", () => {
   it("are one a line", () => {
     const text = serializeMarks({ a: { s: "kept", at: now }, b: { s: "dismissed", at: now } }, now);
     expect(text.split("\n").filter((l) => l.startsWith('"')).length).toBe(2);
+  });
+});
+
+describe("spend", () => {
+  it("adds each run's cost to its month (Israel time), keeps three months, and reads this month", () => {
+    const feed = { spend: {} } as FeedFile;
+    addSpend(feed, Date.parse("2026-09-10T12:00:00Z"), 0.2);
+    addSpend(feed, Date.parse("2026-10-10T12:00:00Z"), 0.3);
+    addSpend(feed, Date.parse("2026-11-10T12:00:00Z"), 0.01);
+    addSpend(feed, Date.parse("2026-11-30T22:30:00Z"), 0.02); // already 1 December in Israel
+    addSpend(feed, Date.parse("2026-11-20T12:00:00Z"), 0.015);
+    expect(Object.keys(feed.spend!)).toEqual(["2026-12", "2026-11", "2026-10"]);
+    expect(feed.spend!["2026-11"]).toBeCloseTo(0.025, 6);
+    expect(spentThisMonth(feed, Date.parse("2026-11-28T12:00:00Z"))).toBeCloseTo(0.025, 6);
+    expect(spentThisMonth(null)).toBe(0);
   });
 });
 

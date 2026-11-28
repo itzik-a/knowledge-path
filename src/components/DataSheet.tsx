@@ -12,7 +12,9 @@ import { IconExternal, IconGrip } from "./Icons";
 import { AccentPicker, ThemePicker } from "./ThemePicker";
 import { homeCards, resetHome, setHomeOrder, setHomeCardShown, setSinkChecked, setSummariesAuto, useHomeLayout, useSinkChecked, useSummariesAuto } from "../state/settings";
 import { PrivateForm } from "./PrivateNotes";
-import { Sheet, Switch } from "./ui";
+import { Sheet, Switch, closeSheet } from "./ui";
+import { useFeed } from "../state/feed";
+import { spentThisMonth } from "../../shared/feed.ts";
 
 const dotClass = (s: SyncStatus) => (s.kind === "ok" ? "ok" : s.kind === "busy" ? "busy" : s.kind === "pending" ? "pending" : s.kind === "error" ? "err" : "");
 
@@ -259,16 +261,29 @@ function EnricherSection() {
         : "Links get their title and text only; tap Summarise on a link (or More → Summarise with Claude) when you want Claude's summary."}</p>
       {st ? (
         <p className="small">
-          Last run {st.at ? ago(Date.parse(st.at)) : "—"}{st.enriched ? ` · filled in ${st.enriched}` : ""}{st.failed ? ` · ${st.failed} couldn't be read` : ""}
+          Links: last run {st.at ? ago(Date.parse(st.at)) : "—"}{st.enriched ? ` · filled in ${st.enriched}` : ""}{st.failed ? ` · ${st.failed} couldn't be read` : ""}
           {st.monthUsd != null ? ` · this month $${st.monthUsd.toFixed(2)}` : ""}
           {st.claude === false && <><br /><b>Claude isn't set up yet:</b> add an <code>ANTHROPIC_API_KEY</code> secret to the vault repo (Settings → Secrets and variables → Actions). Until then it only fetches titles and text.</>}
           {st.error && <><br /><span className="form-error">{st.error}</span></>}
         </p>
       ) : (
-        <p className="muted small">It hasn't run yet{cfg ? "" : " (connect the vault first)"}.</p>
+        <p className="muted small">Links: it hasn't run yet{cfg ? "" : " (connect the vault first)"}.</p>
       )}
+      <FeedUsage />
       {cfg && <a className="link" href={`https://github.com/${cfg.owner}/${cfg.repo}/actions`} target="_blank" rel="noopener">See its runs on GitHub <IconExternal /></a>}
     </section>
+  );
+}
+
+/** The feed's collector beside the link filling: when it last ran and what Claude cost this month (Israel time). */
+function FeedUsage() {
+  const { feed } = useFeed();
+  const last = feed?.runs[0];
+  return (
+    <p className="small">
+      Feed: {last ? <>last run {ago(last.at)}{last.added ? ` · ${last.added} new` : ""} · this month ${spentThisMonth(feed).toFixed(2)}</> : "it hasn't run yet"}
+      {" · "}<a className="link" href="#inbox/feed/settings" onClick={(e) => closeSheet(e.currentTarget)}>Feed settings</a>
+    </p>
   );
 }
 

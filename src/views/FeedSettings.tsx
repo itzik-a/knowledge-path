@@ -3,7 +3,7 @@
    read went, and what was filtered out (to tune thresholds). Everything here is .hub/feed/settings.json in the vault,
    except what the collector reports (the feed branch). */
 import { useState, type FormEvent } from "react";
-import { costUsd, type Edition, type Source, type SourceHealth, type SourceKind } from "../../shared/feed.ts";
+import { costUsd, spentThisMonth, type Edition, type Source, type SourceHealth, type SourceKind } from "../../shared/feed.ts";
 import { IconBack, IconRefresh, IconVideo } from "../components/Icons";
 import { Seg, Sheet, Stepper, Switch, closeSheet } from "../components/ui";
 import {
@@ -36,7 +36,7 @@ export function FeedSettingsPage() {
   const { feed } = useFeed();
   const running = useRunning();
   const runs = feed?.runs ?? [];
-  const spent = runs.filter((r) => r.at > Date.now() - 30 * DAY).reduce((a, r) => a + (r.tokens ? costUsd(r.tokens) : 0), 0);
+  const spent = spentThisMonth(feed);
   return (
     <>
       <a className="back" href="#inbox/feed"><IconBack /> Feed</a>
@@ -49,7 +49,7 @@ export function FeedSettingsPage() {
         </div>
         <p className="muted small">
           A run reads every source, has Claude (Haiku) score what's new against your feed topics, and summarizes what passes. Run now takes 2–4 minutes; it never sends anything anywhere.
-          {spent > 0 && <> Claude cost ${spent.toFixed(2)} in the last 30 days.</>}
+          {feed && <> Claude cost ${spent.toFixed(2)} this month.</>}
         </p>
         {runs.length > 0 && (
           <ul className="run-list">

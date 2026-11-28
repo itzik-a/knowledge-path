@@ -19,7 +19,7 @@
    Without ANTHROPIC_API_KEY a summary run becomes a reading pass (with a warning). */
 import { appendFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { localParts, slotDue, type Entry, type EntrySource, type RunInfo, type Topic, type PendingItem } from "../shared/feed.ts";
+import { addSpend, localParts, slotDue, type Entry, type EntrySource, type RunInfo, type Topic, type PendingItem } from "../shared/feed.ts";
 import { MODEL, Refused, costUsd, summarize, triage, usage, type Summary, type SummaryDoc, type TriageResult, type TriageStory } from "./claude.ts";
 import { extract } from "./extract.ts";
 import { readBranch, readFolder, readRequests, readSettings, writeBranch, writeFolder, type Data } from "./files.ts";
@@ -320,6 +320,7 @@ async function run(p: Exclude<Plan, { mode: "skip" }>, { feed, state }: Data) {
   };
   feed.runs = [runInfo, ...feed.runs].slice(0, 20);
   feed.updatedAt = now;
+  if (runInfo.tokens) addSpend(feed, now, costUsd(runInfo.tokens));
 
   const kb = Math.round(JSON.stringify(feed).length / 1024);
   const cost = DRY ? "" : ` · ${usage.in.toLocaleString()} tokens in, ${usage.out.toLocaleString()} out ≈ $${costUsd(usage).toFixed(3)}`;
