@@ -1,10 +1,11 @@
 /* Small pieces used across views: topic chips and picker, resource and note rows, status. */
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ancestry, type Doc, type Index, type Topic } from "../../shared/index.ts";
 import { currentStage, parseStages, parseSteps, type ResourceType, type Status } from "../../shared/vault.ts";
 import { shortDate, whenText } from "../lib/dates";
 import { docHref, topicHref } from "../lib/route";
 import { useIndex } from "../state/store";
+import { showToast } from "../lib/toast";
 import type { Selection } from "./Select";
 import { IconCheck, IconClose, IconLock, IconPin, IconPlus, IconSearch } from "./Icons";
 import { RecipeRow } from "./recipes";
@@ -49,12 +50,25 @@ export function TopicPicker({ value, onChange, fixed = [], suggested = [] }: { v
   }), [ix, q]);
   const sugg = suggested.filter((id) => ix.topics.has(id) && !sel.has(id) && !fixed.includes(id));
   const toggle = (id: string) => onChange(sel.has(id) ? value.filter((x) => x !== id) : [...value, id]);
+  // Undo reads the latest value and onChange, so it still works after other edits or once the picker is gone.
+  const latest = useRef({ value, onChange });
+  latest.current = { value, onChange };
+  // The whole chip removes, so a stray tap is easy: offer Undo, putting the topic back where it was.
+  const remove = (id: string) => {
+    const at = value.indexOf(id);
+    onChange(value.filter((x) => x !== id));
+    showToast(`Removed ${ix.topics.get(id)?.name ?? id}`, { label: "Undo", run: () => {
+      const { value: cur, onChange: set } = latest.current;
+      if (cur.includes(id)) return;
+      set([...cur.slice(0, at), id, ...cur.slice(at)]);
+    } });
+  };
 
   return (
     <div className="picker">
       <div className="chips">
         {value.filter((id) => ix.topics.has(id)).map((id) => (
-          <button key={id} type="button" className="chip on" onClick={() => toggle(id)} aria-label={`Remove ${ix.topics.get(id)!.name}`}>
+          <button key={id} type="button" className="chip on" onClick={() => remove(id)} aria-label={`Remove ${ix.topics.get(id)!.name}`}>
             <span className="swatch sm" style={{ background: topicColor(ix.topics.get(id)) }} /> <span dir="auto">{ix.topics.get(id)!.name}</span> <IconClose width={12} height={12} />
           </button>
         ))}
