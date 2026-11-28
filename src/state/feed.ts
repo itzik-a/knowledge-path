@@ -14,7 +14,7 @@ import {
 import { showToast } from "../lib/toast";
 import { createResource } from "./actions";
 import { getMeta, setMeta } from "./db";
-import { allRecords, getIndex, readFile, removeFile, removeFiles, useVault, writeFile } from "./store";
+import { allRecords, getIndex, getRecord, readFile, removeFile, removeFiles, useVault, writeFile } from "./store";
 import { fetchBranchText, getConfig, syncNow } from "./sync";
 
 // ── what the collector wrote ────────────────────────────────────
@@ -90,19 +90,28 @@ export function pendingRequests(): string[] {
   const answered = state.feed?.requests ?? {};
   return allRecords().filter((r) => !r.deleted && isFeedRequestPath(r.path)).map((r) => feedRequestId(r.path)).filter((id) => !answered[id]);
 }
-export function useRunning(): { since?: number } | null {
+/** a run that hasn't answered after this long isn't coming (the workflow stops itself after 15 minutes) */
+const STALE_MS = 20 * 60_000;
+const askedAt = (id: string) => Number(parseMaybe(readFile(feedRequestPath(id)))?.at) || 0;
+const isStale = (id: string) => Date.now() - askedAt(id) > STALE_MS;
+
+/** A Run now in progress: when it was asked for, whether the request has reached GitHub yet (`sent`), and `stale`
+    when it never answered. It's read from the vault's files, so it survives a reload and shows on every device. */
+export function useRunning(): { since?: number; sent: boolean; stale: boolean } | null {
   useVault();
   useFeed();
   const ids = pendingRequests();
   if (!ids.length) return null;
-  const at = ids.map((id) => Number(parseMaybe(readFile(feedRequestPath(id)))?.at) || 0);
-  return { since: Math.min(...at) || undefined };
+  const since = Math.min(...ids.map(askedAt)) || undefined;
+  return { since, sent: ids.some((id) => !getRecord(feedRequestPath(id))?.dirty), stale: ids.every(isStale) };
 }
 const parseMaybe = (t?: string): Record<string, unknown> | undefined => { try { return t ? JSON.parse(t) : undefined; } catch { return undefined; } };
 
 /** Ask the vault's Feed workflow for a summary run now. */
 export function runNow() {
-  if (pendingRequests().length) return;
+  const waiting = pendingRequests();
+  if (waiting.some((id) => !isStale(id))) return; // one at a time
+  for (const id of waiting) removeFile(feedRequestPath(id)); // ones that never answered
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   writeFile(feedRequestPath(id), JSON.stringify({ kind: "feed", at: Date.now() }) + "\n");
   void syncNow();

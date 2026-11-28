@@ -4,15 +4,15 @@
    except what the collector reports (the feed branch). */
 import { useState, type FormEvent } from "react";
 import { costUsd, spentThisMonth, type Edition, type Source, type SourceHealth, type SourceKind } from "../../shared/feed.ts";
-import { IconBack, IconRefresh, IconVideo } from "../components/Icons";
+import { IconBack, IconVideo } from "../components/Icons";
 import { Seg, Sheet, Stepper, Switch, closeSheet } from "../components/ui";
 import {
-  addSource, addTopic, deleteSource, deleteTopic, editSource, editTopic, runNow, setKeepDays, sourceFromUrl,
-  useFeed, useFeedSettings, useRunning,
+  addSource, addTopic, deleteSource, deleteTopic, editSource, editTopic, setKeepDays, sourceFromUrl,
+  useFeed, useFeedSettings,
 } from "../state/feed";
 import { showToast } from "../lib/toast";
 import { AutoRunsCard } from "./FeedAuto";
-import { ago } from "./Feed";
+import { RunButton, ago } from "./Feed";
 
 const GROUPS: { kind: SourceKind; label: string }[] = [
   { kind: "youtube", label: "YouTube channels" },
@@ -34,7 +34,6 @@ function healthLine(h: SourceHealth | undefined, s: Source) {
 export function FeedSettingsPage() {
   const settings = useFeedSettings();
   const { feed } = useFeed();
-  const running = useRunning();
   const runs = feed?.runs ?? [];
   const spent = spentThisMonth(feed);
   return (
@@ -45,7 +44,7 @@ export function FeedSettingsPage() {
       <section className="card" aria-labelledby="fs-runs">
         <div className="card-head">
           <h2 id="fs-runs">Runs</h2>
-          <button type="button" className="btn ghost sm" disabled={!!running} onClick={runNow}><IconRefresh width={16} height={16} /> {running ? "Running…" : "Run now"}</button>
+          <RunButton />
         </div>
         <p className="muted small">
           A run reads every source, has Claude (Haiku) score what's new against your feed topics, and summarizes what passes. Run now takes 2–4 minutes; it never sends anything anywhere.

@@ -114,7 +114,11 @@ function FeedBar({ settings, count, selecting, onSelect, canSelect }: { settings
   return (
     <div className="feed-bar">
       <p className="muted small">
-        {running ? <span className="feed-running"><span className="dot busy" /> Running… usually 2–4 minutes{running.since ? `, asked ${ago(running.since)}` : ""}</span>
+        {running && !running.stale ? (
+          <span className="feed-running"><span className="dot busy" />
+            {running.sent ? <>Running… usually 2–4 minutes{running.since ? `, asked ${ago(running.since)}` : ""}. You can close the app: it runs on GitHub.</> : "Sending the request to GitHub…"}
+          </span>
+        ) : running?.stale ? <span className="form-error">The run asked for {running.since ? ago(running.since) : "earlier"} didn't report back. See the vault's Actions on GitHub, or run it again.</span>
           : last ? <>Last run {ago(last.at)}{last.added ? `, ${last.added} new` : ""}{feed?.waiting ? ` · ${feed.waiting} items read since, for the next run` : ""}</>
           : feed ? "Not run yet" : ""}
         {!running && !settings.auto.on && <> · automatic runs off</>}
@@ -122,10 +126,21 @@ function FeedBar({ settings, count, selecting, onSelect, canSelect }: { settings
       </p>
       <div className="head-actions">
         {canSelect && <button type="button" className="btn ghost sm" aria-pressed={selecting} onClick={onSelect}>{selecting ? "Done" : "Select"}</button>}
-        <button type="button" className="btn ghost sm" disabled={!!running} onClick={runNow}><IconRefresh width={16} height={16} /> Run now</button>
+        <RunButton />
         <a className="icon-btn subtle" href="#inbox/feed/settings" aria-label="Feed settings" title="Feed settings"><IconSliders width={20} height={20} /></a>
       </div>
     </div>
+  );
+}
+
+/** Run now, or Running… (disabled) while a run is on its way, so two never overlap. */
+export function RunButton() {
+  const running = useRunning();
+  const busy = !!running && !running.stale;
+  return (
+    <button type="button" className="btn ghost sm" disabled={busy} aria-busy={busy} onClick={runNow}>
+      <IconRefresh width={16} height={16} className={busy ? "spin" : undefined} /> {busy ? "Running…" : "Run now"}
+    </button>
   );
 }
 
