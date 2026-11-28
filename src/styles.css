@@ -98,21 +98,51 @@
 :root[data-theme="dark"][data-accent="amber"] { --accent: #F2B76A; --accent-2: #F6CD94; --accent-soft: #3A2810; --on-accent: #2E1A00; --toast-action: #9A5200; }
 :root[data-accent="indigo"] { --accent: #4B3FB8; --accent-2: #5C50CF; --accent-soft: #ECEAFB; --on-accent: #FFFFFF; --toast-action: #A99EF5; }
 :root[data-theme="dark"][data-accent="indigo"] { --accent: #A99EF5; --accent-2: #C3BBF8; --accent-soft: #221E45; --on-accent: #15103A; --toast-action: #4B3FB8; }
-:root[data-accent="graphite"] {
+/* Crimson: red on cool greys. */
+:root[data-accent="crimson"] {
   --accent: #C8393B; --accent-2: #DB4B4D; --accent-soft: #FDF0F0; --on-accent: #FFFFFF; --toast-action: #F0716F;
   --bg: #F7F7F8; --surface: #FFFFFF; --surface-2: #EFEFF1; --ink: #1E1F22; --muted: #686A70;
   --line: rgba(30, 31, 34, .09); --track: rgba(30, 31, 34, .07); --toast-bg: #2A2B2F; --toast-ink: #F2F2F3;
   --glass: rgba(255, 255, 255, .76); --glass-line: rgba(30, 31, 34, .07); --grid: #E8E8EB; --axis: #C2C3C8;
 }
-:root[data-theme="dark"][data-accent="graphite"] {
+:root[data-theme="dark"][data-accent="crimson"] {
   --accent: #F0716F; --accent-2: #F49593; --accent-soft: #3D1E1F; --on-accent: #2A0C0C; --toast-action: #C8393B;
   --bg: #1C1D20; --surface: #25262A; --surface-2: #2E2F34; --ink: #E8E8EA; --muted: #9C9EA5; --raised: #3A3B41;
   --line: rgba(255, 255, 255, .08); --track: rgba(255, 255, 255, .09); --toast-bg: #E8E8EA; --toast-ink: #1E1F22;
   --glass: rgba(37, 38, 42, .76); --glass-line: rgba(255, 255, 255, .07); --grid: #33343A; --axis: #46474E;
 }
+/* Graphite: Bear's Red Graphite, its exact colours (light: bear.app's own CSS and its Mac screenshot; dark: screenshots of
+   Bear's dark theme) and its dark sidebar. Contrast is Bear's, not this app's 4.5:1: the red is 4.0:1 on white, #888 3.5:1. */
+:root[data-accent="graphite"] {
+  --accent: #DD4C4F; --accent-2: #DD4C4F; --accent-soft: #FBEDED; --on-accent: #FFFFFF; --toast-action: #DD4C4F;
+  --bg: #F3F5F7; --surface: #FFFFFF; --surface-2: #E4E5E6; --raised: #FFFFFF; --ink: #444444; --muted: #888888;
+  --line: #E2E6E9; --track: #E4E5E6; --toast-bg: #2E3235; --toast-ink: #FFFFFF;
+  --glass: rgba(255, 255, 255, .76); --glass-line: rgba(68, 68, 68, .06); --grid: #E4E5E6; --axis: #D9D9D9;
+  /* the sidebar's own: background, selected row, text, icons, its edge */
+  --side-bg: #2E3235; --side-sel: #474747; --side-sel-ink: #FFFFFF; --side-ink: #DCE0E3; --side-muted: #A0A4A5; --side-edge: #2E3235;
+}
+:root[data-theme="dark"][data-accent="graphite"] {
+  --accent: #DD4C4F; --accent-2: #DD4C4F; --accent-soft: #3B2628; --on-accent: #FFFFFF; --toast-action: #DD4C4F;
+  --bg: #1F2022; --surface: #232325; --surface-2: #2F3032; --raised: #535355; --ink: #BCC0C3; --muted: #666769;
+  --line: #393A3C; --track: #2F3032; --toast-bg: #E2E2E4; --toast-ink: #1F2022;
+  --glass: rgba(31, 32, 34, .76); --glass-line: rgba(255, 255, 255, .06); --grid: #2C2D2F; --axis: #393A3C;
+  --side-bg: #292A2C; --side-sel: #535355; --side-sel-ink: #E2E2E4; --side-ink: #ACADAF; --side-muted: #959597; --side-edge: #2C2D2F;
+}
+/* Graphite's dark sidebar (not on Sepia's paper): the usual tokens, redefined inside it, so its links, buttons, headings
+   and the sync pill all follow; the page you're on is Bear's grey row, not a red tint. */
+@media (min-width: 768px) {
+  :root[data-accent="graphite"]:not([data-theme="sepia"]) .sidebar {
+    --surface: var(--side-bg); --surface-2: var(--side-sel); --ink: var(--side-ink); --muted: var(--side-muted);
+    background: var(--side-bg); border-right-color: var(--side-edge); color: var(--side-ink); color-scheme: dark;
+  }
+  :root[data-accent="graphite"]:not([data-theme="sepia"]) .sidebar :is(.side-nav, .side-topics) a:hover { background: rgba(255, 255, 255, .06); }
+  :root[data-accent="graphite"]:not([data-theme="sepia"]) .sidebar :is(.side-nav, .side-topics) a[aria-current="page"],
+  :root[data-accent="graphite"]:not([data-theme="sepia"]) .sidebar :is(.side-nav, .side-topics) a[aria-current="page"] svg { background: var(--side-sel); color: var(--side-sel-ink); }
+  :root[data-accent="graphite"]:not([data-theme="sepia"]) .sidebar :is(.side-nav, .side-topics) a[aria-current="page"] svg { background: none; }
+}
 
 /* Sepia: <html data-theme="sepia"> (src/lib/theme.ts), warm paper and brown ink, easy on the eyes at night. The light
-   tokens with the surfaces changed; after the accents so it wins over Graphite's surfaces. Teal, green and Graphite's red get
+   tokens with the surfaces changed; after the accents so it wins over Crimson's and Graphite's surfaces. Teal, green and their red get
    darker on this paper to keep 4.5:1 (every accent checked on bg, surface and surface-2). */
 :root[data-theme="sepia"] {
   --bg: #F2E8CF; --surface: #F9F1DC; --surface-2: #ECE1C4; --raised: #FDF7E7; --ink: #3A2E1F; --muted: #6A5A41;
@@ -124,7 +154,7 @@
 }
 :root[data-theme="sepia"][data-accent="teal"] { --accent: #0A6660; --accent-2: #0F766E; }
 :root[data-theme="sepia"][data-accent="green"] { --accent: #286A28; --accent-2: #2F7A2F; }
-:root[data-theme="sepia"][data-accent="graphite"] { --accent: #AE2D30; --accent-2: #C8393B; }
+:root[data-theme="sepia"]:is([data-accent="crimson"], [data-accent="graphite"]) { --accent: #AE2D30; --accent-2: #C8393B; }
 
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
@@ -201,7 +231,7 @@ kbd {
   transition: transform .12s ease, background .15s ease, color .15s, opacity .15s;
 }
 .btn:active { transform: scale(.97); }
-.btn.primary { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent); box-shadow: 0 6px 18px -6px var(--accent); }
+.btn.primary { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent); }
 .btn.ghost { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 .btn.sm { min-height: 36px; padding: 6px 14px; font-size: .88rem; position: relative; }
 .btn.sm::after { content: ""; position: absolute; inset: -4px 0; } /* 44px tap target */
@@ -579,7 +609,7 @@ input[type="date"].text-input, input[type="month"].text-input { -webkit-appearan
   width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
   border: 0; border-radius: 15px;
   background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent);
-  box-shadow: 0 8px 22px -8px var(--accent), var(--shadow-chip);
+  box-shadow: var(--shadow-chip);
   transition: transform .12s;
 }
 .fab:active { transform: scale(.93); }

@@ -10,18 +10,19 @@
 <meta name="theme-color" content="#F6F5F3" media="(prefers-color-scheme: light)" data-for="light">
 <meta name="theme-color" content="#0C0B0A" media="(prefers-color-scheme: dark)" data-for="dark">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="./icons/icon-graphite-180.png">
+<link rel="apple-touch-icon" href="./icons/icon-crimson-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <script>
 /* Light or dark before the first paint: this device's choice, else the system's. src/lib/theme.ts does the same afterwards.
-   The accent too, from the copy src/state/appearance.ts keeps of the vault's choice (Graphite also changes the page colour). */
+   The accent too, from the copy src/state/appearance.ts keeps of the vault's choice (Crimson and Graphite also change the page colour). */
 (function () {
   var a; try { a = localStorage.getItem("knowledgePath.accent"); } catch (e) {}
   if (a && /^[a-z]+$/.test(a)) {
     document.documentElement.dataset.accent = a;
     document.querySelector('link[rel="icon"]').href = "./icons/icon-" + a + ".svg";
     document.querySelector('link[rel="manifest"]').href = "./manifest-" + a + ".webmanifest";
-    if (a === "graphite") document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) { m.content = m.dataset.for === "dark" ? "#1C1D20" : "#F7F7F8"; });
+    var pg = { crimson: ["#F7F7F8", "#1C1D20"], graphite: ["#F3F5F7", "#1F2022"] }[a];
+    if (pg) document.querySelectorAll('meta[name="theme-color"][data-for]').forEach(function (m) { m.content = pg[m.dataset.for === "dark" ? 1 : 0]; });
   }
   /* the Aa panel's choices (src/lib/reading.ts) */
   var r; try { r = JSON.parse(localStorage.getItem("knowledgePath.reading") || "{}") || {}; } catch (e) { r = {}; }

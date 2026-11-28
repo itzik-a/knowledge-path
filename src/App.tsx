@@ -32,7 +32,7 @@ import { useTimers } from "./lib/timers";
 import { useSit } from "./state/sit";
 import { useVault } from "./state/store";
 import { ReadingButton } from "./components/ReadingPanel";
-import { iconOf, useAccent } from "./state/appearance";
+import { iconOf, logoOf, useAccent } from "./state/appearance";
 import { usePinnedTags } from "./state/tagpins";
 import { syncNow } from "./state/sync";
 import { DocPage } from "./views/DocPage";
@@ -140,7 +140,7 @@ export function App() {
     <div className="shell">
       <aside className="sidebar">
         <a className="brand" href="#home" aria-label="Knowledge Hub, home">
-          <img src={iconOf(accent)} alt="" width={30} height={30} />
+          <img src={logoOf(accent)} alt="" width={30} height={30} />
           <span>Knowledge Hub</span>
         </a>
         <div className="side-actions">

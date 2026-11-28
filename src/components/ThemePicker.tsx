@@ -29,7 +29,7 @@ export function AccentPicker() {
           const sw = dark ? a.dark : a.light;
           return (
             <button key={a.id} type="button" role="radio" aria-checked={a.id === accent} aria-label={a.name} title={a.name} className="accent-pick" onClick={() => setAccent(a.id)}>
-              <span className={a.bg ? "split" : undefined} style={{ background: a.bg ? undefined : sw, "--sw": sw, "--sw2": dark ? "#3A3B41" : "#D9DADF", color: dark ? a.onDark : "#FFFFFF" } as React.CSSProperties}>
+              <span className={a.bg ? "split" : undefined} style={{ background: a.bg ? undefined : sw, "--sw": sw, "--sw2": a.split ? a.split[dark ? "dark" : "light"] : dark ? "#3A3B41" : "#D9DADF", color: dark ? a.onDark : "#FFFFFF" } as React.CSSProperties}>
                 {a.id === accent && <IconCheck />}
               </span>
             </button>
