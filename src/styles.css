@@ -900,7 +900,7 @@ pre.code { margin: 6px 0; padding: 10px; border-radius: 10px; background: var(--
 .bookmarklet { justify-self: start !important; cursor: grab; }
 .steps.small li { font-size: .88rem; }
 button.back { border: 0; background: none; color: var(--accent); font-size: 1rem; }
-.chip.on { background: var(--surface-2); color: var(--ink); border-color: var(--ink); }
+.chip.on { background: var(--surface-2); color: var(--ink); }
 /* each line of a paragraph (single line breaks) takes its own direction, Hebrew or English */
 .prose p, .prose li, .prose blockquote, .hl blockquote, .hl-card blockquote { unicode-bidi: plaintext; text-align: start; }
 
